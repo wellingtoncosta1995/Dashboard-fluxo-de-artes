@@ -416,6 +416,8 @@
             <button id="menu-item-validar-repeticao" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#10003; Validar Arte Repetição</button>
             <hr style="border:none; border-top:1px solid var(--border-soft); margin:4px 6px;">
             <button id="menu-item-zerar" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--red); font-family:'Plus Jakarta Sans',sans-serif;">&#128465; Zerar pedidos</button>
+            <hr style="border:none; border-top:1px solid var(--border-soft); margin:4px 6px;">
+            <button id="menu-item-sair" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#128682; Sair</button>
           </div>
         </div>
       </div>
@@ -638,7 +640,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v1.3 · 10/08/2026';
+const APP_VERSION = 'v1.4 · 10/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -2072,6 +2074,16 @@ function openZerarPedidosModal(){
 document.getElementById('menu-item-zerar').addEventListener('click', ()=>{
   document.getElementById('settings-menu').style.display = 'none';
   openZerarPedidosModal();
+});
+document.getElementById('menu-item-sair').addEventListener('click', ()=>{
+  document.getElementById('settings-menu').style.display = 'none';
+  localStorage.removeItem('artes_pw_ok');
+  document.getElementById('app-shell').style.display = 'none';
+  document.getElementById('password-gate').style.display = 'flex';
+  const input = document.getElementById('pw-input');
+  input.value = '';
+  document.getElementById('pw-error').style.display = 'none';
+  input.focus();
 });
 document.getElementById('btn-settings-header').addEventListener('click', (e)=>{
   e.stopPropagation();
