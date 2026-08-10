@@ -371,7 +371,7 @@
         <p class="status-line" id="status-line-wrap">Situação atual: <b id="situacao-count">—</b> · Última importação: <b id="ultima-importacao">—</b></p>
       </div>
       <div class="header-icons">
-        <span class="sync-chip">&#9650; Sincronizado às <span id="sync-time"></span></span>
+        <span class="sync-chip">&#9650; Sincronizado às <span id="sync-time"></span> · <span id="app-version" title="Versão publicada deste dashboard"></span></span>
         <button class="icon-circle" title="Notificações">&#128276;<span class="badge-dot" id="notif-badge" style="display:none;"></span></button>
         <div style="position:relative;">
           <button class="icon-circle" id="btn-settings-header" title="Configurações">&#9881;&#65039;</button>
@@ -599,6 +599,12 @@
 </div>
 
 <script>
+/* ========================================================================
+   VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
+   visível no cabeçalho qual versão está no ar no momento.
+   ======================================================================== */
+const APP_VERSION = 'v1.1 · 10/08/2026';
+
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
    (window.storage) por um banco real, pra funcionar fora do claude.ai.
@@ -1279,6 +1285,7 @@ function renderPageHeader(){
   document.getElementById('situacao-count').textContent = pedidos.length + ' pedido' + (pedidos.length===1?'':'s') + ' parado' + (pedidos.length===1?'':'s') + ' em Artes';
   document.getElementById('ultima-importacao').textContent = lastImportTime ? fmtDateTime(lastImportTime) : '—';
   document.getElementById('sync-time').textContent = fmtTime(lastSyncTime);
+  document.getElementById('app-version').textContent = APP_VERSION;
   const emAlteracao = pedidos.filter(p=>p.stage===STAGE_ALTERACAO).length;
   const badge = document.getElementById('notif-badge');
   if(emAlteracao>0){ badge.style.display='flex'; badge.textContent = emAlteracao; } else { badge.style.display='none'; }
