@@ -640,7 +640,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v1.5 · 10/08/2026';
+const APP_VERSION = 'v1.6 · 10/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -1650,7 +1650,23 @@ function openModal(id){
 
   if(isActive){
     document.getElementById('modal-tag-select')?.addEventListener('change', async (e)=>{
-      p.tag = e.target.value || null;
+      const novaTag = e.target.value || null;
+      p.tag = novaTag;
+
+      if(novaTag === 'ARTE REPETIÇÃO'){
+        // Arte Repetição não passa pelo fluxo de tratativa — sai do quadro
+        // ativo e vai direto para o Histórico → Arte Repetição a validar.
+        const idxNoQuadro = pedidos.findIndex(x=>x.id===p.id);
+        if(idxNoQuadro>-1) pedidos.splice(idxNoQuadro,1);
+        p.tipo = 'repeticao';
+        p.stage = null;
+        p.stageHistory = null;
+        await saveState();
+        closeModal();
+        renderAll();
+        return;
+      }
+
       await saveState();
       renderAll();
       openModal(id);
