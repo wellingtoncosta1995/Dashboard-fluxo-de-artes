@@ -1,0 +1,2867 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Controle de fluxo de artes — Rioplastic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Parkinsans:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    /* ===== paleta oficial Rioplastic (Brandbook v2) =====
+       Dourado Fosco #b89b5e · Azul Aço #4682b4 · Verde Oliva #809177
+       Marfim #f5f2ea · Areia #d8ccb4 · Verde Musgo #56604d
+       Marrom Chocolate #6a4c3c · Preto Fosco #232323 */
+    --bg:#F5F2EA;
+    --panel:#FFFFFF;
+    --panel-alt:#FBF9F4;
+    --border:#D8CCB4;
+    --border-soft:#E9E2D2;
+    --text:#232323;
+    --text-dim:#7C7263;
+    --text-faint:#AFA491;
+    --gold:#B89B5E;
+    --gold-dark:#6A4C3C;
+    --gold-bg:#B89B5E;
+    --blue:#4682B4;
+    --blue-dark:#345F82;
+    --blue-bg:#E9F1F8;
+    --red:#C2564F;
+    --red-bg:#F7E9E7;
+    --green:#809177;
+    --green-dark:#56604D;
+    --green-bg:#EDF0EA;
+    --teal:#3E9187;
+    --teal-bg:#E7F3F1;
+    --badge-empty-bg:#EFEAD9;
+    --badge-empty-text:#A79E82;
+    --radius:12px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:'Plus Jakarta Sans',sans-serif;}
+  ::selection{background:var(--gold); color:#fff;}
+  h1,h2,.display{font-family:'Parkinsans',sans-serif;}
+  .mono{font-family:'IBM Plex Mono',monospace;}
+  button{cursor:pointer; font-family:inherit;}
+
+  /* ===== APP SHELL ===== */
+  .app-shell{display:flex; min-height:100vh;}
+
+  /* ===== SIDEBAR ===== */
+  .sidebar{
+    width:230px; flex-shrink:0; background:var(--panel);
+    border-right:1px solid var(--border-soft); padding:22px 18px;
+    display:flex; flex-direction:column; gap:26px;
+  }
+  .sidebar-logo{display:flex; align-items:center; justify-content:center; padding:4px 0 6px;}
+  .logo-mark{width:100%; max-width:150px; height:auto; display:block;}
+  .sidebar-nav{display:flex; flex-direction:column; gap:6px;}
+  .nav-item{
+    display:flex; align-items:center; gap:10px; text-align:left;
+    background:transparent; border:none; border-radius:10px; padding:11px 12px;
+    font-size:14.5px; font-weight:600; color:var(--text); font-family:'Parkinsans',sans-serif;
+  }
+  .nav-item:hover{background:var(--panel-alt);}
+  .nav-item.active{background:var(--gold); color:#fff;}
+  .nav-item .icon{width:18px; text-align:center; flex-shrink:0;}
+  .nav-item.disabled{color:var(--text-faint); cursor:default;}
+  .nav-item.disabled:hover{background:transparent;}
+
+  /* ===== MAIN ===== */
+  .main-content{flex:1; padding:26px 30px 60px; min-width:0;}
+  .page-header{display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-bottom:20px;}
+  .page-header h1{font-size:26px; font-weight:700; margin:0 0 6px;}
+  .status-line{font-size:13.5px; color:var(--text-dim); margin:0;}
+  .status-line b{color:var(--text); font-weight:600;}
+  .header-icons{display:flex; align-items:center; gap:10px;}
+  .sync-chip{
+    font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--teal);
+    background:var(--teal-bg); border-radius:7px; padding:6px 10px; white-space:nowrap;
+  }
+  .icon-circle{
+    width:36px; height:36px; border-radius:50%; background:var(--panel-alt); border:1px solid var(--border-soft);
+    display:flex; align-items:center; justify-content:center; font-size:15px; position:relative; color:var(--text-dim);
+  }
+  .icon-circle:hover{border-color:var(--gold); color:var(--gold-dark);}
+  .badge-dot{
+    position:absolute; top:-4px; right:-4px; background:var(--red); color:#fff; font-size:9.5px; font-weight:700;
+    border-radius:8px; min-width:16px; height:16px; display:flex; align-items:center; justify-content:center; padding:0 3px;
+  }
+
+  /* ===== TOPICS CARD ===== */
+  .topics-card{background:var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius); padding:20px; margin-bottom:18px;}
+  .topics-intro{font-size:13.5px; line-height:1.5; margin:0 0 16px; padding-bottom:16px; border-bottom:1px solid var(--border-soft);}
+  .mono-label{font-family:'IBM Plex Mono',monospace; font-weight:700; letter-spacing:0.3px; color:var(--text);}
+  .link-text{color:var(--blue);}
+
+  .toolbar-row{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; align-items:center;}
+  .btn-outline{
+    background:var(--panel); border:1.5px solid var(--border); color:var(--text);
+    padding:10px 16px; border-radius:10px; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12px;
+    letter-spacing:0.3px; text-transform:uppercase;
+  }
+  .btn-outline:hover{border-color:var(--gold);}
+  .btn-outline.on{background:var(--gold); color:#fff; border-color:var(--gold);}
+  .btn{border:1px solid var(--border); background:var(--panel-alt); color:var(--text); padding:9px 15px; border-radius:9px; font-size:13px; font-weight:600;}
+  .btn:hover{border-color:var(--gold); color:var(--gold-dark);}
+  .btn.gold{background:var(--gold); border-color:var(--gold); color:#fff;}
+  .btn.gold:hover{background:var(--gold-dark); border-color:var(--gold-dark); color:#fff;}
+  .btn.small{padding:6px 11px; font-size:11.5px;}
+  .btn.ghost{background:transparent;}
+
+  .search-box{
+    background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:9px;
+    padding:8px 12px; display:flex; align-items:center; gap:7px; flex:1; min-width:180px;
+  }
+  .search-box input{background:transparent; border:none; outline:none; color:var(--text); font-size:13px; width:100%; font-family:'Plus Jakarta Sans',sans-serif;}
+  .search-box input::placeholder{color:var(--text-faint);}
+
+  .bulk-bar{
+    display:flex; align-items:center; gap:10px; background:var(--blue-bg); border:1px solid #C9D9EE;
+    border-radius:10px; padding:10px 14px; margin-bottom:14px; font-size:13px; flex-wrap:wrap;
+  }
+  .bulk-bar b{color:var(--blue-dark);}
+  .bulk-bar select{padding:6px 10px; border-radius:7px; border:1px solid var(--border); font-size:12.5px; font-family:'Plus Jakarta Sans',sans-serif;}
+
+  /* ===== ACCORDION ===== */
+  .accordion{border:1px solid var(--border-soft); border-radius:var(--radius); overflow:hidden;}
+  .accordion-item{border-bottom:1px solid var(--border-soft);}
+  .accordion-item:last-child{border-bottom:none;}
+  .accordion-head{
+    width:100%; display:flex; align-items:center; gap:14px; padding:16px 16px;
+    background:var(--panel); border:none; text-align:left;
+  }
+  .accordion-head:hover{background:var(--panel-alt);}
+  .stage-badge{
+    width:34px; height:34px; border-radius:50%; background:var(--badge-empty-bg); color:var(--text-dim);
+    display:flex; align-items:center; justify-content:center; font-weight:700; font-size:14px; flex-shrink:0;
+    font-family:'IBM Plex Mono',monospace;
+  }
+  .stage-title{flex:1; font-size:15.5px; font-weight:600; font-family:'Parkinsans',sans-serif; line-height:1.3;}
+  .count-pill{
+    min-width:34px; padding:5px 11px; border-radius:8px; font-family:'IBM Plex Mono',monospace; font-weight:700;
+    font-size:13px; text-align:center; flex-shrink:0;
+  }
+  .count-pill.filled{background:var(--blue); color:#fff;}
+  .count-pill.empty{background:var(--badge-empty-bg); color:var(--badge-empty-text);}
+  .chevron{color:var(--text-faint); font-size:13px; transition:transform .15s ease; flex-shrink:0;}
+  .accordion-item.open .chevron{transform:rotate(90deg);}
+  .accordion-body{display:none; background:var(--panel-alt); padding:6px 14px 14px;}
+  .accordion-item.open .accordion-body{display:block;}
+  .accordion-empty{color:var(--text-faint); font-size:12.5px; padding:14px 4px;}
+
+  /* ===== PEDIDO ROW (inside accordion) ===== */
+  .prow{
+    background:var(--panel); border:1px solid var(--border-soft); border-radius:10px;
+    padding:12px 14px; margin-top:8px; display:flex; gap:12px; align-items:flex-start;
+  }
+  .prow-check{margin-top:3px; width:16px; height:16px; accent-color:var(--gold); flex-shrink:0;}
+  .prow-main{flex:1; min-width:0; cursor:pointer;}
+  .prow-top{display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap;}
+  .prow-pedido{font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--gold-dark); font-size:13.5px;}
+  .tag{font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.3px; padding:2px 7px; border-radius:5px; white-space:nowrap;}
+  .tag-nova{background:var(--blue-bg); color:var(--blue-dark);}
+  .tag-alterada{background:var(--red-bg); color:var(--red);}
+  .tag-confirmacao{background:#F7F0DE; color:var(--gold-dark);}
+  .tag-repeticao{background:var(--teal-bg); color:var(--teal);}
+  .prow-cliente{font-size:13px; font-weight:600; margin-top:4px;}
+  .prow-cliente small{display:block; color:var(--text-faint); font-weight:500; font-size:10.5px; margin-top:1px;}
+  .prow-meta{display:flex; gap:16px; margin-top:7px; font-size:11.5px; color:var(--text-dim); flex-wrap:wrap;}
+  .prow-meta b{color:var(--text); font-family:'IBM Plex Mono',monospace; font-weight:600;}
+  .prow-alt-badge{margin-top:6px; font-size:10px; color:var(--red); background:var(--red-bg); display:inline-flex; padding:2px 7px; border-radius:5px; font-weight:600;}
+  .prow-actions{display:flex; flex-direction:column; gap:5px; flex-shrink:0;}
+  .icon-btn{
+    border:1px solid var(--border); background:var(--panel-alt); color:var(--text-dim);
+    border-radius:7px; padding:5px 10px; font-size:12px; text-align:center; white-space:nowrap;
+  }
+  .icon-btn:hover{border-color:var(--gold); color:var(--gold-dark);}
+  .icon-btn:disabled{opacity:.35; cursor:not-allowed;}
+  .finalize-mini{background:var(--green-bg); border:1px solid var(--green); color:var(--green); font-weight:700; font-size:11px; padding:5px 10px; border-radius:7px;}
+  .finalize-mini:hover{background:var(--green); color:#fff;}
+
+  /* ===== IMPORT BAR ===== */
+  .import-bar{
+    background:var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius);
+    padding:12px 16px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:18px;
+  }
+  .import-label{font-size:11.5px; color:var(--text-dim); font-weight:600; white-space:nowrap;}
+  .import-input{background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:8px; padding:7px 11px; font-size:12.5px; width:260px; font-family:'Plus Jakarta Sans',sans-serif;}
+  .import-current{font-size:11.5px; color:var(--teal); font-family:'IBM Plex Mono',monospace;}
+
+  /* ===== PLACEHOLDER VIEW ===== */
+  .placeholder-card{background:var(--panel); border:1px dashed var(--border); border-radius:var(--radius); padding:60px 24px; text-align:center; color:var(--text-dim); font-size:14px;}
+
+  /* ===== HOME VIEW ===== */
+  .home-intro{font-size:13.5px; color:var(--text-dim); margin:0 0 18px;}
+  .home-cards-grid{display:grid; grid-template-columns:repeat(3, 1fr); gap:16px;}
+  .home-card{
+    background:var(--panel); border:1.5px dashed var(--border); border-radius:var(--radius);
+    padding:26px 18px; min-height:150px; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; gap:8px; text-align:center; color:var(--text-faint);
+  }
+  .home-card .home-card-num{
+    width:28px; height:28px; border-radius:50%; background:var(--panel-alt); border:1px solid var(--border-soft);
+    display:flex; align-items:center; justify-content:center; font-family:'IBM Plex Mono',monospace;
+    font-size:12px; font-weight:700; color:var(--text-faint);
+  }
+  .home-card .home-card-label{font-family:'Parkinsans',sans-serif; font-weight:600; font-size:13.5px; color:var(--text-dim);}
+  .home-card.home-card-live{
+    border-style:solid; border-color:var(--gold); background:var(--panel); cursor:pointer;
+    align-items:flex-start; text-align:left; gap:6px; transition:box-shadow .15s ease, transform .15s ease;
+  }
+  .home-card.home-card-live:hover{box-shadow:0 4px 14px rgba(140,114,56,.18); transform:translateY(-2px);}
+  .hcm-label{font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; letter-spacing:.3px; color:var(--gold-dark); text-transform:uppercase;}
+  .hcm-valor{font-family:'Parkinsans',sans-serif; font-size:28px; font-weight:700; color:var(--text);}
+  .hcm-breakdown{display:flex; flex-direction:column; gap:2px; font-size:11.5px; color:var(--text-dim); margin-top:4px;}
+  .hcm-breakdown b{color:var(--text); font-family:'IBM Plex Mono',monospace; font-weight:600;}
+  @media (max-width: 880px){
+    .home-cards-grid{grid-template-columns:repeat(2, 1fr);}
+  }
+  @media (max-width: 560px){
+    .home-cards-grid{grid-template-columns:1fr;}
+  }
+
+  /* ===== MODAL ===== */
+  .overlay{position:fixed; inset:0; background:rgba(30,26,16,.45); backdrop-filter:blur(2px); display:none; align-items:flex-start; justify-content:center; z-index:100; padding:40px 16px; overflow-y:auto;}
+  .overlay.open{display:flex;}
+  .modal{background:var(--panel); border:1px solid var(--border-soft); border-radius:14px; width:100%; max-width:560px; padding:22px; animation:pop .12s ease-out;}
+  .modal.modal-wide{max-width:760px;}
+  @keyframes pop{from{transform:translateY(6px); opacity:0;} to{transform:translateY(0); opacity:1;}}
+  .modal-head{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;}
+  .modal-head h2{font-size:19px; margin:0; color:var(--gold-dark);}
+  .modal-head p{margin:4px 0 0; color:var(--text-dim); font-size:12.5px;}
+  .close-x{background:none; border:none; color:var(--text-dim); font-size:22px; cursor:pointer; line-height:1;}
+  .close-x:hover{color:var(--text);}
+  .modal-row{display:flex; justify-content:space-between; gap:14px; margin-bottom:10px; font-size:12.5px;}
+  .modal-row .k{color:var(--text-dim); flex-shrink:0;}
+  .modal-row .v{color:var(--text); font-weight:600; text-align:right; font-family:'IBM Plex Mono',monospace;}
+  .divider{border:none; border-top:1px solid var(--border-soft); margin:14px 0;}
+  table.items{width:100%; border-collapse:collapse; font-size:11.5px;}
+  table.items th{text-align:left; color:var(--text-faint); font-weight:600; padding:5px 6px; border-bottom:1px solid var(--border-soft); text-transform:uppercase; font-size:9.5px; letter-spacing:.3px;}
+  table.items td{padding:6px 6px; border-bottom:1px solid var(--border-soft); vertical-align:top; color:var(--text-dim);}
+  table.items td.code{font-family:'IBM Plex Mono',monospace; color:var(--text); white-space:nowrap;}
+  table.items td.peso{font-family:'IBM Plex Mono',monospace; color:var(--text); text-align:right; white-space:nowrap;}
+  table.items tfoot td{border-bottom:none; padding-top:8px; font-weight:700; color:var(--text);}
+  .stage-select{width:100%; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); padding:9px; border-radius:8px; font-size:13px; margin-top:6px; font-family:'Plus Jakarta Sans',sans-serif;}
+  .alt-list{display:flex; flex-direction:column; gap:8px; margin-top:8px; max-height:180px; overflow-y:auto;}
+  .alt-item{background:var(--panel-alt); border:1px solid var(--border-soft); border-left:3px solid var(--red); border-radius:6px; padding:8px 10px;}
+  .alt-item .alt-date{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--red);}
+  .alt-item .alt-note{font-size:12.5px; color:var(--text); margin-top:3px; line-height:1.35;}
+  .alt-form{display:flex; gap:6px; margin-top:10px;}
+  .alt-form textarea{flex:1; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:8px; padding:8px 10px; font-size:12.5px; resize:vertical; min-height:38px; font-family:'Plus Jakarta Sans',sans-serif;}
+  .empty-alt{color:var(--text-faint); font-size:12px; padding:10px 0;}
+  .export-row{margin-bottom:12px;}
+  .export-row label{display:block; font-size:12px; color:var(--text-dim); margin-bottom:5px; font-weight:600;}
+  .export-row input, .export-row select{width:100%; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); padding:9px 10px; border-radius:8px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif;}
+  .export-actions{display:flex; gap:8px; margin-top:16px; justify-content:flex-end;}
+
+  /* ===== TABELA DE CÓDIGOS INTERNOS ===== */
+  .codigos-categoria{margin-top:18px;}
+  .codigos-categoria-header{
+    background:var(--green); color:#fff; font-family:'Parkinsans',sans-serif; font-weight:700;
+    font-size:14px; letter-spacing:.5px; text-align:center; padding:10px; border-radius:10px 10px 0 0;
+    text-transform:uppercase;
+  }
+  table.codigos{width:100%; border-collapse:collapse; font-size:12.5px; background:var(--panel); border:1px solid var(--green); border-top:none; border-radius:0 0 10px 10px; overflow:hidden;}
+  table.codigos th{text-align:left; padding:10px 12px; background:var(--green-bg); color:var(--green); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.3px; border-bottom:1px solid var(--border-soft);}
+  table.codigos td{padding:9px 12px; border-bottom:1px solid var(--border-soft); color:var(--text-dim);}
+  table.codigos tr:last-child td{border-bottom:none;}
+  table.codigos tr:hover{background:var(--panel-alt);}
+  table.codigos td.cod{font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--green);}
+  table.codigos td.num{font-family:'IBM Plex Mono',monospace; color:var(--text);}
+  table.codigos input{
+    width:100%; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text);
+    border-radius:6px; padding:5px 7px; font-size:12px; font-family:inherit; box-sizing:border-box;
+  }
+  table.codigos input.num-input{font-family:'IBM Plex Mono',monospace;}
+  .codigos-add-row{padding:9px 12px; background:var(--panel-alt); border-top:1px dashed var(--border-soft);}
+  .codigos-add-row button{background:none; border:none; color:var(--gold-dark); font-weight:600; font-size:12px; cursor:pointer; padding:0;}
+  .codigos-del-btn{background:none; border:none; color:var(--red); cursor:pointer; font-size:14px; padding:2px 6px;}
+
+  table.leadtime{width:100%; border-collapse:collapse; font-size:13px; background:var(--panel); border-radius:10px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.06);}
+  table.leadtime th{background:var(--blue); color:#fff; font-family:'Parkinsans',sans-serif; font-weight:700; font-size:12px; text-transform:uppercase; letter-spacing:.3px; padding:11px 10px; text-align:center; border-bottom:1px solid rgba(255,255,255,0.25);}
+  table.leadtime th.th-sub{background:var(--blue-dark); font-size:11px;}
+  table.leadtime td{padding:9px 10px; text-align:center; border-bottom:1px solid var(--border-soft); color:var(--text-dim);}
+  table.leadtime tr:nth-child(even) td{background:var(--panel-alt);}
+  table.leadtime td.diametro{font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--text); text-align:left; padding-left:16px;}
+  table.leadtime input.lt-input{
+    width:64px; text-align:center; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text);
+    border-radius:7px; padding:6px 4px; font-size:13px; font-family:'IBM Plex Mono',monospace; box-sizing:border-box;
+  }
+  table.leadtime input.lt-input.lt-highlight{background:#F7F0DE; border-color:var(--gold);}
+  table.leadtime input.lt-atual{width:76px; font-weight:700;}
+  .leadtime-del-btn{background:none; border:none; color:var(--red); cursor:pointer; font-size:14px; padding:2px 8px;}
+  .leadtime-add-row{padding:11px 12px; background:var(--panel-alt); border:1px solid var(--border-soft); border-top:none; border-radius:0 0 10px 10px;}
+  .leadtime-add-row select{padding:7px 9px; border-radius:7px; border:1px solid var(--border); font-size:12.5px; font-family:'Plus Jakarta Sans',sans-serif; margin-right:8px;}
+  .leadtime-add-row button{background:none; border:none; color:var(--blue-dark); font-weight:600; font-size:12px; cursor:pointer; padding:0;}
+
+  @media print{
+    .sidebar, .header-icons, .toolbar-row, #codigos-ultima-atualizacao-wrap,
+    #view-home, #view-board, #view-cliche, #view-regravacao, #view-catalogo, #view-leadtime, #view-history{
+      display:none !important;
+    }
+    body, .app-shell, .main-content{background:#fff !important; padding:0 !important; margin:0 !important;}
+    #view-codigos{display:block !important;}
+    .topics-card{border:none !important; padding:0 0 10px 0 !important;}
+    .codigos-categoria{break-inside:avoid;}
+    .codigos-del-btn, table.codigos input{display:none !important;}
+  }
+
+  /* ===== REGRAVAÇÃO DE CLICHÊ ===== */
+  .regrav-form{display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end;}
+  .regrav-form label{display:block; font-size:11px; color:var(--text-dim); font-weight:600; margin-bottom:5px;}
+  .regrav-form input{
+    background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text);
+    border-radius:8px; padding:9px 10px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif; width:140px;
+  }
+  .regrav-form input#regrav-item-input{width:100%;}
+  .icon-btn.danger{color:var(--red);}
+  .icon-btn.danger:hover{border-color:var(--red); background:var(--red-bg);}
+
+  /* ===== HISTORY VIEW ===== */
+  .hist-tabs{display:flex; gap:8px; margin-bottom:16px;}
+  .hist-tab{padding:8px 16px; border-radius:9px; border:1px solid var(--border-soft); background:var(--panel-alt); color:var(--text-dim); font-size:12.5px; font-weight:600;}
+  .hist-tab.active{border-color:var(--gold); color:var(--gold-dark); background:#F7F0DE;}
+  .hist-table-wrap{background:var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius); overflow:hidden;}
+  table.hist{width:100%; border-collapse:collapse; font-size:12.5px;}
+  table.hist th{text-align:left; padding:10px 14px; background:var(--panel-alt); color:var(--text-faint); font-size:10px; text-transform:uppercase; letter-spacing:.4px; border-bottom:1px solid var(--border-soft);}
+  table.hist td{padding:10px 14px; border-bottom:1px solid var(--border-soft); color:var(--text-dim); vertical-align:top;}
+  table.hist tr:last-child td{border-bottom:none;}
+  table.hist tr:hover{background:var(--panel-alt);}
+  table.hist td.pedido{font-family:'IBM Plex Mono',monospace; color:var(--gold-dark); font-weight:700;}
+  table.hist td.val{font-family:'IBM Plex Mono',monospace; color:var(--text); text-align:right;}
+  .validado-check{display:flex; align-items:center; gap:6px; cursor:pointer;}
+  .validado-check input{width:15px; height:15px; accent-color:var(--teal); cursor:pointer;}
+  .hist-empty{padding:40px; text-align:center; color:var(--text-faint); font-size:13px;}
+
+  @media (max-width: 880px){
+    .app-shell{flex-direction:column;}
+    .sidebar{width:100%; flex-direction:row; flex-wrap:wrap; align-items:center; padding:16px 18px; gap:10px 22px;}
+    .sidebar-nav{flex-direction:row; flex-wrap:wrap;}
+    .main-content{padding:18px 16px 50px;}
+    .header-icons{width:100%; justify-content:flex-start;}
+  }
+</style>
+</head>
+<body>
+
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <img class="logo-mark" src="data:image/png;base64,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" alt="rioplastic">
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-view="home"><span class="icon">&#127968;</span> Home</button>
+      <button class="nav-item" data-view="board"><span class="icon">&#127912;</span> Fluxo de artes</button>
+      <button class="nav-item" data-view="cliche"><span class="icon">&#128176;</span> Custo de clichê</button>
+      <button class="nav-item" data-view="regravacao"><span class="icon">&#128260;</span> Regravação de clichê</button>
+      <button class="nav-item" data-view="catalogo"><span class="icon">&#128218;</span> Catálogo de itens</button>
+      <button class="nav-item" data-view="codigos"><span class="icon">&#127991;</span> Tabela de Códigos</button>
+      <button class="nav-item" data-view="leadtime"><span class="icon">&#128337;</span> Lead time por boca</button>
+      <button class="nav-item" data-view="history"><span class="icon">&#128220;</span> Histórico</button>
+    </nav>
+  </aside>
+
+  <main class="main-content">
+    <div class="page-header">
+      <div>
+        <h1 id="page-title">Controle de fluxo de artes</h1>
+        <p class="status-line" id="status-line-wrap">Situação atual: <b id="situacao-count">—</b> · Última importação: <b id="ultima-importacao">—</b></p>
+      </div>
+      <div class="header-icons">
+        <span class="sync-chip">&#9650; Sincronizado às <span id="sync-time"></span></span>
+        <button class="icon-circle" title="Notificações">&#128276;<span class="badge-dot" id="notif-badge" style="display:none;"></span></button>
+        <div style="position:relative;">
+          <button class="icon-circle" id="btn-settings-header" title="Configurações">&#9881;&#65039;</button>
+          <div id="settings-menu" style="display:none; position:absolute; top:44px; right:0; z-index:50; background:var(--panel); border:1px solid var(--border-soft); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.12); min-width:210px; padding:6px; overflow:hidden;">
+            <button id="menu-item-importar" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#8613; Importar relatório (CSV)</button>
+            <button id="menu-item-exportar" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#8681; Exportar relatório</button>
+            <button id="menu-item-validar-repeticao" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#10003; Validar Arte Repetição</button>
+            <hr style="border:none; border-top:1px solid var(--border-soft); margin:4px 6px;">
+            <button id="menu-item-zerar" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--red); font-family:'Plus Jakarta Sans',sans-serif;">&#128465; Zerar pedidos</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-home">
+      <p class="home-intro">Espaço reservado para os cards do painel inicial — conteúdo a definir.</p>
+      <div class="home-cards-grid">
+        <div class="home-card home-card-live" id="home-card-cliche-mes" title="Ver detalhes em Custo de clichê">
+          <div class="hcm-label" id="hcm-mes-nome">—</div>
+          <div class="hcm-valor" id="hcm-valor-total">R$ 0,00</div>
+          <div class="hcm-breakdown">
+            <span>Cliente: <b id="hcm-valor-pedidos">R$ 0,00</b></span>
+            <span>Regravações: <b id="hcm-valor-regrav">R$ 0,00</b></span>
+            <span>Rioplastic: <b id="hcm-valor-rioplastic">R$ 0,00</b></span>
+          </div>
+        </div>
+        <div class="home-card home-card-live" id="home-card-fluxo" title="Ver detalhes em Fluxo de artes">
+          <div class="hcm-label">FLUXO DE ARTES</div>
+          <div class="hcm-valor" id="hcf-valor-total">0</div>
+          <div class="hcm-breakdown">
+            <span>pedidos parados</span>
+            <span>Peso total: <b id="hcf-valor-peso">0 kg</b></span>
+            <span>Valor total: <b id="hcf-valor-money">R$ 0,00</b></span>
+          </div>
+        </div>
+        <div class="home-card"><span class="home-card-num">3</span><span class="home-card-label">Card 3</span></div>
+        <div class="home-card"><span class="home-card-num">4</span><span class="home-card-label">Card 4</span></div>
+        <div class="home-card"><span class="home-card-num">5</span><span class="home-card-label">Card 5</span></div>
+        <div class="home-card"><span class="home-card-num">6</span><span class="home-card-label">Card 6</span></div>
+      </div>
+    </div>
+
+    <div id="view-board" style="display:none;">
+      <div class="topics-card">
+        <p class="topics-intro"><span class="mono-label">TÓPICOS DO FLUXO INTERNO</span> <span class="link-text">clique num tópico para expandir e ver os pedidos parados</span></p>
+
+        <div class="toolbar-row">
+          <button class="btn-outline" id="btn-multiselect">&#9745; SELECIONAR VÁRIOS</button>
+          <div class="search-box">
+            <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
+            <input type="text" id="search-input" placeholder="Buscar pedido ou cliente...">
+          </div>
+        </div>
+
+        <div class="bulk-bar" id="bulk-bar" style="display:none;">
+          <b id="bulk-count">0</b> selecionado(s) · mover para
+          <select id="bulk-target-select"></select>
+          <button class="btn small gold" id="bulk-apply">Aplicar</button>
+          <button class="btn small ghost" id="bulk-cancel">Cancelar</button>
+        </div>
+
+        <div class="accordion" id="accordion"></div>
+      </div>
+    </div>
+
+    <div id="view-cliche" style="display:none;">
+      <div class="hist-table-wrap">
+        <table class="hist" id="cliche-table">
+          <thead>
+            <tr><th>Pedido</th><th>Cliente</th><th>Situação</th><th style="text-align:right;">Valor total do clichê</th><th style="text-align:right;">Valor inserido no pedido</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="topics-card" style="margin-top:20px;">
+        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">HISTÓRICO MENSAL</span> <span class="link-text">total de clichê lançado em cada mês</span></p>
+      </div>
+      <div class="hist-table-wrap" style="margin-top:12px;">
+        <table class="hist" id="cliche-mensal-table">
+          <thead>
+            <tr><th>Mês</th><th style="text-align:right;">Cliente</th><th style="text-align:right;">Rioplastic</th><th style="text-align:right;">Regravações</th><th style="text-align:right;">Total</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="topics-card" style="margin-top:20px;">
+        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">HISTÓRICO ANUAL</span> <span class="link-text">total de clichê lançado em cada ano</span></p>
+      </div>
+      <div class="hist-table-wrap" style="margin-top:12px;">
+        <table class="hist" id="cliche-anual-table">
+          <thead>
+            <tr><th>Ano</th><th style="text-align:right;">Cliente</th><th style="text-align:right;">Rioplastic</th><th style="text-align:right;">Regravações</th><th style="text-align:right;">Total</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="view-regravacao" style="display:none;">
+      <div class="topics-card">
+        <p class="topics-intro"><span class="mono-label">REGRAVAÇÃO DE CLICHÊ</span> <span class="link-text">registre manualmente cada regravação abaixo</span></p>
+        <div class="regrav-form">
+          <div>
+            <label>OS</label>
+            <input type="text" id="regrav-os-input" placeholder="OS">
+          </div>
+          <div>
+            <label>Código</label>
+            <input type="text" id="regrav-codigo-input" placeholder="Código">
+          </div>
+          <div style="flex:1; min-width:200px;">
+            <label>Item</label>
+            <input type="text" id="regrav-item-input" placeholder="Nome do item">
+          </div>
+          <div>
+            <label>Valor do clichê</label>
+            <input type="text" id="regrav-valor-input" placeholder="R$ 0,00">
+          </div>
+          <div>
+            <label>Data da solicitação</label>
+            <input type="date" id="regrav-data-solicitacao-input">
+          </div>
+          <div>
+            <label>Chegada na fábrica</label>
+            <input type="date" id="regrav-data-chegada-input">
+          </div>
+          <button class="btn gold" id="regrav-add-btn" style="align-self:flex-end;">+ Adicionar</button>
+        </div>
+      </div>
+
+      <div class="hist-table-wrap" style="margin-top:16px;">
+        <table class="hist" id="regravacao-table">
+          <thead>
+            <tr><th>OS</th><th>Código</th><th>Item</th><th style="text-align:right;">Valor do clichê</th><th>Solicitado em</th><th>Chegou na fábrica</th><th></th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="view-catalogo" style="display:none;">
+      <div class="topics-card">
+        <p class="topics-intro"><span class="mono-label">CATÁLOGO DE ITENS</span> <span class="link-text">todos os códigos e nomes já vistos nos pedidos, sem repetição</span></p>
+        <div style="display:flex; gap:16px; flex-wrap:wrap; align-items:flex-end;">
+          <div>
+            <label style="display:block; font-size:11px; color:var(--text-dim); font-weight:600; margin-bottom:5px;">Filtrar por cliente</label>
+            <select id="catalogo-cliente-filter" style="background:var(--panel-alt); border:1.5px solid var(--gold); color:var(--text); padding:9px 11px; border-radius:9px; font-size:13px; font-weight:600; font-family:'Plus Jakarta Sans',sans-serif; min-width:260px; cursor:pointer;">
+              <option value="">Todos os clientes</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block; font-size:11px; color:var(--text-dim); font-weight:600; margin-bottom:5px;">Filtrar por representante</label>
+            <select id="catalogo-vendedor-filter" style="background:var(--panel-alt); border:1.5px solid var(--gold); color:var(--text); padding:9px 11px; border-radius:9px; font-size:13px; font-weight:600; font-family:'Plus Jakarta Sans',sans-serif; min-width:260px; cursor:pointer;">
+              <option value="">Todos os representantes</option>
+            </select>
+          </div>
+          <div>
+            <label style="display:block; font-size:11px; color:var(--text-dim); font-weight:600; margin-bottom:5px;">Filtrar por diâmetro (boca)</label>
+            <select id="catalogo-diametro-filter" style="background:var(--panel-alt); border:1.5px solid var(--gold); color:var(--text); padding:9px 11px; border-radius:9px; font-size:13px; font-weight:600; font-family:'IBM Plex Mono',monospace; min-width:200px; cursor:pointer;">
+              <option value="">Todos os diâmetros</option>
+            </select>
+          </div>
+          <div class="search-box" style="max-width:320px;">
+            <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
+            <input type="text" id="catalogo-search-input" placeholder="Buscar por código ou nome...">
+          </div>
+          <button class="btn-outline" id="catalogo-toggle-nao-identificados" style="height:38px;">&#9888; SÓ NÃO IDENTIFICADOS</button>
+        </div>
+      </div>
+      <div class="hist-table-wrap" style="margin-top:16px;">
+        <table class="hist" id="catalogo-table">
+          <thead><tr><th>Código</th><th>Item</th><th>Cliente(s)</th><th>Representante</th><th>Diâmetro (boca)</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="view-codigos" style="display:none;">
+      <div class="topics-card">
+        <p class="topics-intro"><span class="mono-label">TABELA DE CÓDIGOS INTERNOS</span> <span class="link-text">POTES, COPOS, FAST FOODS e TAMPAS — extraído da planilha Rioplastic</span></p>
+        <div class="toolbar-row">
+          <button class="btn-outline" id="codigos-editar-btn">&#9998; EDITAR</button>
+          <button class="btn gold" id="codigos-exportar-btn">&#8681; Exportar PDF</button>
+          <div class="search-box" id="codigos-search-wrap" style="max-width:280px;">
+            <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
+            <input type="text" id="codigos-search-input" placeholder="Buscar por código ou produto...">
+          </div>
+        </div>
+        <p style="font-size:11.5px; color:var(--text-dim); margin:10px 0 0;">Última atualização: <b id="codigos-ultima-atualizacao" style="color:var(--text); font-family:'IBM Plex Mono',monospace;"></b></p>
+      </div>
+      <div id="codigos-categorias"></div>
+    </div>
+
+    <div id="view-leadtime" style="display:none;">
+      <div class="topics-card">
+        <p class="topics-intro"><span class="mono-label">LEAD TIME POR BOCA</span> <span class="link-text">tempo atual x proposta de tempo por etapa, para cada diâmetro</span></p>
+        <div id="leadtime-table-wrap"></div>
+        <div class="leadtime-add-row">
+          <label style="font-size:11.5px; color:var(--text-dim); font-weight:600; margin-right:8px;">Adicionar diâmetro:</label>
+          <select id="leadtime-add-select"></select>
+          <button id="leadtime-add-btn">+ Adicionar</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-history" style="display:none;">
+      <div class="hist-tabs">
+        <div class="hist-tab active" data-tab="finalizados">Finalizados <span id="hist-count-finalizados"></span></div>
+        <div class="hist-tab" data-tab="repeticao">Arte Repetição — a validar <span id="hist-count-repeticao"></span></div>
+      </div>
+      <div class="hist-table-wrap">
+        <table class="hist" id="hist-table">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="modal" id="modal"></div>
+</div>
+
+<script>
+/* ========================================================================
+   CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
+   (window.storage) por um banco real, pra funcionar fora do claude.ai.
+   Mantém exatamente a mesma assinatura (get/set) usada no resto do código,
+   então nada mais precisou mudar.
+   ======================================================================== */
+const SUPABASE_URL = 'https://zscpchvcjmtanqyozrcr.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_anuX0yFD1o_v4T8vY3ATmg_QeotV2D-';
+const sbClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+let ultimoSaveLocalEm = 0; // evita que a própria aba recarregue ao ouvir sua própria gravação
+
+window.storage = {
+  async get(key, shared){
+    const { data, error } = await sbClient
+      .from('dashboard_estado')
+      .select('dados')
+      .eq('id', 'main')
+      .single();
+    if(error || !data) return null;
+    return { key, value: JSON.stringify(data.dados || {}), shared: !!shared };
+  },
+  async set(key, value, shared){
+    let parsed;
+    try{ parsed = JSON.parse(value); }catch(e){ return null; }
+    ultimoSaveLocalEm = Date.now();
+    const { error } = await sbClient
+      .from('dashboard_estado')
+      .upsert({ id:'main', dados: parsed, atualizado_em: new Date().toISOString() });
+    if(error){ console.error('Erro ao salvar no Supabase:', error); return null; }
+    return { key, value, shared: !!shared };
+  }
+};
+
+// Sincronização em tempo real: quando outra aba/computador salva uma
+// alteração, esta aba recarrega os dados e re-renderiza sozinha.
+sbClient
+  .channel('dashboard_estado_sync')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'dashboard_estado', filter: 'id=eq.main' }, async ()=>{
+    if(Date.now() - ultimoSaveLocalEm < 3000) return; // foi a própria aba que acabou de salvar
+    await loadState();
+    renderAll();
+  })
+  .subscribe();
+
+/* ========================================================================
+   DADOS — extraídos do relatório RVEN002 (relação de pedidos parados)
+   ======================================================================== */
+const STAGES = [
+  {id:0,  nome:"Sem tratativa"},
+  {id:1,  nome:"Aguardando conferência de layout"},
+  {id:2,  nome:"Aguardando arte p/ desenvolvimento"},
+  {id:3,  nome:"Arte em desenvolvimento"},
+  {id:4,  nome:"Alteração de arte"},
+  {id:5,  nome:"Aguardando aprovação de arte"},
+  {id:6,  nome:"Arte aprovada"},
+  {id:7,  nome:"Aguardando aprovação custo clichê"},
+  {id:8,  nome:"Solicitação de clichê"},
+  {id:9,  nome:"Clichê em transporte"},
+  {id:10, nome:"Clichê em fábrica"},
+];
+const STAGE_ALTERACAO = 4; // etapa "Alteração de arte"
+const STAGE_DESENVOLVIMENTO = 3; // etapa "Arte em desenvolvimento" — única etapa onde a OS é editável
+const STAGE_APROVACAO_ARTE = 5; // etapa "Aguardando aprovação de arte" — exige OS preenchida em todos os itens
+const STAGE_APROVACAO_CLICHE = 7; // etapa "Aguardando aprovação custo clichê" — só a partir daqui o bloco de clichê aparece
+const STAGES_FINALIZAVEIS = [10, 1]; // Clichê em fábrica / Aguardando conferência de layout
+const STAGE_REMAP_V2 = {0:0, 1:2, 2:3, 3:4, 4:5, 5:6, 6:7, 7:8, 8:9, 9:10, 10:1}; // migração da ordem antiga p/ nova
+function osCompleta(p){ return p.itens.every(it=> it.os && it.os.trim()); }
+
+function P(pedido, clienteCod, clienteNome, entrega, tag, itens, pesoTotal, valorTotal, vendedor){
+  return {
+    id:'p'+pedido+'_'+clienteCod,
+    pedido, clienteCod, clienteNome, entrega, tag,
+    itens, pesoTotal, valorTotal, vendedor: vendedor || null,
+    stage:0, alteracoes:[], finalizado:false, finalizadoEm:null, tipo:'ativo', validado:false,
+    origem:null, valorClicheTotal:null, valorClichePedido:null, clicheBonificado:false, clicheRegistradoEm:null,
+    stageHistory:null
+  };
+}
+function I(codigo,nome,peso){ return {codigo,nome,peso,os:''}; }
+function registrarMudancaEtapa(p, novaEtapa){
+  if(!p.stageHistory) p.stageHistory = [{stage:p.stage, entradaEm: lastImportTime || new Date().toISOString()}];
+  const ultima = p.stageHistory[p.stageHistory.length-1];
+  if(ultima.stage === novaEtapa) return;
+  p.stageHistory.push({stage:novaEtapa, entradaEm:new Date().toISOString()});
+}
+function formatDuracao(ms){
+  if(ms < 0) ms = 0;
+  const totalMin = Math.floor(ms/60000);
+  const dias = Math.floor(totalMin/1440);
+  const horas = Math.floor((totalMin%1440)/60);
+  const min = totalMin%60;
+  const partes = [];
+  if(dias) partes.push(`${dias} dia${dias>1?'s':''}`);
+  if(horas) partes.push(`${horas}h`);
+  if(!dias && min) partes.push(`${min}min`);
+  return partes.length ? partes.join(' ') : '&lt; 1 min';
+}
+
+const PEDIDOS_INICIAIS = [
+  P("223117","29293","DACOLONIA ALIMENTOS NATURAIS LTDA","31/08/2026","ARTE NOVA",
+    [I("1605425/1","POTE FR NATURAL 1800ML (150X148) PACOQUINHA TRADICIONAL DACOLONIA 40UN - 200 UNID",701.50)],701.50,19383.85),
+
+  P("223826","16053","I C MELO & CIA LTDA","31/08/2026","ARTE ALTERADA",
+    [I("1604456/1","EMB.CP NATURAL 175ML (75X87,5) GELATO SUNDAE LEITINHO TRUFADO 180ML - 1500 UNID",262.50),
+     I("1604556/1","EMBALAGEM CP NATURAL 175ML (75X87,5) GELATO SUNDAE CARAMELO 180ML - 1500",262.50)],525.00,21406.84),
+
+  P("223929","24974","BONATA INDUSTRIA E COMERCIO DE LATICINIOS EIRELI","28/08/2026","ARTE NOVA",
+    [I("1605465/1","POTE FR BRANCO 500ML (101X111) MANTEIGA DE PRIMEIRA QUALIDADE COM SAL BONATA 500G SLEEVE - 640 UNID",421.12),
+     I("1605466/1","POTE BRANCO 200ML (101X50) MANTEIGA DE PRIMEIRA QUALIDADE COM SAL BONATAL 200G SLEEVE - 1000 UNID",305.50),
+     I("1605484/1","SOBRETAMPA BRANCA 101 MANTEIGA DE PRIMEIRA QUALIDADE COM SAL BONATA - 2000 UNID",288.60)],1015.22,41550.09),
+
+  P("225715","14131","INDÚSTRIA DE POLPAS E CONSERVAS VAL LTDA","05/08/2026",null,
+    [I("1605521/1","13050451 POTE FR BRANCO 600ML (150X45) GOIABADA RAINHA 600G - 400 UNID",1184.00),
+     I("1605522/1","13050452 TAMPA BRANCO 150 GOIABADA RAINHA 600G - 800 UNID",544.00)],1728.00,64277.51),
+
+  P("226370","16430","DEMEL INDUSTRIA ALIMENTICIA LTDA EPP","06/08/2026","CONFIRMAÇÃO DE ARTE",
+    [I("1603893/1","POTE FR BRANCO 250ML (120X32) BANANADA DEMEL 250G - 700 UNID",476.00),
+     I("1603894/1","TAMPA BRANCO 120 BANANADA DEMEL 250G - 1400 UNID",224.00)],700.00,22134.00),
+
+  P("227241","28319","M. DE OLIVEIRA MAGALHAES DO NASCIMENTO & CIA LTDA","25/08/2026","CONFIRMAÇÃO DE ARTE",
+    [I("1605552/1","POTE FR BRANCO 200ML (101X50) KIM SORVETES ABACAXI - 1120 UNID",516.88),
+     I("1605553/1","SOBRETAMPA BRANCA 101 KIM SORVETES ABACAXI - 2000 UNID",240.00)],756.88,24460.50),
+
+  P("227421","36101","GLAÇAÍ INDUSTRIA DE SORVETE LTDA","28/08/2026","ARTE NOVA",
+    [I("1605548/1","POTE FR NATURAL 1500ML (150X129) SORVETE GLACAI SUNDAE CHOCOLATE TRUFADO - 200 UNID",522.00),
+     I("1605549/1","POTE FR NATURAL 1500ML (150X129) SORVETE GLACAI IOGURTE GREGO - 200 UNID",522.00),
+     I("1002311/1","TAMPA TP 150 NATURAL (SORVETE) CX 315 UNID",289.80)],1333.80,50567.44),
+
+  P("227422","3769","KI-KAKAU IND COM CHOCOLATES LTDA","28/08/2026","ARTE NOVA",
+    [I("1600539/1","SOBRETAMPA BRANCO 150 KIKAKAU KIPACOCA SEM COBERTURA 260G - 800 UNID",243.20)],243.20,8176.38),
+
+  P("227424","33712","QUERO S. MAIS ALIMENTOS LTDA","28/08/2026","ARTE ALTERADA",
+    [I("1604948/1","POTE FR NATURAL 1800ML (150X148) PACOQUINHA QUERO S.MAIS 50 UN - 200 UNID",870.00),
+     I("1604949/1","TAMPA NATURAL 150 PACOQUINHA QUERO S.MAIS 50 UN - 800 UNID",243.20)],1113.20,39509.27),
+
+  P("227475","36101","GLAÇAÍ INDUSTRIA DE SORVETE LTDA","31/08/2026","ARTE NOVA",
+    [I("1605550/1","POTE FR NATURAL 1500ML (150X129) SORVETE GLACAI SUNDAE LEITINHO - 200 UNID",522.00),
+     I("1605551/1","POTE FR NATURAL 1500ML (150X129) SORVETE GLACAI SUNDAE MORANGO - 200 UNID",522.00),
+     I("1002311/1","TAMPA TP 150 NATURAL (SORVETE) CX 315 UNID",287.28)],1331.28,50441.90),
+
+  P("227497","35979","SMART BALANCE INDUSTRIA E DISTRIBUIDORA DE AGUA MINERAL LTDA","31/08/2026","ARTE NOVA",
+    [I("1605547/1","EMB CP FR NATURAL 200ML (75X91,5) AGUA MINERAL SMART BALANCE - 1260 UNID",787.50)],787.50,21568.05),
+
+  P("227555","23427","CREMIATTA SORVETES LTDA","01/09/2026","ARTE ALTERADA",
+    [I("1603756/1","POTE FR NATURAL 1000ML (150X92) SORVETES CREMIATTA - 405 UNID",510.30),
+     I("1002311/1","TAMPA TP 150 NATURAL (SORVETE) CX 315 UNID",196.56)],706.86,23037.70),
+
+  P("227556","36740","BARBOSA MELO PRODUTOS ALIMENTICIOS LTDA","01/09/2026","ARTE NOVA",
+    [I("1605556/1","POTE FR NATURAL 1800ML (150X148) PACOCA LUIZA - 200 UNID",870.00),
+     I("1605557/1","TAMPA BRANCO 150 PACOCA LUIZA - 800 UNID",243.20)],1113.20,47108.03),
+
+  P("227594","31471","UNIBRANDS INDUSTRIA E COMERCIO DE BEBIDAS E ALIMENTOS LTDA","02/09/2026",null,
+    [I("1604655/1","EMBALAGEM CP NATURAL 290ML (75X116) CITRUS PLUS - 1120 UNID",3696.00)],3696.00,100284.80),
+
+  P("227603","18434","NOVO SABOR DISTRIBUIDORA DE BEBIDAS EIRELI","10/09/2026","ARTE ALTERADA",
+    [I("1601741/1","EMBALAGEM CP FA BRANCO (75X122) 300ML VICK MIX GUARANA NATURAL 1120 UNID",2016.00),
+     I("1600567/1","EMBALAGEM CP BRANCO 200ML (75X91,5) VICK MIX GUARANA 200ML - 1260 UNID",1890.00)],3906.00,134053.92),
+
+  P("227605","13726","ARALAT - ARAGUARI LATICINIOS LTDA","01/10/2026","CONFIRMAÇÃO DE ARTE",
+    [I("1602658/1","POTE FR BRANCO 200ML (101X50) MANTEIGA ARALAT - 1000 UNID",500.50),
+     I("1602659/1","SOBRETAMPA BRANCA 101 MANTEIGA ARALAT - 2000 UNID",288.60)],789.10,26452.86),
+
+  P("227606","36928","AGUA VIENA LTDA","02/09/2026","ARTE NOVA",
+    [I("1605561/1","EMB CP FR NATURAL 200ML (75X91,5) AGUA VIENA - 1260 UNID",1512.00)],1512.00,34573.68),
+
+  P("227685","3052","COOPERATIVA MISTA AGRO PECUARIA DE PATOS DE MINAS LTDA","21/09/2026","CONFIRMAÇÃO DE ARTE",
+    [I("1605131/1","POTE FR NATURAL 380ML (101X82,5) REQUEIJAO LIGHT COOPATOS 380G SLEEVE - 1000 UNID",650.00),
+     I("1605145/1","POTE FA NATURAL 250ML (101X58,5) DOCE DE LEITE TRADICIONAL COOPATOS SLEEVE - 940 UNID",319.60),
+     I("1605132/1","SOBRETAMPA NATURAL 101 REQUEIJAO LIGHT COOPATOS 380G - 2000 UNID",185.00),
+     I("1605146/1","SOBRETAMPA NATURAL 101 DOCE DE LEITE TRADICIONAL COOPATOS - 2000 UNID",140.60)],1295.20,40164.79),
+
+  P("227690","12207","FLAMIN MINERACAO LTDA","04/09/2026","CONFIRMAÇÃO DE ARTE",
+    [I("1605560/1","EMBALAGEM CP 300ML AGUA MINERAL BIOLEVE (BIO) - 1050 UNID",315.00)],315.00,10202.85),
+
+  P("227692","29293","DACOLONIA ALIMENTOS NATURAIS LTDA","04/09/2026","ARTE NOVA",
+    [I("1605564/1","150324 POTE NATURAL 450ML (120X49) PACOCA TRADICIONAL DACOLONIA 210G - 550 UNID",223.85),
+     I("1605565/1","150327 SOBRETAMPA BRANCO 120 PACOCA TRADICIONAL DACOLONIA 210G - 1400 UNID",105.00)],328.85,10775.38),
+
+  P("227761","10943","STELLA D'ORO ALIMENTOS LTDA","04/09/2026","ARTE NOVA",
+    [I("1603983/1","POTE FR BRANCO 500ML (150X37) GOIABADA PREDILECTA FRUTOGAL 500G (EXPORTACAO) - 400 UNID",473.60),
+     I("1603984/1","TAMPA 150 BRANCO GOIABADA PREDILECTA FRUTOGAL 500G (EXPORTACAO) - 800 UNID",217.60)],691.20,24541.75),
+
+  P("227762","10943","STELLA D'ORO ALIMENTOS LTDA","04/09/2026","ARTE NOVA",
+    [I("1603854/1","POTE FR BRANCO 500ML (150X37) GOIABADA FRUTOGAL STELLA D'ORO 500G - 400 UNID",310.80),
+     I("1603855/1","TAMPA BRANCO 150 GOIABADA FRUTOGAL STELLA D'ORO 500G - 800 UNID",142.80)],453.60,16105.52),
+
+  P("227763","10943","STELLA D'ORO ALIMENTOS LTDA","04/09/2026","ARTE NOVA",
+    [I("1603805/1","POTE FR BRANCO 250ML (120X32) GOIABADA PREDILECTA FRUTOGAL (EXPORTACAO) - 700 UNID",434.00),
+     I("1603806/1","TAMPA 120 BRANCO GOIABADA PREDILECTA FRUTOGAL (EXPORTACAO) -1400 UNID",260.40)],694.40,24655.36),
+
+  P("227786","2106","INDUSTRIA E COMERCIO DE DOCES BALSAMO LTDA","08/09/2026",null,
+    [I("1604890/1","POTE FR NATURAL 1650ML (150X137,5) PACOCA ROLHA EMB 50UNID 750G BALSAMO - 200 UNID",2880.00),
+     I("1604891/1","SOBRETAMPA BRANCO 150 IMPRESSA BALSAMO ROCKITAS AM GENERICA - 800 UNID",723.20)],3603.20,126310.18),
+
+  P("227827","7211","COOPERATIVA AGRO PECUARIA DO VALE DO PARACATU LTDA","08/09/2026","CONFIRMAÇÃO DE ARTE",
+    [I("1601212/1","POTE FR BRANCO 380ML (101X82,5) DOCE DE LEITE PARACATU 1000 UNID",650.00),
+     I("1601213/1","SOBRETAMPA BRANCO 101 DOCE DE LEITE PARACATU 2000 UNID",185.00)],835.00,27991.92),
+
+  P("227831","9275","MINALBA ALIMENTOS E BEBIDAS LTDA","16/08/2026","ARTE NOVA",
+    [I("1605032/1","EMBALAGEM CP 200ML AGUA MINERAL MINALBA DESAFIO - 1260 UNID",300.00)],300.00,10181.94),
+
+  // --- adicionados a partir do relatório de 06/08/2026 13:37 ---
+  P("227863","13","AGUA MINERAL SANTA CANDIDA LTDA EPP","20/09/2026","CONFIRMAÇÃO DE ARTE",
+    [I("100072/1","EMBALAGEM CP 200ML AGUA MINERAL DAFLORA 1260 UNID",2501.10),
+     I("101998/1","EMBALAGEM CP 300ML AGUA MINERAL DAFLORA 1050 UNID",604.80)],3105.90,84497.56),
+
+  P("227873","7016","INDUSTRIA DE TORRONE NOSSA SENHORA DE MONTEVERGINE LTDA","09/09/2026","ARTE NOVA",
+    [I("1605574/1","EMB CP C/ ANEL BRANCO 180ML (68X88,5) TUB-IN CREAM CHOCOLATE - 1596 UNID",306.43),
+     I("1605575/1","EMB CP C/ ANEL BRANCO 180ML (68X88,5) TUB-IN CREAM DUO - 1596 UNID",306.43),
+     I("1605576/1","EMB CP C/ ANEL BRANCO 180ML (68X88,5) TUB-IN CREAM NAPOLITANO - 1596 UNID",306.43),
+     I("1603978/1","SOBRE COPO ARREDONDADO 68 NATURAL - 2940 UNID",436.30)],1355.59,57683.27),
+
+  P("227908","12033","DESCARTARI SOLUCOES EM EMBALAGENS LTDA","09/09/2026","ARTE ALTERADA",
+    [I("1604415/1","COPO NATURAL 300ML (79X111,5) BRAHMA EXPRESS BAHIA - 1000 UNID",320.00)],320.00,8134.40),
+];
+
+const HISTORICO_REPETICAO_INICIAL = [
+  P("227346","14131","INDÚSTRIA DE POLPAS E CONSERVAS VAL LTDA","27/08/2026","ARTE REPETIÇÃO",
+    [I("1605151/1","POTE FR BRANCO 600ML (150X45) GOIABADA CONTINENTE 600G - 400 UNID",932.40),
+     I("1605152/1","TAMPA 150 BRANCO GOIABADA CONTINENTE 600G - 800 UNID",428.40)],1360.80,50618.54),
+
+  P("227408","31514","FAZENDA TIMBAUBA INDUSTRIA E COMERCIO LTDA","25/08/2026","ARTE REPETIÇÃO",
+    [I("1605538/1","EMB CP NATURAL 190ML (75X79,5) IOG MIRTILO E AMORA 150G MAINHA SLEEVE - 1260 UNID",189.00),
+     I("1605541/1","EMB CP NATURAL 190ML (75X79,5) IOG MORANGO PRO 170G MAINHA SLEEVE - 1260 UNID",189.00),
+     I("1605540/1","EMB CP NATURAL 190ML (75X79,5) IOG MARACUJA PRO 170G MAINHA SLEEVE - 1260 UNID",189.00),
+     I("1605539/1","EMB CP NATURAL 190ML (75X79,5) IOG NATURAL INTEGRAL PRO 170G MAINHA SLEEVE - 1260 UNID",189.00),
+     I("1604538/1","EMB CP NATURAL 190ML (75X79,5) IOGURTE INTEGRAL 150G MAINHA SLEEVE - 1260 UNID",255.15),
+     I("1604537/1","EMBALAGEM CP NATURAL 190ML (75X79,5) IOGURTE DESNATADO 150G MAINHA SLEEVE - 1260 UNID",56.70),
+     I("1604539/1","EMBALAGEM CP NATURAL 190ML (75X79,5) IOGURTE MORANGO COM CALDA 150G MAINHA SLEEVE - 1260 UNID",56.70),
+     I("1604536/1","EMBALAGEM CP NATURAL 190ML (75X79,5) IOGURTE CENOURA E MEL 150G MAINHA SLEEVE - 1260 UNID",9.45)],1134.00,45770.52),
+
+  P("227593","31471","UNIBRANDS INDUSTRIA E COMERCIO DE BEBIDAS E ALIMENTOS LTDA","06/09/2026","ARTE REPETIÇÃO",
+    [I("1601529/1","EMBALAGEM CP BRANCO 290ML (75X116) GUARA PLUS GUARANA NATURAL 290ML - 1120 UNID",3696.00)],3696.00,100284.80),
+
+  P("227684","3742","AGUAS MINERAIS SANTA INES LTDA EPP","25/10/2026","ARTE REPETIÇÃO",
+    [I("1605562/1","EMB CP FR NATURAL 200ML (75X91,5) AGUA MINERAL STA INES FONTE CASTELO - 1260 UNID",3118.50)],3118.50,93762.90),
+
+  P("227688","3742","AGUAS MINERAIS SANTA INES LTDA EPP","30/09/2026","ARTE REPETIÇÃO",
+    [I("1605562/1","EMB CP FR NATURAL 200ML (75X91,5) AGUA MINERAL STA INES FONTE CASTELO - 1260 UNID",3118.50)],3118.50,93762.90),
+
+  P("227689","3742","AGUAS MINERAIS SANTA INES LTDA EPP","04/09/2026","ARTE REPETIÇÃO",
+    [I("1605562/1","EMB CP FR NATURAL 200ML (75X91,5) AGUA MINERAL STA INES FONTE CASTELO - 1260 UNID",3118.50)],3118.50,93762.90),
+
+  P("227691","5520","ALCEU DE MORAES MINERAIS LTDA EPP","21/09/2026","ARTE REPETIÇÃO",
+    [I("1605563/1","EMB CP 200ML AGUA MINERAL LEVISSIMA AMERICANA - 1260 UNID",3118.50)],3118.50,93762.90),
+
+  P("227699","4136","SORVETES ZAZINI LTDA","04/09/2026","ARTE REPETIÇÃO",
+    [I("1603827/1","TAMPA NATURAL 150 SORVETE ITALIANO NAPOLITANO 800 UNID",320.00)],320.00,11314.69),
+
+  P("227766","33637","GASCANA INDUSTRIA E COMERCIO LTDA","07/09/2026","ARTE REPETIÇÃO",
+    [I("1604909/1","POTE FA NATURAL 250ML (101X58,5) GASCANA NATURAL - 800 UNID",510.00),
+     I("1604947/1","SOBRETAMPA NATURAL 101 GASCANA CASTANHA DE CAJU E COCO - 2000 UNID",60.00),
+     I("1604945/1","SOBRETAMPA NATURAL 101 GASCANA NATURAL - 2000 UNID",60.00)],630.00,19920.60),
+
+  P("227767","4136","SORVETES ZAZINI LTDA","16/11/2026","ARTE REPETIÇÃO",
+    [I("1600007/1","POTE FA NATURAL 250ML (101X58,5) SORVETES ITALIANO TACA MIX FLOCOS 1000 UNID",650.00),
+     I("1002320/1","TAMPA TP 101 NATURAL (SORVETE) CX 2000 UNID",300.00)],950.00,35897.22),
+
+  P("227768","7029","KAIBEM INDUSTRIA E COMERCIO DE SORVETES LTDA","07/09/2026","ARTE REPETIÇÃO",
+    [I("101761/1","POTE 200ML KAIBEM SORVETES GENERICO 1120 UNID",364.00)],364.00,14537.60),
+
+  P("227769","3742","AGUAS MINERAIS SANTA INES LTDA EPP","20/11/2026","ARTE REPETIÇÃO",
+    [I("1605562/1","EMB CP FR NATURAL 200ML (75X91,5) AGUA MINERAL STA INES FONTE CASTELO - 1260 UNID",3118.50)],3118.50,93762.90),
+
+  P("227774","8522","AGUAS MINERAIS DE ATIBAIA LTDA EPP","22/10/2026","ARTE REPETIÇÃO",
+    [I("1604089/1","EMBALAGEM CP FR NATURAL 200ML (75X91,5) CRISTAL GOLD FONTE SAN GIACOMO - 1260 UNID",3465.00)],3465.00,105696.36),
+
+  P("227778","9275","MINALBA ALIMENTOS E BEBIDAS LTDA","03/10/2026","ARTE REPETIÇÃO",
+    [I("102536/1","EMBALAGEM CP 200ML AGUA MINERAL MINALBA - 1260 UNID",2772.00)],2772.00,94081.13),
+
+  P("227794","8522","AGUAS MINERAIS DE ATIBAIA LTDA EPP","15/10/2026","ARTE REPETIÇÃO",
+    [I("1604089/1","EMBALAGEM CP FR NATURAL 200ML (75X91,5) CRISTAL GOLD FONTE SAN GIACOMO - 1260 UNID",3465.00)],3465.00,105696.36),
+
+  P("227795","8522","AGUAS MINERAIS DE ATIBAIA LTDA EPP","03/11/2026","ARTE REPETIÇÃO",
+    [I("1604089/1","EMBALAGEM CP FR NATURAL 200ML (75X91,5) CRISTAL GOLD FONTE SAN GIACOMO - 1260 UNID",1890.00)],1890.00,57652.56),
+
+  P("227797","9275","MINALBA ALIMENTOS E BEBIDAS LTDA","15/10/2026","ARTE REPETIÇÃO",
+    [I("102536/1","EMBALAGEM CP 200ML AGUA MINERAL MINALBA - 1260 UNID",2772.00)],2772.00,94081.13),
+
+  P("227824","34232","L. A. LOPES","08/09/2026","ARTE REPETIÇÃO",
+    [I("1604985/1","POTE 450ML NATURAL (101X113.5) FAROFA SERIDOENSE - 512 UNID",1684.48),
+     I("1002362/1","TAMPA TP 101 NATURAL CX 2000 UNID",450.00),
+     I("1603439/1","POTE PT 450ML NATURAL (101X113.5) 512 UNID",422.91)],2557.39,89118.37),
+
+  P("227825","12343","MINERADORA HERWE LTDA - EPP","04/10/2026","ARTE REPETIÇÃO",
+    [I("103093/1","EMBALAGEM CP FR NATURAL 200ML (75X91,5) KLARINA 1260 UNID",630.00)],630.00,19217.52),
+
+  P("227826","14942","INDUSTRIA E COMERCIO DE SORVETES NOVA TROPICAL LTDA EPP","08/09/2026","ARTE REPETIÇÃO",
+    [I("1604689/1","TAMPA 101 BRANCO SORVETE TROPICAL CREME 250ML",90.00),
+     I("1604645/1","TAMPA 101 BRANCO SORVETE TROPICAL MARACUJA 250ML - 2000 UNID",90.00)],180.00,6435.80),
+
+  P("227829","14942","INDUSTRIA E COMERCIO DE SORVETES NOVA TROPICAL LTDA EPP","08/09/2026","ARTE REPETIÇÃO",
+    [I("1604323/1","TAMPA NATURAL 101 SORVETE TROPICAL SUNDAE CHOCOLATE 250ML - 2000 UNID",90.00),
+     I("1604183/1","TAMPA NATURAL 101 SORVETES TROPICAL SUNDAE MORANGO 250ML - 2000 UNID",90.00),
+     I("1604184/1","TAMPA NATURAL 101 SORVETES TROPICAL SUNDAE MORANGO 400ML - 2000 UNID",90.00)],270.00,9653.70),
+
+  P("227832","14942","INDUSTRIA E COMERCIO DE SORVETES NOVA TROPICAL LTDA EPP","08/09/2026","ARTE REPETIÇÃO",
+    [I("1602636/1","TAMPA BRANCO 101 SORVETES TROPICAL ACAI COM BANANA - 2000 UNID",90.00),
+     I("1604494/1","TAMPA 101 BRANCO SORVETE TROPICAL CHOCOLATE 250ML - 2000 UNID",90.00),
+     I("1604596/1","TAMPA 101 BRANCO SORVETE TROPICAL NAPOLITANO 250ML - 2000 UNID",90.00),
+     I("1604492/1","TAMPA 101 BRANCO SORVETE TROPICAL FLOCOS 250ML - 2000 UNID",90.00),
+     I("1604493/1","TAMPA 101 BRANCO SORVETE TROPICAL MORANGO 250ML - 2000 UNID",90.00)],450.00,16089.50),
+
+  P("227833","14942","INDUSTRIA E COMERCIO DE SORVETES NOVA TROPICAL LTDA EPP","08/09/2026","ARTE REPETIÇÃO",
+    [I("1600586/1","POTE FR BRANCO 400ML (101X98) SORVETE TROPICAL 960 UNID",530.40)],530.40,18964.09),
+
+  P("227834","14942","INDUSTRIA E COMERCIO DE SORVETES NOVA TROPICAL LTDA EPP","08/09/2026","ARTE REPETIÇÃO",
+    [I("1600585/1","POTE FR BRANCO 250ML (101 X 60) SORVETE TROPICAL 1120 UNID",728.00)],728.00,26028.64),
+
+  P("227835","26532","TROPICAL INDUSTRIA E COMERCIO DE BEBIDAS LTDA","15/09/2026","ARTE REPETIÇÃO",
+    [I("1604075/1","EMBALAGEM CP BRANCO 300ML (75X122) GUARANA TROPICAL - 1120 UNID",672.00)],672.00,22387.20),
+
+  // --- adicionados a partir do relatório de 06/08/2026 13:37 ---
+  P("227855","22568","AJINOMOTO DO BRASIL INDUSTRIA E COMERCIO DE ALIMENTOS LTDA","09/09/2026","ARTE REPETIÇÃO",
+    [I("1605143/1","30011531 COPO SAM 300G A/S - RP 1600 UND/CX",2304.00),
+     I("1604377/1","30011285 TAMPA SAM 300G A/S - RP 3200 UND/CX",864.00)],3168.00,119865.96),
+
+  P("227857","22568","AJINOMOTO DO BRASIL INDUSTRIA E COMERCIO DE ALIMENTOS LTDA","09/10/2026","ARTE REPETIÇÃO",
+    [I("1605143/1","30011531 COPO SAM 300G A/S - RP 1600 UND/CX",2304.00),
+     I("1604377/1","30011285 TAMPA SAM 300G A/S - RP 3200 UND/CX",864.00)],3168.00,119865.96),
+
+  P("227865","13","AGUA MINERAL SANTA CANDIDA LTDA EPP","20/10/2026","ARTE REPETIÇÃO",
+    [I("100072/1","EMBALAGEM CP 200ML AGUA MINERAL DAFLORA 1260 UNID",2501.10)],2501.10,68089.95),
+
+  P("227868","11644","COOPERATIVA AGROINDUSTRIAL SERRAMAR","06/10/2026","ARTE REPETIÇÃO",
+    [I("1605168/1","EMB CP C/ ANEL BRANCO 180ML (68X88,5) IOGURTE COCO SERRAMAR 170G - 1596",478.80)],478.80,15949.00),
+
+  P("227869","11644","COOPERATIVA AGROINDUSTRIAL SERRAMAR","06/10/2026","ARTE REPETIÇÃO",
+    [I("102271/1","EMB CP C/ ANEL BRANCO 180ML (68X88,5) IOGURTE INTEGRAL SERRAMAR 170G - 1596 UNID",1915.20)],1915.20,63796.00),
+
+  P("227870","11644","COOPERATIVA AGROINDUSTRIAL SERRAMAR","06/10/2026","ARTE REPETIÇÃO",
+    [I("1602156/1","EMB CP C/ ANEL BRANCO 180ML (68X88,5) IOGURTE COM MEL SERRAMAR 170G",478.80)],478.80,15949.00),
+
+  P("227902","34885","DO REI 2000 ALIMENTOS EM GERAL LTDA","15/11/2026","ARTE REPETIÇÃO",
+    [I("1605264/1","EMBALAGEM CP BRANCO 290ML (75X116) GUARANA DO REI 290ML - 1120 UNID",5913.60)],5913.60,165202.75),
+
+  P("227903","34885","DO REI 2000 ALIMENTOS EM GERAL LTDA","30/09/2026","ARTE REPETIÇÃO",
+    [I("1605264/1","EMBALAGEM CP BRANCO 290ML (75X116) GUARANA DO REI 290ML - 1120 UNID",2956.80)],2956.80,82601.38),
+
+  P("227905","34885","DO REI 2000 ALIMENTOS EM GERAL LTDA","30/09/2026","ARTE REPETIÇÃO",
+    [I("1605071/1","EMB CP FR NATURAL 200ML (75X91,5) AGUA MINERAL NOVA ACQUA - 1260 UNID",2772.00)],2772.00,66985.60),
+
+  P("227910","8643","FRUTAP ALIMENTOS S.A.","28/08/2026","ARTE REPETIÇÃO",
+    [I("1604767/1","EMBALAGEM CP FR C/ANEL NATURAL 150ML (68X72) MORANGO DUAS CAMADAS FRUTAP 100G - 2520 UNID",252.00)],252.00,8560.80),
+
+  P("227912","8643","FRUTAP ALIMENTOS S.A.","25/09/2026","ARTE REPETIÇÃO",
+    [I("1603478/1","EMBALAGEM CP C/ ANEL BRANCO 180ML (68X88,5) IOGURTE NATURAL INTEGRAL 150G FRUTAP - 1596 UNID",957.60)],957.60,30586.00),
+
+  P("227913","8643","FRUTAP ALIMENTOS S.A.","18/09/2026","ARTE REPETIÇÃO",
+    [I("1603478/1","EMBALAGEM CP C/ ANEL BRANCO 180ML (68X88,5) IOGURTE NATURAL INTEGRAL 150G FRUTAP - 1596 UNID",957.60)],957.60,30586.00),
+
+  P("227914","8643","FRUTAP ALIMENTOS S.A.","11/09/2026","ARTE REPETIÇÃO",
+    [I("1603478/1","EMBALAGEM CP C/ ANEL BRANCO 180ML (68X88,5) IOGURTE NATURAL INTEGRAL 150G FRUTAP - 1596 UNID",957.60)],957.60,30586.00),
+
+  P("227915","8643","FRUTAP ALIMENTOS S.A.","04/09/2026","ARTE REPETIÇÃO",
+    [I("1605087/1","EMB CP C/ANEL BRANCO 180ML (68X88,5) IOG LCM 150G SELECT - 1596 UNID",383.04)],383.04,12234.40),
+
+  P("227916","8643","FRUTAP ALIMENTOS S.A.","18/09/2026","ARTE REPETIÇÃO",
+    [I("1603666/1","EMBALAGEM CP COM ANEL BRANCO 150ML (68X70) CEREAL COLORIDO FRUTAP SLEEVE - 1764 UNID",529.20)],529.20,17170.80),
+
+  P("227917","8643","FRUTAP ALIMENTOS S.A.","18/09/2026","ARTE REPETIÇÃO",
+    [I("1604767/1","EMBALAGEM CP FR C/ANEL NATURAL 150ML (68X72) MORANGO DUAS CAMADAS FRUTAP 100G - 2520 UNID",252.00)],252.00,8560.80),
+
+  P("227918","8643","FRUTAP ALIMENTOS S.A.","11/09/2026","ARTE REPETIÇÃO",
+    [I("1604767/1","EMBALAGEM CP FR C/ANEL NATURAL 150ML (68X72) MORANGO DUAS CAMADAS FRUTAP 100G - 2520 UNID",252.00)],252.00,8560.80),
+
+  P("227919","8643","FRUTAP ALIMENTOS S.A.","04/09/2026","ARTE REPETIÇÃO",
+    [I("1604767/1","EMBALAGEM CP FR C/ANEL NATURAL 150ML (68X72) MORANGO DUAS CAMADAS FRUTAP 100G - 2520 UNID",252.00)],252.00,8560.80),
+
+  P("227944","34180","INDUSTRIA E COMERCIO DE BEBIDAS CEPAL LTDA","26/08/2026","ARTE REPETIÇÃO",
+    [I("1600602/1","COPO NATURAL 300ML (79X111,5) CHOPP ECOBIER 1000 UNID",1200.00)],1200.00,32865.60),
+
+  P("227947","9205","ATIV COMERCIO DE ALIMENTOS LTDA","25/08/2026","ARTE REPETIÇÃO",
+    [I("1603529/1","EMBALAGEM CP BRANCO 300ML (75X122) ATIV PLUS GUARANA COM AÇAI 1120 UNID",3696.00)],3696.00,111513.60),
+];
+
+HISTORICO_REPETICAO_INICIAL.forEach(p=>{ p.tipo='repeticao'; p.stage=null; });
+
+/* Fonte de dados única: relatório RVEN002 de 06/08/2026 13:37 (relação
+   completa de pedidos parados no fluxo de artes, situação 29-ARTES). Esse
+   relatório já é cumulativo — todo pedido em aberto aparece nele — então ele
+   é a única fonte usada para popular o quadro. */
+const RELATORIO_UNICO = "RVEN002 - 06/08/2026 13:37";
+PEDIDOS_INICIAIS.forEach(p=>p.origem = RELATORIO_UNICO);
+HISTORICO_REPETICAO_INICIAL.forEach(p=>p.origem = RELATORIO_UNICO);
+
+/* ========================================================================
+   TABELA DE CÓDIGOS INTERNOS — SIMULAÇÃO
+   Estrutura baseada na planilha enviada (categoria "POTES"). Apenas 2 linhas
+   de exemplo pra validar o layout — quando o PDF completo chegar, é só
+   substituir/expandir este array com todas as categorias e itens reais.
+   ======================================================================== */
+/* ========================================================================
+   TABELA DE CÓDIGOS INTERNOS — extraída de "Controle_de_artes.pdf"
+   Atualização informada no PDF: 08/05/2025
+   Cada categoria define quais colunas usar (POTES/COPOS/FAST FOODS usam
+   Medida/Produto/Ex./Alt./Larg.; TAMPAS usa Medida/Produto/Ex./Diâmetro).
+   ======================================================================== */
+const CODIGOS_ATUALIZACAO_ORIGINAL = "08/05/2025";
+let codigosUltimaAtualizacao = CODIGOS_ATUALIZACAO_ORIGINAL;
+let TABELA_CODIGOS_INTERNOS = [
+  {
+    categoria: "POTES",
+    colunas: ["medida","produto","ex","alt","larg"],
+    itens: [
+      { codigo:"PT 120",          medida:"75X49,5",    produto:"120 ML",   ex:"LELECA",        alt:"27",  larg:"202" },
+      { codigo:"PT 130",          medida:"75X58,5",    produto:"130 ML",   ex:"ACRILEX",       alt:"34",  larg:"194" },
+      { codigo:"PT 140",          medida:"75X60",      produto:"140 ML",   ex:"BATALHA",       alt:"42",  larg:"194" },
+      { codigo:"PT 180",          medida:"101X44,5",   produto:"180 ML",   ex:"CARIRI",        alt:"30",  larg:"279" },
+      { codigo:"PT 200",          medida:"101X50",     produto:"200 ML",   ex:"SCALA",         alt:"34",  larg:"273" },
+      { codigo:"PT 250 RETO",     medida:"101X60",     produto:"250 ML",   ex:"LONDRES",       alt:"42",  larg:"259" },
+      { codigo:"PT 250 TAÇA",     medida:"101X58,5",   produto:"250 ML",   ex:"ITALIANO",      alt:"30",  larg:"271" },
+      { codigo:"PT 250 JK",       medida:"",           produto:"290 ml",   ex:"JUKILI",        alt:"30",  larg:"243" },
+      { codigo:"PT 320",          medida:"101X80",     produto:"320 ML",   ex:"KIVH",          alt:"55",  larg:"247" },
+      { codigo:"PT 380",          medida:"101X82,5",   produto:"380 ML",   ex:"EMBELLEZE",     alt:"65",  larg:"260" },
+      { codigo:"PT 250 GM",       medida:"120x32",     produto:"250ML",    ex:"ALVORADA",      alt:"15",  larg:"337" },
+      { codigo:"PT 300 G",        medida:"120x38",     produto:"300 ML",   ex:"PUREA",         alt:"20",  larg:"337" },
+      { codigo:"PT 400",          medida:"101X98",     produto:"400 ML",   ex:"COPETTO",       alt:"78",  larg:"248" },
+      { codigo:"PT 450",          medida:"101X113,5",  produto:"450 ML",   ex:"JUNDIA",        alt:"93",  larg:"244" },
+      { codigo:"PT 500",          medida:"101X111",    produto:"500ML",    ex:"DA PRAIA",      alt:"85",  larg:"264" },
+      { codigo:"PT 500 DOCE",     medida:"150X52",     produto:"500 ML",   ex:"PRO AMENDOIM",  alt:"33",  larg:"*423" },
+      { codigo:"PT 530 KIT",      medida:"120X77",     produto:"530 ML",   ex:"DIA",           alt:"58",  larg:"320" },
+      { codigo:"PT 600 G",        medida:"150x42",     produto:"600ML",    ex:"PUREA",         alt:"26",  larg:"427" },
+      { codigo:"PT 600 D",        medida:"150X44",     produto:"600ML",    ex:"SANTA HELENA",  alt:"28",  larg:"427" },
+      { codigo:"PT 630 URCA",     medida:"120X82",     produto:"630 ML",   ex:"FAZENDA",       alt:"56",  larg:"320" },
+      { codigo:"PT 700 DOCE",     medida:"",           produto:"700 ML",   ex:"",              alt:"58",  larg:"*422" },
+      { codigo:"PT 750 TEMPERO",  medida:"120X111",    produto:"750 ML",   ex:"ARIANE",        alt:"75",  larg:"317" },
+      { codigo:"PT 900 ml",       medida:"120X144",    produto:"900 ml",   ex:"ALISPEC",       alt:"112", larg:"316" },
+      { codigo:"PT 1000ML TAÇA",  medida:"",           produto:"1000ML",   ex:"PAVILOCHE",     alt:"40",  larg:"425" },
+      { codigo:"PT 1000",         medida:"150X92",     produto:"1000 ML",  ex:"BONA FRUTA",    alt:"75",  larg:"414" },
+      { codigo:"PT 1000 RETO",    medida:"150X92",     produto:"1000 ML",  ex:"",              alt:"75",  larg:"414" },
+      { codigo:"PT 1000 BIBA",    medida:"",           produto:"1000 ML",  ex:"",              alt:"115", larg:"*322" },
+      { codigo:"PT 1450",         medida:"150X115",    produto:"1450 ML",  ex:"DELICIAS",      alt:"86",  larg:"422" },
+      { codigo:"PT 1500",         medida:"150X129",    produto:"1500 ML",  ex:"CONFIRMA",      alt:"97",  larg:"422" },
+      { codigo:"PT 1800",         medida:"150X148",    produto:"1800 ML",  ex:"BIBA",          alt:"114", larg:"419" },
+      { codigo:"PT 1700",         medida:"185X83",     produto:"1700 ML",  ex:"POP",           alt:"53",  larg:"537" },
+      { codigo:"PT 1650",         medida:"150X137,5",  produto:"1650 ML",  ex:"H & M",         alt:"105", larg:"417" },
+      { codigo:"PT 500 P",        medida:"150x37",     produto:"500ML",    ex:"PREDILECTA",    alt:"22",  larg:"427" },
+      { codigo:"PT 1K",           medida:"120X123",    produto:"1000ML",   ex:"AJINOMOTO",     alt:"97",  larg:"295" },
+      { codigo:"PT 1000 SH",      medida:"150X78",     produto:"1000ml",   ex:"SANTA HELENA",  alt:"52",  larg:"367" },
+      { codigo:"PT 220",          medida:"120X49",     produto:"220ML",    ex:"SANTA HELENA",  alt:"24",  larg:"350" },
+      { codigo:"PT 950",          medida:"150X86",     produto:"950ML",    ex:"BALSAMO",       alt:"54",  larg:"428" },
+      { codigo:"PT 2000",         medida:"150X68",     produto:"2000ML",   ex:"kigarot",       alt:"134", larg:"407" },
+    ]
+  },
+  {
+    categoria: "COPOS",
+    colunas: ["medida","produto","ex","alt","larg"],
+    itens: [
+      { codigo:"CP 175 S",     medida:"75X87,5",   produto:"SUNDAE",    ex:"CENTER MIX", alt:"54", larg:"170" },
+      { codigo:"CP 180",       medida:"",          produto:"180",       ex:"MARVI",      alt:"60", larg:"190" },
+      { codigo:"CP 200",       medida:"75,91,5",   produto:"200 ML",    ex:"BIOLEVE",    alt:"61", larg:"190" },
+      { codigo:"PS CRISTAL",   medida:"",          produto:"250 ml",    ex:"RIOPLASTIC", alt:"38", larg:"213" },
+      { codigo:"CP 220 R",     medida:"",          produto:"REQUEIJÃO", ex:"ARGENZIO",   alt:"60", larg:"194" },
+      { codigo:"CP 250 A",     medida:"",          produto:"AVIAÇÃO",   ex:"GOL",        alt:"22", larg:"218" },
+      { codigo:"CP 290",       medida:"75X116",    produto:"290 ML",    ex:"CHUI",       alt:"85", larg:"191" },
+      { codigo:"CP 300",       medida:"75X122",    produto:"300 ML",    ex:"DAFLORA",    alt:"90", larg:"191" },
+      { codigo:"CP 300 RETO",  medida:"75X122",    produto:"300ML",     ex:"BIOLEVE",    alt:"85", larg:"194" },
+      { codigo:"CP 170",       medida:"68,88,5",   produto:"170 ML",    ex:"FAZENDA",    alt:"65", larg:"168" },
+      { codigo:"CP 190",       medida:"",          produto:"190 ML",    ex:"",           alt:"60", larg:"190" },
+      { codigo:"CP 200 i",     medida:"68X96",     produto:"200 ML",    ex:"BOM LEITE",  alt:"66", larg:"176" },
+      { codigo:"CP 150 i",     medida:"68X70",     produto:"150ml",     ex:"MATILAT",    alt:"53", larg:"166" },
+      { codigo:"CP 130 i",     medida:"68X72",     produto:"130 ml",    ex:"FRUTAP",     alt:"56", larg:"154" },
+    ]
+  },
+  {
+    categoria: "FAST FOODS",
+    colunas: ["medida","produto","ex","alt","larg"],
+    itens: [
+      { codigo:"FT 250", medida:"79X101,5", produto:"250 ML", ex:"TERRA MILHO", alt:"74",  larg:"188" },
+      { codigo:"FT 300", medida:"79X111,5", produto:"300 ML", ex:"MR MIX",      alt:"86",  larg:"194" },
+      { codigo:"FT 400", medida:"93X117",   produto:"400 ML", ex:"MR MIX",      alt:"87",  larg:"217" },
+      { codigo:"FT 500", medida:"93X135",   produto:"500 ML", ex:"MR MIX",      alt:"105", larg:"224" },
+      { codigo:"FT 700", medida:"101X157",  produto:"700 ML", ex:"CORAÇÃO",     alt:"115", larg:"244" },
+    ]
+  },
+  {
+    categoria: "TAMPAS",
+    colunas: ["medida","produto","ex","diametro"],
+    itens: [
+      { codigo:"TP 101",  medida:"75mm",  produto:"250 ml",  ex:"DA PRAIA",        diametro:"75mm" },
+      { codigo:"STP 101", medida:"77mm",  produto:"500 ml",  ex:"TRÊS GIGANTES",   diametro:"77mm" },
+      { codigo:"TP 120",  medida:"95mm",  produto:"500 ml",  ex:"FAZENDA",         diametro:"95mm" },
+      { codigo:"TP 150",  medida:"120mm", produto:"1000 ML", ex:"MINDY",           diametro:"120 mm" },
+      { codigo:"TP 185",  medida:"155mm", produto:"",        ex:"POP",             diametro:"155 mm" },
+      { codigo:"TP 28",   medida:"28mm",  produto:"",        ex:"",                diametro:"" },
+    ]
+  },
+];
+
+/* ========================================================================
+   ESTADO / PERSISTÊNCIA
+   ======================================================================== */
+let pedidos = [];       // pedidos ativos no quadro (stage 0-10)
+let historico = [];     // finalizados + repetição
+let regravacoes = [];   // registros manuais de regravação de clichê
+let catalogoItens = {}; // {codigo: nome} — deduplicado, extraído de todos os pedidos
+const DIAMETROS_CONHECIDOS = [68,75,79,93,101,120,150,185];
+let diametrosManual = {}; // {codigo: diametro} — identificação manual, quando não dá pra detectar pelo nome
+function extrairDiametro(nome){
+  const n = String(nome||'');
+  // Potes/copos/embalagens costumam trazer a boca no formato "(101X82,5)" —
+  // o primeiro número é sempre o diâmetro da boca.
+  const m = n.match(/\((\d{2,3})\s*[xX]\s*\d/);
+  if(m) return parseInt(m[1],10);
+  // Tampas/sobretampas (e alguns outros itens) trazem o diâmetro solto no
+  // nome, sem parênteses (ex: "TAMPA BRANCO 150 GOIABADA..."). Se algum
+  // número isolado do nome bate exatamente com um diâmetro conhecido, usa ele.
+  const numeros = [...n.matchAll(/\b(\d{2,3})\b/g)].map(x=>parseInt(x[1],10));
+  const achou = numeros.find(v=>DIAMETROS_CONHECIDOS.includes(v));
+  return achou!=null ? achou : null;
+}
+function diametroDoItem(cod, nome){
+  if(diametrosManual[cod]!=null) return {diametro: diametrosManual[cod], origem:'manual'};
+  const d = extrairDiametro(nome);
+  if(d!=null) return {diametro: d, origem: DIAMETROS_CONHECIDOS.includes(d) ? 'auto' : 'auto-desconhecido'};
+  return {diametro:null, origem:null};
+}
+
+/* ========================================================================
+   LEAD TIME POR BOCA
+   ======================================================================== */
+function LT(diametro, atual, comercial, pcp, artes, producao, logistica){
+  return {diametro, atual, comercial, pcp, artes, producao, logistica};
+}
+const LEAD_TIME_INICIAL = [
+  LT(68,  36, 1, 1, 10, 19, 5),
+  LT(75,  46, 1, 1, 10, 29, 5),
+  LT(79,  32, 1, 1, 10, 15, 5),
+  LT(93,  37, 1, 1, 10, 20, 5),
+  LT(101, 37, 1, 1, 10, 20, 5),
+  LT(120, 46, 1, 1, 10, 29, 5),
+  LT(150, 46, 1, 1, 10, 29, 5),
+  LT(185, 41, 1, 1, 10, 24, 5),
+];
+let leadTimePorBoca = JSON.parse(JSON.stringify(LEAD_TIME_INICIAL));
+
+let catalogoSearchTerm = '';
+let currentHistTab = 'finalizados';
+let currentView = 'board'; // board | leadtime | history
+let searchTerm = '';
+let nomeRelatorioAtual = '';
+let multiSelectMode = false;
+let selectedIds = new Set();
+let openStages = new Set(); // acordeões abertos
+let lastSyncTime = null;
+let lastImportTime = null;
+let seedDescartada = false; // true depois de "Zerar pedidos": impede que os dados fixos antigos (sem vendedor) voltem
+
+async function loadState(){
+  let saved = null;
+  try{
+    const res = await window.storage.get('artes-pedidos-v3', false);
+    if(res && res.value) saved = JSON.parse(res.value);
+  }catch(e){ /* sem dados salvos ainda */ }
+
+  if(!saved){
+    pedidos = JSON.parse(JSON.stringify(PEDIDOS_INICIAIS));
+    historico = JSON.parse(JSON.stringify(HISTORICO_REPETICAO_INICIAL));
+    regravacoes = [];
+    lastImportTime = new Date().toISOString();
+  }else{
+    pedidos = saved.pedidos || [];
+    historico = saved.historico || [];
+    regravacoes = saved.regravacoes || [];
+    nomeRelatorioAtual = saved.nomeRelatorioAtual || '';
+    lastImportTime = saved.lastImportTime || new Date().toISOString();
+    seedDescartada = !!saved.seedDescartada;
+    if(saved.tabelaCodigosInternos) TABELA_CODIGOS_INTERNOS = saved.tabelaCodigosInternos;
+    if(saved.codigosUltimaAtualizacao) codigosUltimaAtualizacao = saved.codigosUltimaAtualizacao;
+    if(saved.diametrosManual) diametrosManual = saved.diametrosManual;
+    if(saved.leadTimePorBoca) leadTimePorBoca = saved.leadTimePorBoca;
+    const known = new Set([...pedidos, ...historico].map(p=>p.pedido));
+    const origemPadrao = nomeRelatorioAtual || ('Importação ' + new Date().toLocaleDateString('pt-BR'));
+    let novosEntraram = false;
+    if(!seedDescartada){
+      PEDIDOS_INICIAIS.forEach(p=>{
+        if(!known.has(p.pedido)){
+          const novo = JSON.parse(JSON.stringify(p));
+          if(!novo.origem) novo.origem = origemPadrao;
+          pedidos.push(novo); known.add(p.pedido); novosEntraram = true;
+        }
+      });
+      HISTORICO_REPETICAO_INICIAL.forEach(p=>{
+        if(!known.has(p.pedido)){
+          const novo = JSON.parse(JSON.stringify(p));
+          if(!novo.origem) novo.origem = origemPadrao;
+          historico.push(novo); known.add(p.pedido); novosEntraram = true;
+        }
+      });
+    }
+    if(novosEntraram) lastImportTime = new Date().toISOString();
+
+    if(!saved.stageOrderV2){
+      [...pedidos, ...historico].forEach(p=>{
+        if(p.stage!=null && STAGE_REMAP_V2.hasOwnProperty(p.stage)) p.stage = STAGE_REMAP_V2[p.stage];
+        if(p.stageHistory) p.stageHistory.forEach(h=>{
+          if(h.stage!=null && STAGE_REMAP_V2.hasOwnProperty(h.stage)) h.stage = STAGE_REMAP_V2[h.stage];
+        });
+      });
+    }
+  }
+  // Correção retroativa: pedidos com etiqueta "ARTE REPETIÇÃO" que ficaram
+  // presos no quadro ativo (de importações antigas) são movidos para o
+  // Histórico → Arte Repetição, onde deveriam estar.
+  const presosNoQuadro = pedidos.filter(p=>p.tag==='ARTE REPETIÇÃO');
+  if(presosNoQuadro.length){
+    presosNoQuadro.forEach(p=>{
+      p.tipo = 'repeticao';
+      p.stage = null;
+      p.stageHistory = null;
+      historico.push(p);
+    });
+    pedidos = pedidos.filter(p=>p.tag!=='ARTE REPETIÇÃO');
+  }
+
+  pedidos.forEach(p=>{
+    if(!p.stageHistory) p.stageHistory = [{stage:p.stage, entradaEm: p.origem ? lastImportTime : new Date().toISOString()}];
+  });
+  buildCatalogoItens();
+  lastSyncTime = new Date().toISOString();
+  await saveState();
+}
+function buildCatalogoItens(){
+  catalogoItens = {};
+  [...pedidos, ...historico].forEach(p=>{
+    p.itens.forEach(it=>{
+      const cod = fmtCodigo(it.codigo);
+      if(!cod) return;
+      if(!catalogoItens[cod]) catalogoItens[cod] = { nome: it.nome, clientes: new Set(), vendedor: null, temRepeticao: false };
+      catalogoItens[cod].clientes.add(p.clienteNome);
+      if(p.vendedor && !catalogoItens[cod].vendedor) catalogoItens[cod].vendedor = p.vendedor;
+      if(p.tipo==='repeticao') catalogoItens[cod].temRepeticao = true;
+    });
+  });
+}
+async function saveState(){
+  try{
+    await window.storage.set('artes-pedidos-v3', JSON.stringify({pedidos, historico, regravacoes, nomeRelatorioAtual, lastImportTime, seedDescartada, tabelaCodigosInternos: TABELA_CODIGOS_INTERNOS, codigosUltimaAtualizacao, diametrosManual, leadTimePorBoca, stageOrderV2:true}), false);
+  }catch(e){ console.error('Falha ao salvar', e); }
+}
+
+/* ========================================================================
+   HELPERS
+   ======================================================================== */
+function fmtCodigo(codigo){ return String(codigo ?? '').replace(/\/\d+$/,''); }
+function fmtBRL(n){ return 'R$ ' + n.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2}); }
+function fmtKg(n){ return n.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2}) + ' kg'; }
+function parseDateBR(s){ const [d,m,y] = s.split('/').map(Number); return new Date(y,m-1,d); }
+function fmtDateTime(iso){
+  const d = new Date(iso);
+  return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+function fmtTime(iso){
+  if(!iso) return '--:--';
+  return new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+}
+const TAGS_CLASSIFICACAO = ['ARTE NOVA','ARTE ALTERADA','CONFIRMAÇÃO DE ARTE','ARTE REPETIÇÃO'];
+function tagClass(tag){
+  if(tag === 'ARTE NOVA') return 'tag-nova';
+  if(tag === 'ARTE ALTERADA') return 'tag-alterada';
+  if(tag === 'CONFIRMAÇÃO DE ARTE') return 'tag-confirmacao';
+  if(tag === 'ARTE REPETIÇÃO') return 'tag-repeticao';
+  return '';
+}
+function matchesSearch(p){
+  if(!searchTerm) return true;
+  const t = searchTerm.toLowerCase();
+  return p.pedido.toLowerCase().includes(t) ||
+         p.clienteNome.toLowerCase().includes(t) ||
+         p.clienteCod.toLowerCase().includes(t);
+}
+
+/* ========================================================================
+   RENDER — CABEÇALHO
+   ======================================================================== */
+function renderPageHeader(){
+  document.getElementById('situacao-count').textContent = pedidos.length + ' pedido' + (pedidos.length===1?'':'s') + ' parado' + (pedidos.length===1?'':'s') + ' em Artes';
+  document.getElementById('ultima-importacao').textContent = lastImportTime ? fmtDateTime(lastImportTime) : '—';
+  document.getElementById('sync-time').textContent = fmtTime(lastSyncTime);
+  const emAlteracao = pedidos.filter(p=>p.stage===STAGE_ALTERACAO).length;
+  const badge = document.getElementById('notif-badge');
+  if(emAlteracao>0){ badge.style.display='flex'; badge.textContent = emAlteracao; } else { badge.style.display='none'; }
+}
+
+/* ========================================================================
+   RENDER — ACORDEÃO DE TÓPICOS
+   ======================================================================== */
+function renderAccordion(){
+  const wrap = document.getElementById('accordion');
+  wrap.innerHTML = '';
+
+  STAGES.forEach(stage=>{
+    const items = pedidos.filter(p=>p.stage===stage.id && matchesSearch(p))
+                          .sort((a,b)=>parseDateBR(a.entrega)-parseDateBR(b.entrega));
+    const isOpen = openStages.has(stage.id);
+
+    const item = document.createElement('div');
+    item.className = 'accordion-item' + (isOpen ? ' open' : '');
+
+    const head = document.createElement('button');
+    head.className = 'accordion-head';
+    head.innerHTML = `
+      <span class="stage-badge">${stage.id}</span>
+      <span class="stage-title">${stage.nome}</span>
+      <span class="count-pill ${items.length>0?'filled':'empty'}">${items.length}</span>
+      <span class="chevron">&#9654;</span>
+    `;
+    head.addEventListener('click', ()=>{
+      if(openStages.has(stage.id)) openStages.delete(stage.id); else openStages.add(stage.id);
+      renderAccordion();
+    });
+    item.appendChild(head);
+
+    const body = document.createElement('div');
+    body.className = 'accordion-body';
+    if(isOpen){
+      if(items.length===0){
+        body.innerHTML = `<div class="accordion-empty">Nenhum pedido nesta etapa.</div>`;
+      }else{
+        items.forEach(p=>body.appendChild(renderPedidoRow(p, stage.id)));
+      }
+    }
+    item.appendChild(body);
+    wrap.appendChild(item);
+  });
+}
+
+function renderPedidoRow(p, stageId){
+  const row = document.createElement('div');
+  row.className = 'prow';
+  const tag = p.tag ? `<span class="tag ${tagClass(p.tag)}">${p.tag}</span>` : '';
+  const altBadge = p.alteracoes.length>0 ? `<div class="prow-alt-badge">${p.alteracoes.length}x alteração${p.alteracoes.length>1?'ões':''}</div>` : '';
+  const canFinalize = STAGES_FINALIZAVEIS.includes(stageId);
+  const checkbox = multiSelectMode ? `<input type="checkbox" class="prow-check" ${selectedIds.has(p.id)?'checked':''}>` : '';
+
+  row.innerHTML = `
+    ${checkbox}
+    <div class="prow-main">
+      <div class="prow-top">
+        <span class="prow-pedido">#${p.pedido}</span>
+        ${tag}
+      </div>
+      <div class="prow-cliente">${p.clienteNome}<small>Cód. ${p.clienteCod} · ${p.itens.length} item${p.itens.length>1?'s':''}</small></div>
+      <div class="prow-meta">
+        <span>Entrega: <b>${p.entrega}</b></span>
+        <span><b>${fmtKg(p.pesoTotal)}</b></span>
+        <span><b>${fmtBRL(p.valorTotal)}</b></span>
+      </div>
+      ${altBadge}
+    </div>
+    ${multiSelectMode ? '' : `
+    <div class="prow-actions">
+      <button class="icon-btn btn-prev" ${stageId===0?'disabled':''} title="Voltar etapa">&#8592;</button>
+      <button class="icon-btn btn-next" ${stageId===10?'disabled':''} title="Avançar etapa">&#8594;</button>
+      ${canFinalize ? `<button class="finalize-mini btn-finalize">&#10003; Finalizar</button>` : ''}
+    </div>`}
+  `;
+
+  const checkEl = row.querySelector('.prow-check');
+  if(checkEl){
+    checkEl.addEventListener('click', e=>{
+      e.stopPropagation();
+      if(e.target.checked) selectedIds.add(p.id); else selectedIds.delete(p.id);
+      updateBulkBar();
+    });
+  }
+  row.querySelector('.prow-main').addEventListener('click', ()=>{
+    if(multiSelectMode){
+      if(checkEl){ checkEl.checked = !checkEl.checked; checkEl.dispatchEvent(new Event('click',{bubbles:true})); }
+    }else{
+      openModal(p.id);
+    }
+  });
+  row.querySelector('.btn-prev')?.addEventListener('click', e=>{ e.stopPropagation(); moveStage(p.id,-1); });
+  row.querySelector('.btn-next')?.addEventListener('click', e=>{ e.stopPropagation(); openAvancarEtapaModal(p.id); });
+  row.querySelector('.btn-finalize')?.addEventListener('click', e=>{ e.stopPropagation(); finalizarPedido(p.id); });
+  return row;
+}
+
+function moveStage(id, delta){
+  const p = pedidos.find(x=>x.id===id);
+  if(!p) return;
+  const newStage = p.stage + delta;
+  if(newStage < 0 || newStage > 10) return;
+  if(delta > 0 && newStage >= STAGE_APROVACAO_ARTE && !osCompleta(p)){
+    alert(`É necessário preencher a OS de todos os itens (na etapa "Arte em desenvolvimento") antes de avançar para "${STAGES.find(s=>s.id===STAGE_APROVACAO_ARTE).nome}".`);
+    return;
+  }
+  registrarMudancaEtapa(p, newStage);
+  p.stage = newStage;
+  saveState();
+  renderAll();
+}
+
+function registrarMudancaEtapaComData(p, novaEtapa, dataISO){
+  if(!p.stageHistory) p.stageHistory = [{stage:p.stage, entradaEm: lastImportTime || new Date().toISOString()}];
+  const ultima = p.stageHistory[p.stageHistory.length-1];
+  if(ultima.stage === novaEtapa) return;
+  p.stageHistory.push({stage:novaEtapa, entradaEm:dataISO});
+}
+
+function openAvancarEtapaModal(id){
+  const p = pedidos.find(x=>x.id===id);
+  if(!p) return;
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  modal.classList.remove('modal-wide');
+
+  const proximaSugerida = Math.min(p.stage+1, 10);
+  const stageOptions = STAGES.map(s=>`<option value="${s.id}" ${s.id===proximaSugerida?'selected':''}>${s.id} — ${s.nome}</option>`).join('');
+  const hojeISO = new Date().toISOString().slice(0,10);
+
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div>
+        <h2 style="font-size:18px;">Avançar etapa</h2>
+        <p>Pedido #${p.pedido} · ${p.clienteNome}</p>
+      </div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <hr class="divider">
+    <div class="k" style="font-size:12.5px; margin-bottom:4px;">Selecionar fluxo</div>
+    <select class="stage-select" id="avancar-stage-select">${stageOptions}</select>
+
+    <div class="k" style="font-size:12.5px; margin:16px 0 4px;">Data de início nessa etapa</div>
+    <input type="date" id="avancar-data-input" value="${hojeISO}"
+      style="width:100%; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:9px; padding:9px 11px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif;">
+    <p style="font-size:11.5px; color:var(--text-faint); margin:8px 0 0;">O tempo da etapa atual será encerrado automaticamente nessa data, e o histórico de fluxo do pedido é atualizado.</p>
+
+    <button class="btn gold" id="avancar-confirmar-btn" style="width:100%; margin-top:18px; padding:10px 0;">Confirmar</button>
+  `;
+
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('avancar-confirmar-btn').addEventListener('click', async ()=>{
+    const novaEtapa = parseInt(document.getElementById('avancar-stage-select').value);
+    const dataValor = document.getElementById('avancar-data-input').value;
+    if(!dataValor){ alert('Selecione a data de início.'); return; }
+    if(novaEtapa >= STAGE_APROVACAO_ARTE && !osCompleta(p)){
+      alert(`É necessário preencher a OS de todos os itens (na etapa "Arte em desenvolvimento") antes de avançar para "${STAGES.find(s=>s.id===STAGE_APROVACAO_ARTE).nome}".`);
+      return;
+    }
+    const agora = new Date();
+    const dataISO = new Date(`${dataValor}T${agora.toTimeString().slice(0,8)}`).toISOString();
+    registrarMudancaEtapaComData(p, novaEtapa, dataISO);
+    p.stage = novaEtapa;
+    await saveState();
+    closeModal();
+    renderAll();
+  });
+
+  document.getElementById('overlay').classList.add('open');
+}
+
+async function finalizarPedido(id){
+  const idx = pedidos.findIndex(x=>x.id===id);
+  if(idx===-1) return;
+  const p = pedidos[idx];
+  if(!confirm(`Finalizar o pedido #${p.pedido} e enviar para o histórico de liberação de produção?`)) return;
+  p.finalizado = true;
+  p.finalizadoEm = new Date().toISOString();
+  p.tipo = 'finalizado';
+  pedidos.splice(idx,1);
+  historico.push(p);
+  await saveState();
+  renderAll();
+  closeModal();
+}
+
+/* ========================================================================
+   SELEÇÃO MÚLTIPLA
+   ======================================================================== */
+document.getElementById('btn-multiselect').addEventListener('click', ()=>{
+  multiSelectMode = !multiSelectMode;
+  selectedIds.clear();
+  document.getElementById('btn-multiselect').classList.toggle('on', multiSelectMode);
+  document.getElementById('bulk-bar').style.display = multiSelectMode ? 'flex' : 'none';
+  if(multiSelectMode){
+    const sel = document.getElementById('bulk-target-select');
+    sel.innerHTML = STAGES.map(s=>`<option value="${s.id}">${s.id} — ${s.nome}</option>`).join('');
+  }
+  updateBulkBar();
+  renderAccordion();
+});
+function updateBulkBar(){
+  document.getElementById('bulk-count').textContent = selectedIds.size;
+}
+document.getElementById('bulk-cancel').addEventListener('click', ()=>{
+  document.getElementById('btn-multiselect').click();
+});
+document.getElementById('bulk-apply').addEventListener('click', async ()=>{
+  if(selectedIds.size===0) return;
+  const target = parseInt(document.getElementById('bulk-target-select').value);
+  const bloqueados = [];
+  pedidos.forEach(p=>{
+    if(!selectedIds.has(p.id)) return;
+    if(target >= STAGE_APROVACAO_ARTE && !osCompleta(p)){
+      bloqueados.push(p.pedido);
+      return;
+    }
+    registrarMudancaEtapa(p, target);
+    p.stage = target;
+  });
+  if(bloqueados.length){
+    alert(`Pedido(s) #${bloqueados.join(', #')} não foram movidos: falta preencher a OS de todos os itens antes de avançar para "${STAGES.find(s=>s.id===STAGE_APROVACAO_ARTE).nome}".`);
+  }
+  await saveState();
+  document.getElementById('btn-multiselect').click(); // sai do modo seleção
+});
+
+/* ========================================================================
+   MODAL — DETALHES DO PEDIDO
+   ======================================================================== */
+function openModal(id){
+  const p = pedidos.find(x=>x.id===id) || historico.find(x=>x.id===id);
+  if(!p) return;
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  const isActive = p.tipo === 'ativo';
+  const osEditavel = isActive && p.stage === STAGE_DESENVOLVIMENTO;
+  const clicheAplicavel = isActive ? (p.stage >= STAGE_APROVACAO_CLICHE) : (p.tipo === 'finalizado');
+  const clicheEditavel = isActive && p.stage === STAGE_APROVACAO_CLICHE;
+
+  const itemRows = p.itens.map((it,idx)=>`
+    <tr>
+      <td class="os-cell">${osEditavel
+        ? `<input type="text" class="os-input" data-idx="${idx}" value="${it.os||''}" placeholder="OS" style="width:74px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:6px; padding:4px 6px; font-size:11.5px; font-family:'IBM Plex Mono',monospace;">`
+        : (it.os ? it.os : '—')}</td>
+      <td class="code">${fmtCodigo(it.codigo)}</td>
+      <td>${it.nome}</td>
+      <td class="peso">${fmtKg(it.peso)}</td>
+    </tr>
+  `).join('');
+
+  const fluxoHistorico = (p.stageHistory && p.stageHistory.length) ? p.stageHistory.map((h,idx)=>{
+    const st = STAGES.find(s=>s.id===h.stage);
+    const inicio = new Date(h.entradaEm);
+    const fim = idx < p.stageHistory.length-1 ? new Date(p.stageHistory[idx+1].entradaEm) : new Date();
+    const duracao = formatDuracao(fim - inicio);
+    const atual = idx === p.stageHistory.length-1 && isActive;
+    return `
+      <div class="alt-item" style="${atual ? 'border-left:3px solid var(--gold); padding-left:9px;' : ''}">
+        <div class="alt-date">${fmtDateTime(h.entradaEm)}${atual ? ' — em andamento' : ''}</div>
+        <div class="alt-note"><b style="color:var(--text);">${st ? `${st.id} — ${st.nome}` : '—'}</b> · parado por <b style="color:var(--gold-dark); font-family:'IBM Plex Mono',monospace;">${duracao}</b></div>
+      </div>`;
+  }).join('') : `<div class="empty-alt">Sem histórico de fluxo registrado para este pedido.</div>`;
+
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div>
+        <h2>#${p.pedido}</h2>
+        <p>${p.clienteNome} · Cód. ${p.clienteCod}</p>
+        ${p.vendedor ? `<p style="margin-top:2px; color:var(--text-dim); font-size:12.5px;">Vendedor: ${p.vendedor}</p>` : ''}
+      </div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+
+    <div class="modal-row"><span class="k">Data de entrega</span><span class="v">${p.entrega}</span></div>
+    <div class="modal-row"><span class="k">Classificação da arte</span><span class="v">${p.tag ? `<span class="tag ${tagClass(p.tag)}">${p.tag}</span>` : (isActive ? `<select class="stage-select" id="modal-tag-select" style="margin-top:0; width:auto; display:inline-block; padding:5px 8px; font-size:12px;"><option value="">— selecionar —</option>${TAGS_CLASSIFICACAO.map(t=>`<option value="${t}">${t}</option>`).join('')}</select>` : '—')}</span></div>
+    <div class="modal-row"><span class="k">Peso total do pedido</span><span class="v">${fmtKg(p.pesoTotal)}</span></div>
+    <div class="modal-row"><span class="k">Valor total do pedido</span><span class="v">${fmtBRL(p.valorTotal)}</span></div>
+    ${p.finalizadoEm ? `<div class="modal-row"><span class="k">Finalizado em</span><span class="v">${fmtDateTime(p.finalizadoEm)}</span></div>` : ''}
+
+    <hr class="divider">
+    <table class="items">
+      <thead><tr><th>OS</th><th>Código</th><th>Item</th><th style="text-align:right;">Peso</th></tr></thead>
+      <tbody>${itemRows}</tbody>
+      <tfoot><tr><td colspan="3">Total do pedido</td><td class="peso">${fmtKg(p.pesoTotal)}</td></tr></tfoot>
+    </table>
+
+    ${clicheAplicavel ? `
+    <div class="cliche-block" style="margin-top:14px;">
+      <div class="k" style="font-size:12.5px; margin-bottom:6px;">Valor total do clichê</div>
+      <div style="display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap;">
+        ${clicheEditavel ? `
+          <div>
+            <input type="text" id="cliche-total-input" placeholder="R$ 0,00" value="${p.valorClicheTotal!=null?fmtBRL(p.valorClicheTotal):''}"
+              style="width:140px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:8px; padding:7px 10px; font-size:12.5px; font-family:'IBM Plex Mono',monospace;">
+          </div>
+          <div>
+            <div class="k" style="font-size:11px; margin-bottom:5px;">Valor inserido no pedido</div>
+            <input type="text" id="cliche-pedido-input" placeholder="R$ 0,00" value="${p.valorClichePedido!=null?fmtBRL(p.valorClichePedido):''}" ${p.clicheBonificado?'disabled':''}
+              style="width:140px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:8px; padding:7px 10px; font-size:12.5px; font-family:'IBM Plex Mono',monospace;">
+          </div>
+          <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim); cursor:pointer; padding-bottom:9px;">
+            <input type="checkbox" id="cliche-bonificado-check" ${p.clicheBonificado?'checked':''} style="width:15px; height:15px; accent-color:var(--teal); cursor:pointer;"> Bonificado
+          </label>
+        ` : `
+          <div class="modal-row" style="margin:0; width:100%;"><span class="k">Valor total do clichê</span><span class="v">${p.valorClicheTotal!=null ? fmtBRL(p.valorClicheTotal) : '—'}</span></div>
+          <div class="modal-row" style="margin:0; width:100%;"><span class="k">Valor inserido no pedido</span><span class="v">${p.clicheBonificado ? `<span class="tag tag-repeticao">BONIFICADO</span>` : (p.valorClichePedido!=null ? fmtBRL(p.valorClichePedido) : '—')}</span></div>
+        `}
+      </div>
+    </div>
+    ` : ''}
+
+    <hr class="divider">
+    <div class="k" style="font-size:12.5px; margin-bottom:2px;">Histórico de fluxo</div>
+    <div class="alt-list">${fluxoHistorico}</div>
+
+    ${isActive && STAGES_FINALIZAVEIS.includes(p.stage) ? `<button class="finalize-mini" id="modal-finalize" style="margin-top:16px; width:100%; padding:9px 0;">&#10003; Finalizar e liberar para produção</button>` : ''}
+  `;
+
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  overlay.classList.add('open');
+
+  if(isActive){
+    document.getElementById('modal-tag-select')?.addEventListener('change', async (e)=>{
+      p.tag = e.target.value || null;
+      await saveState();
+      renderAll();
+      openModal(id);
+    });
+    if(osEditavel){
+      modal.querySelectorAll('.os-input').forEach(inp=>{
+        inp.addEventListener('change', async (e)=>{
+          const idx = parseInt(e.target.dataset.idx);
+          p.itens[idx].os = e.target.value.trim();
+          await saveState();
+        });
+      });
+    }
+    document.getElementById('cliche-total-input')?.addEventListener('change', async (e)=>{
+      const raw = e.target.value.replace(/\./g,'').replace(',', '.').replace(/[^\d.]/g,'');
+      p.valorClicheTotal = raw ? parseFloat(raw) : null;
+      e.target.value = p.valorClicheTotal!=null ? fmtBRL(p.valorClicheTotal) : '';
+      if(p.clicheBonificado){
+        p.valorClichePedido = p.valorClicheTotal;
+        const pedidoInput = document.getElementById('cliche-pedido-input');
+        if(pedidoInput) pedidoInput.value = p.valorClichePedido!=null ? fmtBRL(p.valorClichePedido) : '';
+      }
+      p.clicheRegistradoEm = new Date().toISOString();
+      await saveState();
+      renderHomeCards();
+    });
+    document.getElementById('cliche-pedido-input')?.addEventListener('change', async (e)=>{
+      const raw = e.target.value.replace(/\./g,'').replace(',', '.').replace(/[^\d.]/g,'');
+      p.valorClichePedido = raw ? parseFloat(raw) : null;
+      e.target.value = p.valorClichePedido!=null ? fmtBRL(p.valorClichePedido) : '';
+      p.clicheRegistradoEm = new Date().toISOString();
+      await saveState();
+      renderHomeCards();
+    });
+    document.getElementById('cliche-bonificado-check')?.addEventListener('change', async (e)=>{
+      p.clicheBonificado = e.target.checked;
+      p.valorClichePedido = p.clicheBonificado ? p.valorClicheTotal : null;
+      p.clicheRegistradoEm = new Date().toISOString();
+      await saveState();
+      renderAll();
+      openModal(id);
+    });
+    document.getElementById('modal-finalize')?.addEventListener('click', ()=>finalizarPedido(id));
+  }
+}
+function closeModal(){ document.getElementById('overlay').classList.remove('open'); document.getElementById('modal').classList.remove('modal-wide'); }
+document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
+
+/* ========================================================================
+   EXPORTAR RELATÓRIO (CSV)
+   ======================================================================== */
+function openExportModal(){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  const isHistoryScreen = currentView === 'history';
+  const defaultName = (nomeRelatorioAtual || 'Fluxo de Artes') + ' - ' + new Date().toLocaleDateString('pt-BR').replace(/\//g,'-');
+
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div><h2 style="font-size:16px;">Exportar relatório</h2><p>Gera um arquivo CSV (compatível com Excel) com os pedidos visíveis.</p></div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <div class="export-row">
+      <label>Nome do relatório / arquivo</label>
+      <input type="text" id="export-name-input" value="${defaultName}">
+    </div>
+    <div class="export-row">
+      <label>Conteúdo a exportar</label>
+      <select id="export-scope-select">
+        <option value="current" selected>${isHistoryScreen ? `Histórico — aba atual (${currentHistTab==='finalizados'?'Finalizados':'Arte Repetição'})` : 'Quadro — todos os pedidos ativos (todas as etapas)'}</option>
+        <option value="all">Tudo (quadro + finalizados + arte repetição)</option>
+      </select>
+    </div>
+    <div class="export-actions">
+      <button class="btn ghost" id="export-cancel">Cancelar</button>
+      <button class="btn gold" id="export-confirm">&#8681; Exportar CSV</button>
+    </div>
+  `;
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('export-cancel').addEventListener('click', closeModal);
+  document.getElementById('export-confirm').addEventListener('click', ()=>{
+    const name = document.getElementById('export-name-input').value.trim() || 'relatorio-fluxo-de-artes';
+    const scope = document.getElementById('export-scope-select').value;
+    exportCSV(name, scope, isHistoryScreen);
+    closeModal();
+  });
+  overlay.classList.add('open');
+}
+document.getElementById('menu-item-exportar').addEventListener('click', ()=>{
+  document.getElementById('settings-menu').style.display = 'none';
+  openExportModal();
+});
+
+function csvNum(n){ return n.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2}); }
+function csvField(s){
+  const str = String(s ?? '');
+  return /[;"\n]/.test(str) ? '"' + str.replace(/"/g,'""') + '"' : str;
+}
+function exportCSV(name, scope, isHistoryScreen){
+  const header = ['Pedido','Cliente Cód.','Cliente','Entrega','Situação','Classificação','Qtd. Itens','Peso Total (kg)','Valor Total (R$)','Relatório de Origem'];
+  const rows = [header];
+
+  function statusLabel(p){
+    if(p.tipo==='finalizado') return 'Finalizado — liberado para produção';
+    if(p.tipo==='repeticao') return 'Arte Repetição — ' + (p.validado ? 'validado' : 'aguardando validação');
+    const st = STAGES.find(s=>s.id===p.stage);
+    return st ? `${st.id} — ${st.nome}` : '—';
+  }
+  function pushRows(list){
+    list.forEach(p=>{
+      rows.push([p.pedido, p.clienteCod, p.clienteNome, p.entrega, statusLabel(p), p.tag||'—', p.itens.length, csvNum(p.pesoTotal), csvNum(p.valorTotal), p.origem||'—']);
+    });
+  }
+
+  if(scope==='all'){
+    pushRows(pedidos);
+    pushRows(historico);
+  }else if(isHistoryScreen){
+    pushRows(historico.filter(p=> currentHistTab==='finalizados' ? p.tipo==='finalizado' : p.tipo==='repeticao'));
+  }else{
+    pushRows(pedidos);
+  }
+
+  const csv = rows.map(r=>r.map(csvField).join(';')).join('\r\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name.replace(/[^\w\-áéíóúâêîôûãõçÁÉÍÓÚÂÊÎÔÛÃÕÇ ]/g,'').trim() + '.csv';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+/* ========================================================================
+   IMPORTAÇÃO DO RELATÓRIO RVEN002 (arquivo CSV exportado do sistema)
+   ======================================================================== */
+function parseNumeroBR(s){
+  if(s==null) return 0;
+  const n = parseFloat(String(s).trim().replace(/\./g,'').replace(',','.'));
+  return isNaN(n) ? 0 : n;
+}
+
+const MAPA_TAG_IMPORTACAO = {
+  'ARTE NOVA':'ARTE NOVA',
+  'ARTE ALTERADA':'ARTE ALTERADA',
+  'ARTE REPETIÇÃO':'ARTE REPETIÇÃO', 'ARTE REPETICAO':'ARTE REPETIÇÃO',
+  'REPETIÇÃO DE ARTE':'ARTE REPETIÇÃO', 'REPETICAO DE ARTE':'ARTE REPETIÇÃO',
+  'CONFIRMAÇÃO DE ARTE':'CONFIRMAÇÃO DE ARTE', 'CONFIRMACAO DE ARTE':'CONFIRMAÇÃO DE ARTE',
+  'CONFIRMAR ARTE':'CONFIRMAÇÃO DE ARTE',
+};
+
+// Layout do CSV exportado do RVEN002 (delimitado por ";"):
+//   linha "Pedido:"      -> col 1 = número do pedido
+//   linha "Cliente:"     -> col 1 = "COD - NOME"
+//   linha "Obs. Pedido:" -> col 1 = observação completa (pode ter a etiqueta "** N - LABEL **")
+//   linha de item        -> col 0 = "código/versão - nome...", col 8 = UN, col 10 = Entrega, col 24 = Peso
+//   linha "Total Pedido:" -> na col 9, com Peso total na col 24 e Valor total na col 29
+function parseRelatorioCSV(texto){
+  const resultado = { pedidos: [], erros: [] };
+  const rows = Papa.parse(texto.trim(), {delimiter:';'}).data;
+
+  let atual = null;
+  function finalizar(){
+    if(!atual) return;
+    if(atual.itens.length===0) resultado.erros.push(`Pedido ${atual.pedido}: nenhum item reconhecido`);
+    else resultado.pedidos.push(atual);
+    atual = null;
+  }
+
+  rows.forEach(row=>{
+    const c0 = (row[0]||'').trim();
+    if(c0 === 'Pedido:'){
+      finalizar();
+      const vendedorIdx = row.findIndex(c=>c && c.trim()==='Vendedor:');
+      const vendedor = vendedorIdx>=0 ? (row[vendedorIdx+2]||'').trim() : '';
+      atual = { pedido:(row[1]||'').trim(), clienteCod:'', clienteNome:'', tag:null, itens:[], entrega:null, pesoTotal:0, valorTotal:0, vendedor };
+      return;
+    }
+    if(!atual) return;
+
+    if(c0 === 'Cliente:'){
+      const m = (row[1]||'').match(/^(\d+)\s*-\s*(.+)$/);
+      if(m){ atual.clienteCod = m[1].trim(); atual.clienteNome = m[2].trim(); }
+      return;
+    }
+    if(c0 === 'Obs. Pedido:'){
+      const tm = (row[1]||'').match(/\*{1,2}\s*(?:\d+\s*-\s*)?([A-ZÇÃÕÁÉÍÓÚÂÊÎÔÛÀ ]{5,40}?)\s*\*{1,2}/);
+      if(tm) atual.tag = MAPA_TAG_IMPORTACAO[tm[1].trim()] || null;
+      return;
+    }
+    if(c0 === 'Item/Versão') return; // cabeçalho da tabela, ignora
+
+    if((row[9]||'').trim() === 'Total Pedido:'){
+      atual.pesoTotal = parseNumeroBR(row[24]);
+      atual.valorTotal = parseNumeroBR(row[29]);
+      return;
+    }
+
+    const itemMatch = c0.match(/^(\d{2,8}\/\d+)\s*-\s*(.+)$/);
+    if(itemMatch && (row[8]||'').trim()){
+      const entrega = (row[10]||'').trim();
+      const peso = parseNumeroBR(row[24]);
+      if(!atual.entrega) atual.entrega = entrega;
+      atual.itens.push({codigo: itemMatch[1], nome: itemMatch[2].trim(), peso});
+    }
+  });
+  finalizar();
+
+  return resultado;
+}
+
+function mergePedidosImportados(parsed, nomeRelatorio){
+  const conhecidos = new Set([...pedidos, ...historico].map(p=>p.pedido));
+  let novos = 0, novosRepeticao = 0, duplicados = 0;
+  parsed.pedidos.forEach(pp=>{
+    if(conhecidos.has(pp.pedido)){ duplicados++; return; }
+    const itensObj = pp.itens.map(it=>I(it.codigo || '—', it.nome, it.peso));
+    const novoPedido = P(pp.pedido, pp.clienteCod, pp.clienteNome, pp.entrega, pp.tag, itensObj, pp.pesoTotal, pp.valorTotal, pp.vendedor);
+    novoPedido.origem = nomeRelatorio;
+    if(pp.tag === 'ARTE REPETIÇÃO'){
+      // Arte Repetição não passa pelo fluxo de tratativa — vai direto para
+      // o Histórico, aba "Arte Repetição — a validar".
+      novoPedido.tipo = 'repeticao';
+      novoPedido.stage = null;
+      novoPedido.stageHistory = null;
+      historico.push(novoPedido);
+      novosRepeticao++;
+    } else {
+      pedidos.push(novoPedido);
+      novos++;
+    }
+    conhecidos.add(pp.pedido);
+  });
+  if(novos>0 || novosRepeticao>0){
+    lastImportTime = new Date().toISOString();
+    buildCatalogoItens();
+  }
+  return {novos, novosRepeticao, duplicados, erros: parsed.erros};
+}
+
+function openImportPdfModal(){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  const defaultName = nomeRelatorioAtual || ('RVEN002 - ' + new Date().toLocaleDateString('pt-BR'));
+
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div><h2 style="font-size:16px;">Importar relatório RVEN002</h2><p>Exporte o relatório como CSV no sistema e selecione o arquivo abaixo.</p></div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <div class="export-row">
+      <label>Nome desta importação</label>
+      <input type="text" id="import-pdf-name-input" value="${defaultName}">
+    </div>
+    <div class="export-row">
+      <label>Arquivo CSV do relatório</label>
+      <input type="file" id="import-pdf-file" accept=".csv,text/csv" style="width:100%; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:8px; padding:8px 10px; font-size:12.5px; font-family:'Plus Jakarta Sans',sans-serif;">
+    </div>
+    <div id="import-pdf-result" style="font-size:12.5px; margin-bottom:10px;"></div>
+    <div class="export-actions">
+      <button class="btn ghost" id="import-pdf-cancel">Cancelar</button>
+      <button class="btn gold" id="import-pdf-confirm">Processar e importar</button>
+    </div>
+  `;
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('import-pdf-cancel').addEventListener('click', closeModal);
+  document.getElementById('import-pdf-confirm').addEventListener('click', async ()=>{
+    const fileInput = document.getElementById('import-pdf-file');
+    const nome = document.getElementById('import-pdf-name-input').value.trim() || ('RVEN002 - ' + new Date().toLocaleDateString('pt-BR'));
+    const resultDiv = document.getElementById('import-pdf-result');
+    const arquivo = fileInput.files[0];
+    if(!arquivo){
+      resultDiv.innerHTML = '<span style="color:var(--red);">Selecione o arquivo CSV antes de processar.</span>';
+      return;
+    }
+    resultDiv.innerHTML = '<span style="color:var(--text-dim);">Lendo arquivo...</span>';
+    const texto = await arquivo.text();
+    const parsed = parseRelatorioCSV(texto);
+    if(parsed.pedidos.length===0){
+      resultDiv.innerHTML = '<span style="color:var(--red);">Nenhum pedido reconhecido nesse arquivo. Confira se é o CSV exportado do relatório RVEN002.</span>';
+      return;
+    }
+    const {novos, novosRepeticao, duplicados, erros} = mergePedidosImportados(parsed, nome);
+    nomeRelatorioAtual = nome;
+    await saveState();
+    resultDiv.innerHTML = `
+      <b style="color:var(--green-dark);">${novos} pedido(s) novo(s) importado(s) para "Sem tratativa".</b>
+      ${novosRepeticao ? `<br><span style="color:var(--teal);">${novosRepeticao} pedido(s) de Arte Repetição importado(s) direto para Histórico → Arte Repetição.</span>` : ''}
+      ${duplicados ? `<br><span style="color:var(--text-dim);">${duplicados} pedido(s) já existiam e foram ignorados.</span>` : ''}
+      ${erros.length ? `<br><span style="color:var(--red);">${erros.length} pedido(s) não puderam ser lidos: ${erros.slice(0,5).join('; ')}</span>` : ''}
+    `;
+    if(novos>0 || novosRepeticao>0) renderAll();
+  });
+  overlay.classList.add('open');
+}
+document.getElementById('menu-item-importar').addEventListener('click', ()=>{
+  document.getElementById('settings-menu').style.display = 'none';
+  openImportPdfModal();
+});
+
+/* ========================================================================
+   VALIDAR ARTE REPETIÇÃO (confronto com um novo export do relatório)
+   Pedidos de Arte Repetição pendentes que NÃO aparecem mais no relatório
+   confrontado saíram da situação 29-ARTES no sistema, ou seja, foram
+   liberados — são marcados como validados automaticamente. Os que ainda
+   aparecem no relatório continuam pendentes, para avaliação manual.
+   ======================================================================== */
+function openValidarRepeticaoModal(){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  const pendentes = historico.filter(p=>p.tipo==='repeticao' && !p.validado);
+
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div><h2 style="font-size:16px;">Validar Arte Repetição</h2><p>Envie um novo export CSV do relatório. Pedidos de Arte Repetição pendentes que não aparecerem mais nele serão marcados como liberados automaticamente.</p></div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <div class="export-row">
+      <label>Pedidos de Arte Repetição aguardando validação hoje</label>
+      <div style="font-size:13px; color:var(--text-dim);"><b style="color:var(--text);">${pendentes.length}</b> pedido(s)</div>
+    </div>
+    <div class="export-row">
+      <label>Arquivo CSV do relatório (export atualizado)</label>
+      <input type="file" id="validar-repeticao-file" accept=".csv,text/csv" style="width:100%; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:8px; padding:8px 10px; font-size:12.5px; font-family:'Plus Jakarta Sans',sans-serif;">
+    </div>
+    <div id="validar-repeticao-result" style="font-size:12.5px; margin-bottom:10px;"></div>
+    <div class="export-actions">
+      <button class="btn ghost" id="validar-repeticao-cancel">Cancelar</button>
+      <button class="btn gold" id="validar-repeticao-confirm">Confrontar e validar</button>
+    </div>
+  `;
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('validar-repeticao-cancel').addEventListener('click', closeModal);
+  document.getElementById('validar-repeticao-confirm').addEventListener('click', async ()=>{
+    const fileInput = document.getElementById('validar-repeticao-file');
+    const resultDiv = document.getElementById('validar-repeticao-result');
+    const arquivo = fileInput.files[0];
+    if(!arquivo){
+      resultDiv.innerHTML = '<span style="color:var(--red);">Selecione o arquivo CSV antes de confrontar.</span>';
+      return;
+    }
+    if(pendentes.length===0){
+      resultDiv.innerHTML = '<span style="color:var(--text-dim);">Não há pedidos de Arte Repetição pendentes de validação no momento.</span>';
+      return;
+    }
+    resultDiv.innerHTML = '<span style="color:var(--text-dim);">Lendo arquivo...</span>';
+    const texto = await arquivo.text();
+    const parsed = parseRelatorioCSV(texto);
+    if(parsed.pedidos.length===0){
+      resultDiv.innerHTML = '<span style="color:var(--red);">Nenhum pedido reconhecido nesse arquivo. Confira se é o CSV exportado do relatório RVEN002.</span>';
+      return;
+    }
+    const aindaNoRelatorio = new Set(parsed.pedidos.map(p=>p.pedido));
+
+    const liberados = [];
+    const aindaPendentes = [];
+    pendentes.forEach(p=>{
+      if(aindaNoRelatorio.has(p.pedido)) aindaPendentes.push(p);
+      else liberados.push(p);
+    });
+
+    liberados.forEach(p=>{ p.validado = true; p.validadoEm = new Date().toISOString(); });
+    if(liberados.length>0) await saveState();
+
+    resultDiv.innerHTML = `
+      <b style="color:var(--green-dark);">${liberados.length} pedido(s) confirmados como liberados e validados.</b>
+      ${aindaPendentes.length ? `<br><span style="color:var(--gold-dark);">${aindaPendentes.length} pedido(s) continuam no relatório e ficaram pendentes, para avaliação: ${aindaPendentes.map(p=>'#'+p.pedido).join(', ')}</span>` : '<br><span style="color:var(--text-dim);">Nenhum pedido ficou pendente — todos foram liberados.</span>'}
+    `;
+    if(liberados.length>0) renderAll();
+  });
+  overlay.classList.add('open');
+}
+document.getElementById('menu-item-validar-repeticao').addEventListener('click', ()=>{
+  document.getElementById('settings-menu').style.display = 'none';
+  openValidarRepeticaoModal();
+});
+
+/* ========================================================================
+   ZERAR PEDIDOS
+   Limpa o quadro ativo e a aba "Arte Repetição — a validar" (que são os
+   dados vindos de importação e que podem estar incompletos, ex: sem
+   vendedor). Mantém "Finalizados" e regravações de clichê, que não vêm de
+   importação. Também impede que os dados fixos antigos voltem sozinhos.
+   ======================================================================== */
+function openZerarPedidosModal(){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  const qtdAtivos = pedidos.length;
+  const qtdRepeticao = historico.filter(p=>p.tipo==='repeticao').length;
+
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div><h2 style="font-size:16px; color:var(--red);">Zerar pedidos</h2><p>Essa ação remove todos os pedidos do quadro ativo e da aba Arte Repetição — a validar. Os "Finalizados" e as regravações de clichê não são afetados. Não pode ser desfeita.</p></div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <div class="export-row">
+      <div style="font-size:13px; color:var(--text-dim);">Serão removidos: <b style="color:var(--text);">${qtdAtivos}</b> pedido(s) do quadro ativo e <b style="color:var(--text);">${qtdRepeticao}</b> pedido(s) de Arte Repetição.</div>
+    </div>
+    <div class="export-actions">
+      <button class="btn ghost" id="zerar-cancel">Cancelar</button>
+      <button class="btn" id="zerar-confirm" style="background:var(--red); border-color:var(--red); color:#fff;">Zerar pedidos</button>
+    </div>
+  `;
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('zerar-cancel').addEventListener('click', closeModal);
+  document.getElementById('zerar-confirm').addEventListener('click', async ()=>{
+    pedidos = [];
+    historico = historico.filter(p=>p.tipo!=='repeticao');
+    nomeRelatorioAtual = '';
+    lastImportTime = null;
+    seedDescartada = true;
+    buildCatalogoItens();
+    await saveState();
+    closeModal();
+    renderAll();
+  });
+  overlay.classList.add('open');
+}
+document.getElementById('menu-item-zerar').addEventListener('click', ()=>{
+  document.getElementById('settings-menu').style.display = 'none';
+  openZerarPedidosModal();
+});
+document.getElementById('btn-settings-header').addEventListener('click', (e)=>{
+  e.stopPropagation();
+  const menu = document.getElementById('settings-menu');
+  menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+});
+document.addEventListener('click', (e)=>{
+  const menu = document.getElementById('settings-menu');
+  if(menu.style.display !== 'none' && !menu.contains(e.target) && e.target.id !== 'btn-settings-header'){
+    menu.style.display = 'none';
+  }
+});
+
+/* ========================================================================
+   HISTÓRICO
+   ======================================================================== */
+function renderHistory(){
+  const table = document.getElementById('hist-table');
+  const thead = table.querySelector('thead');
+  const tbody = table.querySelector('tbody');
+
+  const totalFinalizados = historico.filter(p=>p.tipo==='finalizado').length;
+  const totalRepeticao = historico.filter(p=>p.tipo==='repeticao').length;
+  document.getElementById('hist-count-finalizados').textContent = `(${totalFinalizados})`;
+  document.getElementById('hist-count-repeticao').textContent = `(${totalRepeticao})`;
+
+  const items = historico.filter(p=>{
+    const tabMatch = currentHistTab==='finalizados' ? p.tipo==='finalizado' : p.tipo==='repeticao';
+    return tabMatch && matchesSearch(p);
+  });
+
+  if(currentHistTab==='finalizados'){
+    thead.innerHTML = `<tr><th>Pedido</th><th>Cliente</th><th>Entrega</th><th>Finalizado em</th><th style="text-align:right;">Peso</th><th style="text-align:right;">Valor</th></tr>`;
+    tbody.innerHTML = items.length ? items
+      .sort((a,b)=> new Date(b.finalizadoEm) - new Date(a.finalizadoEm))
+      .map(p=>`
+      <tr>
+        <td class="pedido">#${p.pedido}</td>
+        <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
+        <td>${p.entrega}</td>
+        <td>${fmtDateTime(p.finalizadoEm)}</td>
+        <td class="val">${fmtKg(p.pesoTotal)}</td>
+        <td class="val">${fmtBRL(p.valorTotal)}</td>
+      </tr>`).join('') : `<tr><td colspan="6" class="hist-empty">Nenhum pedido finalizado ainda.</td></tr>`;
+  }else{
+    thead.innerHTML = `<tr><th>Pedido</th><th>Cliente</th><th>Entrega</th><th style="text-align:right;">Peso</th><th style="text-align:right;">Valor</th><th>Validado?</th></tr>`;
+    tbody.innerHTML = items.length ? items
+      .sort((a,b)=>parseDateBR(a.entrega)-parseDateBR(b.entrega))
+      .map(p=>`
+      <tr>
+        <td class="pedido">#${p.pedido}</td>
+        <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
+        <td>${p.entrega}</td>
+        <td class="val">${fmtKg(p.pesoTotal)}</td>
+        <td class="val">${fmtBRL(p.valorTotal)}</td>
+        <td>
+          <label class="validado-check">
+            <input type="checkbox" data-id="${p.id}" ${p.validado?'checked':''}>
+            ${p.validado ? 'Validado' : 'Pendente'}
+          </label>
+        </td>
+      </tr>`).join('') : `<tr><td colspan="6" class="hist-empty">Nenhum pedido de arte repetição no histórico.</td></tr>`;
+
+    tbody.querySelectorAll('input[type=checkbox]').forEach(cb=>{
+      cb.addEventListener('change', async (e)=>{
+        const pid = e.target.dataset.id;
+        const pedido = historico.find(x=>x.id===pid);
+        pedido.validado = e.target.checked;
+        await saveState();
+        renderHistory();
+      });
+    });
+  }
+}
+
+/* ========================================================================
+   CUSTO DE CLICHÊ — histórico consolidado
+   ======================================================================== */
+function renderClicheHistory(){
+  const table = document.getElementById('cliche-table');
+  const tbody = table.querySelector('tbody');
+
+  const todos = [...pedidos, ...historico.filter(p=>p.tipo==='finalizado')];
+  const items = todos.filter(p=>{
+    const temCliche = p.valorClicheTotal!=null || p.clicheBonificado;
+    return temCliche && matchesSearch(p);
+  });
+
+  function situacaoLabel(p){
+    if(p.tipo==='finalizado') return 'Finalizado';
+    const st = STAGES.find(s=>s.id===p.stage);
+    return st ? `${st.id} — ${st.nome}` : '—';
+  }
+
+  tbody.innerHTML = items.length ? items
+    .sort((a,b)=>(b.valorClicheTotal||0)-(a.valorClicheTotal||0))
+    .map(p=>`
+    <tr>
+      <td class="pedido">#${p.pedido}</td>
+      <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
+      <td>${situacaoLabel(p)}</td>
+      <td class="val">${p.valorClicheTotal!=null ? fmtBRL(p.valorClicheTotal) : '—'}</td>
+      <td class="val">${p.clicheBonificado ? `<span class="tag tag-repeticao">BONIFICADO</span>` : (p.valorClichePedido!=null ? fmtBRL(p.valorClichePedido) : '—')}</td>
+    </tr>`).join('') : `<tr><td colspan="5" class="hist-empty">Nenhum pedido com custo de clichê registrado ainda.</td></tr>`;
+
+  renderClicheHistoricoPeriodos();
+}
+
+/* ========================================================================
+   CUSTO DE CLICHÊ — histórico mensal / anual
+   ======================================================================== */
+function calcularHistoricoClichePorPeriodo(){
+  const meses = {}; // chave "YYYY-MM" -> {cliente, rioplastic, regrav}
+  const anos = {};  // chave "YYYY" -> {cliente, rioplastic, regrav}
+
+  function acumular(mapa, chave, campo, valor){
+    if(!mapa[chave]) mapa[chave] = { cliente:0, rioplastic:0, regrav:0 };
+    mapa[chave][campo] += valor;
+  }
+
+  [...pedidos, ...historico.filter(p=>p.tipo==='finalizado')].forEach(p=>{
+    if(!p.clicheRegistradoEm) return;
+    if(p.valorClicheTotal==null && p.valorClichePedido==null) return;
+    const d = new Date(p.clicheRegistradoEm);
+    const chaveMes = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const chaveAno = `${d.getFullYear()}`;
+
+    const totalEfetivo = p.valorClicheTotal!=null ? p.valorClicheTotal : p.valorClichePedido;
+    const cobradoCliente = p.clicheBonificado ? 0 : (p.valorClichePedido!=null ? p.valorClichePedido : totalEfetivo);
+    const parteRioplastic = Math.max(0, totalEfetivo - cobradoCliente);
+
+    acumular(meses, chaveMes, 'cliente', cobradoCliente);
+    acumular(meses, chaveMes, 'rioplastic', parteRioplastic);
+    acumular(anos, chaveAno, 'cliente', cobradoCliente);
+    acumular(anos, chaveAno, 'rioplastic', parteRioplastic);
+  });
+
+  regravacoes.forEach(r=>{
+    if(r.valorCliche==null) return;
+    const dataRef = r.dataSolicitacao || r.criadoEm;
+    if(!dataRef) return;
+    const d = new Date(dataRef);
+    const chaveMes = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    const chaveAno = `${d.getFullYear()}`;
+    acumular(meses, chaveMes, 'regrav', r.valorCliche);
+    acumular(anos, chaveAno, 'regrav', r.valorCliche);
+  });
+
+  return { meses, anos };
+}
+function renderClicheHistoricoPeriodos(){
+  const { meses, anos } = calcularHistoricoClichePorPeriodo();
+
+  const tbodyMensal = document.querySelector('#cliche-mensal-table tbody');
+  const chavesMeses = Object.keys(meses).sort((a,b)=> b.localeCompare(a));
+  tbodyMensal.innerHTML = chavesMeses.length ? chavesMeses.map(chave=>{
+    const [ano,mes] = chave.split('-');
+    const v = meses[chave];
+    const total = v.cliente + v.rioplastic + v.regrav;
+    return `
+    <tr>
+      <td class="pedido">${NOMES_MESES[parseInt(mes)-1]}/${ano}</td>
+      <td class="val">${fmtBRL(v.cliente)}</td>
+      <td class="val">${fmtBRL(v.rioplastic)}</td>
+      <td class="val">${fmtBRL(v.regrav)}</td>
+      <td class="val" style="font-weight:700;">${fmtBRL(total)}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="5" class="hist-empty">Nenhum valor de clichê registrado ainda.</td></tr>`;
+
+  const tbodyAnual = document.querySelector('#cliche-anual-table tbody');
+  const chavesAnos = Object.keys(anos).sort((a,b)=> b.localeCompare(a));
+  tbodyAnual.innerHTML = chavesAnos.length ? chavesAnos.map(ano=>{
+    const v = anos[ano];
+    const total = v.cliente + v.rioplastic + v.regrav;
+    return `
+    <tr>
+      <td class="pedido">${ano}</td>
+      <td class="val">${fmtBRL(v.cliente)}</td>
+      <td class="val">${fmtBRL(v.rioplastic)}</td>
+      <td class="val">${fmtBRL(v.regrav)}</td>
+      <td class="val" style="font-weight:700;">${fmtBRL(total)}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="5" class="hist-empty">Nenhum valor de clichê registrado ainda.</td></tr>`;
+}
+
+/* ========================================================================
+   REGRAVAÇÃO DE CLICHÊ — registros manuais
+   ======================================================================== */
+function fmtDataISO(iso){
+  if(!iso) return '—';
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+function renderRegravacao(){
+  const tbody = document.querySelector('#regravacao-table tbody');
+  tbody.innerHTML = regravacoes.length ? regravacoes
+    .slice().reverse()
+    .map(r=>`
+    <tr>
+      <td class="pedido">${r.os || '—'}</td>
+      <td>${fmtCodigo(r.codigo) || '—'}</td>
+      <td>${r.item || '—'}</td>
+      <td class="val">${r.valorCliche!=null ? fmtBRL(r.valorCliche) : '—'}</td>
+      <td>${fmtDataISO(r.dataSolicitacao)}</td>
+      <td>${fmtDataISO(r.dataChegada)}</td>
+      <td style="text-align:right;"><button class="icon-btn danger btn-del-regrav" data-id="${r.id}" title="Excluir">&#128465;</button></td>
+    </tr>`).join('') : `<tr><td colspan="7" class="hist-empty">Nenhuma regravação de clichê registrada ainda.</td></tr>`;
+
+  tbody.querySelectorAll('.btn-del-regrav').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const id = btn.dataset.id;
+      if(!confirm('Excluir este registro de regravação de clichê?')) return;
+      regravacoes = regravacoes.filter(r=>r.id!==id);
+      await saveState();
+      renderRegravacao();
+      renderHomeCards();
+    });
+  });
+}
+let regravUltimoAutoNome = '';
+document.getElementById('regrav-codigo-input').addEventListener('input', (e)=>{
+  const cod = fmtCodigo(e.target.value.trim());
+  const nomeEncontrado = catalogoItens[cod]?.nome;
+  const itemInput = document.getElementById('regrav-item-input');
+  if(nomeEncontrado){
+    if(itemInput.value.trim()==='' || itemInput.value===regravUltimoAutoNome){
+      itemInput.value = nomeEncontrado;
+      regravUltimoAutoNome = nomeEncontrado;
+    }
+  }
+});
+document.getElementById('regrav-add-btn').addEventListener('click', async ()=>{
+  const os = document.getElementById('regrav-os-input').value.trim();
+  const codigo = document.getElementById('regrav-codigo-input').value.trim();
+  const item = document.getElementById('regrav-item-input').value.trim();
+  const rawValor = document.getElementById('regrav-valor-input').value.replace(/\./g,'').replace(',', '.').replace(/[^\d.]/g,'');
+  const valorCliche = rawValor ? parseFloat(rawValor) : null;
+  const dataSolicitacao = document.getElementById('regrav-data-solicitacao-input').value || null;
+  const dataChegada = document.getElementById('regrav-data-chegada-input').value || null;
+
+  if(!os && !codigo && !item && valorCliche==null && !dataSolicitacao && !dataChegada){ return; }
+
+  regravacoes.push({
+    id: 'reg_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
+    os, codigo, item, valorCliche, dataSolicitacao, dataChegada,
+    criadoEm: new Date().toISOString()
+  });
+  await saveState();
+
+  document.getElementById('regrav-os-input').value = '';
+  document.getElementById('regrav-codigo-input').value = '';
+  document.getElementById('regrav-item-input').value = '';
+  document.getElementById('regrav-valor-input').value = '';
+  document.getElementById('regrav-data-solicitacao-input').value = '';
+  document.getElementById('regrav-data-chegada-input').value = '';
+  regravUltimoAutoNome = '';
+  renderRegravacao();
+  renderHomeCards();
+});
+document.querySelectorAll('.hist-tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.hist-tab').forEach(t=>t.classList.remove('active'));
+    tab.classList.add('active');
+    currentHistTab = tab.dataset.tab;
+    renderHistory();
+  });
+});
+
+/* ========================================================================
+   CATÁLOGO DE ITENS — código + nome, deduplicado
+   ======================================================================== */
+let catalogoClienteFiltro = '';
+let catalogoVendedorFiltro = '';
+let catalogoDiametroFiltro = '';
+let catalogoSoNaoIdentificados = false;
+function renderCatalogo(){
+  const tbody = document.querySelector('#catalogo-table tbody');
+  const t = catalogoSearchTerm.toLowerCase();
+
+  // popular o seletor de clientes (uma vez, preservando a seleção atual)
+  const select = document.getElementById('catalogo-cliente-filter');
+  const clientesUnicos = [...new Set(Object.values(catalogoItens).flatMap(v=>[...v.clientes]))].sort((a,b)=>a.localeCompare(b));
+  const opcoesAtuais = select.options.length - 1;
+  if(opcoesAtuais !== clientesUnicos.length){
+    select.innerHTML = `<option value="">Todos os clientes</option>` + clientesUnicos.map(c=>`<option value="${c}">${c}</option>`).join('');
+    select.value = catalogoClienteFiltro;
+  }
+
+  // popular o seletor de representantes (uma vez, preservando a seleção atual)
+  const selectVendedor = document.getElementById('catalogo-vendedor-filter');
+  const vendedoresUnicos = [...new Set(Object.values(catalogoItens).map(v=>v.vendedor).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const opcoesVendedorAtuais = selectVendedor.options.length - 1;
+  if(opcoesVendedorAtuais !== vendedoresUnicos.length){
+    selectVendedor.innerHTML = `<option value="">Todos os representantes</option>` + vendedoresUnicos.map(v=>`<option value="${v}">${v}</option>`).join('');
+    selectVendedor.value = catalogoVendedorFiltro;
+  }
+
+  // popular o seletor de diâmetros (lista fixa, só precisa ser feito uma vez)
+  const selectDiametro = document.getElementById('catalogo-diametro-filter');
+  if(selectDiametro.options.length === 1){
+    selectDiametro.innerHTML = `<option value="">Todos os diâmetros</option>`
+      + DIAMETROS_CONHECIDOS.map(d=>`<option value="${d}">Ø ${d}</option>`).join('')
+      + `<option value="nao-identificado">&#9888; Não identificado</option>`;
+    selectDiametro.value = catalogoDiametroFiltro;
+  }
+
+  const linhas = Object.entries(catalogoItens)
+    .filter(([cod,info])=> !t || cod.toLowerCase().includes(t) || info.nome.toLowerCase().includes(t))
+    .filter(([cod,info])=> !catalogoClienteFiltro || info.clientes.has(catalogoClienteFiltro))
+    .filter(([cod,info])=> !catalogoVendedorFiltro || info.vendedor === catalogoVendedorFiltro)
+    .filter(([cod,info])=>{
+      if(!catalogoDiametroFiltro) return true;
+      const {diametro, origem} = diametroDoItem(cod, info.nome);
+      if(catalogoDiametroFiltro === 'nao-identificado') return origem !== 'auto' && origem !== 'manual';
+      return diametro === parseInt(catalogoDiametroFiltro,10);
+    })
+    .filter(([cod,info])=>{
+      if(!catalogoSoNaoIdentificados) return true;
+      const origem = diametroDoItem(cod, info.nome).origem;
+      return origem !== 'auto' && origem !== 'manual';
+    })
+    .sort((a,b)=> a[0].localeCompare(b[0]));
+
+  tbody.innerHTML = linhas.length ? linhas.map(([cod,info])=>{
+    const {diametro, origem} = diametroDoItem(cod, info.nome);
+    let colDiametro;
+    if(diametro!=null && origem==='auto'){
+      colDiametro = `<span class="mono-label" style="font-weight:700;">Ø ${diametro}</span>`;
+    } else if(diametro!=null && origem==='manual'){
+      colDiametro = `<span class="mono-label" style="font-weight:700; color:var(--blue-dark);">Ø ${diametro}</span> <button class="diametro-limpar" data-cod="${cod}" title="Remover identificação manual" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:11px; padding:0 0 0 4px;">&times;</button>`;
+    } else {
+      const opcoesExtra = diametro!=null && origem==='auto-desconhecido' ? `<option value="${diametro}">Detectado: ${diametro} (não está na lista)</option>` : '';
+      colDiametro = `
+        <select class="diametro-select" data-cod="${cod}" style="background:var(--panel-alt); border:1px solid var(--border); border-radius:7px; padding:5px 8px; font-size:12px; font-family:'IBM Plex Mono',monospace; color:var(--red);">
+          <option value="">${diametro!=null ? '⚠ não reconhecido — identificar' : '⚠ não identificado'}</option>
+          ${opcoesExtra}
+          ${DIAMETROS_CONHECIDOS.map(d=>`<option value="${d}">Ø ${d}</option>`).join('')}
+        </select>`;
+    }
+    return `
+    <tr>
+      <td class="pedido">${cod}</td>
+      <td>${info.nome}</td>
+      <td style="color:var(--text-dim); font-size:12px;">${[...info.clientes].join(', ')}</td>
+      <td style="color:var(--text-dim); font-size:12px;">${info.vendedor || '—'}</td>
+      <td>${colDiametro}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="5" class="hist-empty">${catalogoSoNaoIdentificados ? 'Nenhum item pendente de identificação — tudo certo! 🎉' : 'Nenhum item encontrado.'}</td></tr>`;
+
+  tbody.querySelectorAll('.diametro-select').forEach(sel=>{
+    sel.addEventListener('change', async (e)=>{
+      const cod = e.target.dataset.cod;
+      const val = e.target.value;
+      if(val){
+        diametrosManual[cod] = parseInt(val,10);
+        await saveState();
+        renderCatalogo();
+      }
+    });
+  });
+  tbody.querySelectorAll('.diametro-limpar').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      e.stopPropagation();
+      const cod = btn.dataset.cod;
+      delete diametrosManual[cod];
+      await saveState();
+      renderCatalogo();
+    });
+  });
+}
+document.getElementById('catalogo-search-input').addEventListener('input', (e)=>{
+  catalogoSearchTerm = e.target.value.trim();
+  renderCatalogo();
+});
+document.getElementById('catalogo-cliente-filter').addEventListener('change', (e)=>{
+  catalogoClienteFiltro = e.target.value;
+  renderCatalogo();
+});
+document.getElementById('catalogo-vendedor-filter').addEventListener('change', (e)=>{
+  catalogoVendedorFiltro = e.target.value;
+  renderCatalogo();
+});
+document.getElementById('catalogo-diametro-filter').addEventListener('change', (e)=>{
+  catalogoDiametroFiltro = e.target.value;
+  renderCatalogo();
+});
+document.getElementById('catalogo-toggle-nao-identificados').addEventListener('click', (e)=>{
+  catalogoSoNaoIdentificados = !catalogoSoNaoIdentificados;
+  e.currentTarget.classList.toggle('on', catalogoSoNaoIdentificados);
+  renderCatalogo();
+});
+
+/* ========================================================================
+   TABELA DE CÓDIGOS INTERNOS
+   ======================================================================== */
+let codigosSearchTerm = '';
+let codigosEditando = false;
+const CODIGOS_LABELS = { medida:"Medida", produto:"Produto", ex:"Ex.", alt:"Alt.", larg:"Larg.", diametro:"Diâmetro" };
+function renderCodigosInternos(){
+  const wrap = document.getElementById('codigos-categorias');
+  const t = codigosSearchTerm.toLowerCase();
+
+  const html = TABELA_CODIGOS_INTERNOS.map((cat,ci)=>{
+    const linhasIdx = cat.itens
+      .map((it,ii)=>({it,ii}))
+      .filter(({it})=> codigosEditando || !t || it.codigo.toLowerCase().includes(t) || (it.produto||'').toLowerCase().includes(t) || (it.ex||'').toLowerCase().includes(t));
+    if(!linhasIdx.length && !codigosEditando) return '';
+    const colunas = cat.colunas;
+    return `
+      <div class="codigos-categoria">
+        <div class="codigos-categoria-header">${cat.categoria}</div>
+        <table class="codigos">
+          <thead><tr><th>Código</th>${colunas.map(c=>`<th>${CODIGOS_LABELS[c]}</th>`).join('')}${codigosEditando ? '<th></th>' : ''}</tr></thead>
+          <tbody>
+            ${linhasIdx.map(({it,ii})=> codigosEditando ? `
+            <tr>
+              <td><input value="${it.codigo||''}" data-cat="${ci}" data-idx="${ii}" data-field="codigo"></td>
+              ${colunas.map(c=>`<td><input value="${it[c]||''}" data-cat="${ci}" data-idx="${ii}" data-field="${c}" class="${c==='alt'||c==='larg' ? 'num-input':''}"></td>`).join('')}
+              <td><button class="codigos-del-btn" data-cat="${ci}" data-idx="${ii}" title="Remover item">&#128465;</button></td>
+            </tr>` : `
+            <tr>
+              <td class="cod">${it.codigo}</td>
+              ${colunas.map(c=>`<td class="${c==='produto'||c==='ex' ? '' : 'num'}">${it[c]||''}</td>`).join('')}
+            </tr>`).join('')}
+          </tbody>
+        </table>
+        ${codigosEditando ? `<div class="codigos-add-row"><button class="codigos-add-item" data-cat="${ci}">+ Adicionar item em ${cat.categoria}</button></div>` : ''}
+      </div>`;
+  }).join('');
+
+  wrap.innerHTML = (html || `<div class="placeholder-card" style="margin-top:16px;">Nenhum código encontrado.</div>`)
+    + `<p style="font-size:11.5px; color:var(--text-faint); margin-top:14px;">Valores com * ainda aguardam confirmação.</p>`;
+
+  document.getElementById('codigos-ultima-atualizacao').textContent = codigosUltimaAtualizacao;
+
+  if(codigosEditando){
+    wrap.querySelectorAll('input[data-field]').forEach(inp=>{
+      inp.addEventListener('input', (e)=>{
+        const ci = parseInt(e.target.dataset.cat), ii = parseInt(e.target.dataset.idx), field = e.target.dataset.field;
+        TABELA_CODIGOS_INTERNOS[ci].itens[ii][field] = e.target.value;
+      });
+    });
+    wrap.querySelectorAll('.codigos-del-btn').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const ci = parseInt(btn.dataset.cat), ii = parseInt(btn.dataset.idx);
+        TABELA_CODIGOS_INTERNOS[ci].itens.splice(ii,1);
+        renderCodigosInternos();
+      });
+    });
+    wrap.querySelectorAll('.codigos-add-item').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const ci = parseInt(btn.dataset.cat);
+        const novoItem = { codigo:'' };
+        TABELA_CODIGOS_INTERNOS[ci].colunas.forEach(c=> novoItem[c] = '');
+        TABELA_CODIGOS_INTERNOS[ci].itens.push(novoItem);
+        renderCodigosInternos();
+      });
+    });
+  }
+}
+document.getElementById('codigos-search-input').addEventListener('input', (e)=>{
+  codigosSearchTerm = e.target.value.trim();
+  renderCodigosInternos();
+});
+document.getElementById('codigos-editar-btn').addEventListener('click', async ()=>{
+  if(!codigosEditando){
+    codigosEditando = true;
+    const btn = document.getElementById('codigos-editar-btn');
+    btn.textContent = '💾 SALVAR';
+    btn.classList.add('on');
+    document.getElementById('codigos-search-wrap').style.display = 'none';
+  }else{
+    codigosEditando = false;
+    codigosUltimaAtualizacao = new Date().toLocaleDateString('pt-BR');
+    await saveState();
+    const btn = document.getElementById('codigos-editar-btn');
+    btn.textContent = '✎ EDITAR';
+    btn.classList.remove('on');
+    document.getElementById('codigos-search-wrap').style.display = 'flex';
+  }
+  renderCodigosInternos();
+});
+document.getElementById('codigos-exportar-btn').addEventListener('click', ()=>{
+  if(codigosEditando){ alert('Salve as alterações antes de exportar o PDF.'); return; }
+  window.print();
+});
+
+/* ========================================================================
+   LEAD TIME POR BOCA — tempo atual x proposta, por etapa
+   ======================================================================== */
+function renderLeadTime(){
+  const wrap = document.getElementById('leadtime-table-wrap');
+
+  if(!leadTimePorBoca.length){
+    wrap.innerHTML = `<div class="placeholder-card"><div style="font-size:28px; margin-bottom:10px;">&#128337;</div>Nenhum diâmetro cadastrado ainda.</div>`;
+  } else {
+    wrap.innerHTML = `
+      <table class="leadtime">
+        <thead>
+          <tr>
+            <th rowspan="2">Diâmetro</th>
+            <th rowspan="2">Atual</th>
+            <th colspan="5">Proposta</th>
+            <th rowspan="2"></th>
+          </tr>
+          <tr>
+            <th class="th-sub">Comercial</th>
+            <th class="th-sub">PCP</th>
+            <th class="th-sub">Artes</th>
+            <th class="th-sub">Produção</th>
+            <th class="th-sub">Logística</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${leadTimePorBoca.map((lt,idx)=>`
+          <tr>
+            <td class="diametro">Ø ${lt.diametro}</td>
+            <td><input type="number" class="lt-input lt-atual" data-idx="${idx}" data-field="atual" value="${lt.atual}"></td>
+            <td><input type="number" class="lt-input" data-idx="${idx}" data-field="comercial" value="${lt.comercial}"></td>
+            <td><input type="number" class="lt-input" data-idx="${idx}" data-field="pcp" value="${lt.pcp}"></td>
+            <td><input type="number" class="lt-input lt-highlight" data-idx="${idx}" data-field="artes" value="${lt.artes}"></td>
+            <td><input type="number" class="lt-input lt-highlight" data-idx="${idx}" data-field="producao" value="${lt.producao}"></td>
+            <td><input type="number" class="lt-input" data-idx="${idx}" data-field="logistica" value="${lt.logistica}"></td>
+            <td><button class="leadtime-del-btn" data-idx="${idx}" title="Remover diâmetro">&times;</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    `;
+    wrap.querySelectorAll('.lt-input').forEach(inp=>{
+      inp.addEventListener('change', async (e)=>{
+        const idx = parseInt(e.target.dataset.idx,10), field = e.target.dataset.field;
+        const val = parseFloat(e.target.value);
+        leadTimePorBoca[idx][field] = isNaN(val) ? 0 : val;
+        await saveState();
+      });
+    });
+    wrap.querySelectorAll('.leadtime-del-btn').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const idx = parseInt(btn.dataset.idx,10);
+        leadTimePorBoca.splice(idx,1);
+        await saveState();
+        renderLeadTime();
+      });
+    });
+  }
+
+  // seletor de "adicionar diâmetro": só lista os que ainda não estão na tabela
+  const addSelect = document.getElementById('leadtime-add-select');
+  const jaTem = new Set(leadTimePorBoca.map(lt=>lt.diametro));
+  const disponiveis = DIAMETROS_CONHECIDOS.filter(d=>!jaTem.has(d));
+  addSelect.innerHTML = disponiveis.length
+    ? disponiveis.map(d=>`<option value="${d}">Ø ${d}</option>`).join('')
+    : `<option value="">Todos os diâmetros já cadastrados</option>`;
+  document.getElementById('leadtime-add-btn').disabled = disponiveis.length===0;
+}
+document.getElementById('leadtime-add-btn').addEventListener('click', async ()=>{
+  const val = parseInt(document.getElementById('leadtime-add-select').value,10);
+  if(!val) return;
+  leadTimePorBoca.push(LT(val, 0,0,0,0,0,0));
+  leadTimePorBoca.sort((a,b)=>a.diametro-b.diametro);
+  await saveState();
+  renderLeadTime();
+});
+
+/* ========================================================================
+   NAVEGAÇÃO ENTRE TELAS (sidebar)
+   ======================================================================== */
+const VIEW_TITULOS = {
+  home: "Controle de fluxo de artes",
+  board: "Fluxo de artes",
+  cliche: "Custo de clichê",
+  regravacao: "Regravação de clichê",
+  catalogo: "Catálogo de itens",
+  codigos: "Tabela de Códigos",
+  leadtime: "Lead time por boca",
+  history: "Histórico",
+};
+const VIEWS_COM_STATUS_LINE = new Set(['home','board']);
+function switchView(view){
+  currentView = view;
+  document.getElementById('view-home').style.display = view==='home' ? 'block' : 'none';
+  document.getElementById('view-board').style.display = view==='board' ? 'block' : 'none';
+  document.getElementById('view-cliche').style.display = view==='cliche' ? 'block' : 'none';
+  document.getElementById('view-regravacao').style.display = view==='regravacao' ? 'block' : 'none';
+  document.getElementById('view-catalogo').style.display = view==='catalogo' ? 'block' : 'none';
+  document.getElementById('view-codigos').style.display = view==='codigos' ? 'block' : 'none';
+  document.getElementById('view-leadtime').style.display = view==='leadtime' ? 'block' : 'none';
+  document.getElementById('view-history').style.display = view==='history' ? 'block' : 'none';
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.querySelectorAll(`[data-view="${view}"]`).forEach(n=>{ if(!n.classList.contains('disabled')) n.classList.add('active'); });
+  document.getElementById('page-title').textContent = VIEW_TITULOS[view] || 'Controle de fluxo de artes';
+  document.getElementById('status-line-wrap').style.display = VIEWS_COM_STATUS_LINE.has(view) ? 'block' : 'none';
+  if(view==='history') renderHistory();
+  if(view==='cliche') renderClicheHistory();
+  if(view==='regravacao') renderRegravacao();
+  if(view==='catalogo') renderCatalogo();
+  if(view==='codigos') renderCodigosInternos();
+  if(view==='leadtime') renderLeadTime();
+}
+document.querySelectorAll('.nav-item').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    if(btn.classList.contains('disabled')) return;
+    switchView(btn.dataset.view);
+  });
+});
+
+document.getElementById('search-input').addEventListener('input', (e)=>{
+  searchTerm = e.target.value.trim();
+  renderAll();
+});
+
+/* ========================================================================
+   CARD HOME — custo de clichê do mês atual
+   ======================================================================== */
+const NOMES_MESES = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+function estaNoMesAtual(dataStr){
+  if(!dataStr) return false;
+  const d = new Date(dataStr);
+  const agora = new Date();
+  return d.getFullYear()===agora.getFullYear() && d.getMonth()===agora.getMonth();
+}
+function listaClicheMesAtual(){
+  const pedidosMes = [];
+  [...pedidos, ...historico.filter(p=>p.tipo==='finalizado')].forEach(p=>{
+    if(!estaNoMesAtual(p.clicheRegistradoEm)) return;
+    if(p.valorClicheTotal==null && p.valorClichePedido==null) return;
+
+    const totalEfetivo = p.valorClicheTotal!=null ? p.valorClicheTotal : p.valorClichePedido;
+    const cobradoCliente = p.clicheBonificado ? 0 : (p.valorClichePedido!=null ? p.valorClichePedido : totalEfetivo);
+    const parteRioplastic = Math.max(0, totalEfetivo - cobradoCliente);
+    pedidosMes.push({ p, totalEfetivo, cobradoCliente, parteRioplastic });
+  });
+  const regravMes = regravacoes.filter(r=> r.valorCliche!=null && estaNoMesAtual(r.dataSolicitacao || r.criadoEm));
+  return { pedidosMes, regravMes };
+}
+function calcularClicheMesAtual(){
+  const { pedidosMes, regravMes } = listaClicheMesAtual();
+  const totalPedidos = pedidosMes.reduce((s,x)=>s+x.cobradoCliente, 0);
+  const totalRioplastic = pedidosMes.reduce((s,x)=>s+x.parteRioplastic, 0);
+  const totalRegrav = regravMes.reduce((s,r)=>s+r.valorCliche, 0);
+  return { totalPedidos, totalRegrav, totalRioplastic, total: totalPedidos + totalRegrav + totalRioplastic };
+}
+function renderHomeCards(){
+  const agora = new Date();
+  const { totalPedidos, totalRegrav, totalRioplastic, total } = calcularClicheMesAtual();
+  document.getElementById('hcm-mes-nome').textContent = `Custo de clichê — ${NOMES_MESES[agora.getMonth()]}/${agora.getFullYear()}`;
+  document.getElementById('hcm-valor-total').textContent = fmtBRL(total);
+  document.getElementById('hcm-valor-pedidos').textContent = fmtBRL(totalPedidos);
+  document.getElementById('hcm-valor-regrav').textContent = fmtBRL(totalRegrav);
+  document.getElementById('hcm-valor-rioplastic').textContent = fmtBRL(totalRioplastic);
+
+  document.getElementById('hcf-valor-total').textContent = pedidos.length;
+  const pesoTotalFluxo = pedidos.reduce((s,p)=>s+(p.pesoTotal||0), 0);
+  const valorTotalFluxo = pedidos.reduce((s,p)=>s+(p.valorTotal||0), 0);
+  document.getElementById('hcf-valor-peso').textContent = fmtKg(pesoTotalFluxo);
+  document.getElementById('hcf-valor-money').textContent = fmtBRL(valorTotalFluxo);
+}
+function openClicheMesModal(){
+  const agora = new Date();
+  const { pedidosMes, regravMes } = listaClicheMesAtual();
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  modal.classList.add('modal-wide');
+
+  const pedidosRows = pedidosMes.length ? pedidosMes
+    .sort((a,b)=> b.totalEfetivo - a.totalEfetivo)
+    .map(({p,totalEfetivo,cobradoCliente,parteRioplastic})=>`
+    <tr>
+      <td class="pedido"><button class="link-pedido-cliche" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">#${p.pedido}</button></td>
+      <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
+      <td class="val">${fmtBRL(totalEfetivo)}</td>
+      <td class="val">${p.clicheBonificado ? `<span class="tag tag-repeticao">BONIFICADO</span>` : fmtBRL(cobradoCliente)}</td>
+      <td class="val">${fmtBRL(parteRioplastic)}</td>
+    </tr>`).join('') : `<tr><td colspan="5" class="hist-empty">Nenhum pedido com clichê lançado este mês.</td></tr>`;
+
+  const regravRows = regravMes.length ? regravMes
+    .sort((a,b)=> new Date(b.criadoEm) - new Date(a.criadoEm))
+    .map(r=>`
+    <tr>
+      <td class="pedido">${r.os || '—'}</td>
+      <td>${fmtCodigo(r.codigo) || '—'}</td>
+      <td>${r.item || '—'}</td>
+      <td class="val">${fmtBRL(r.valorCliche)}</td>
+    </tr>`).join('') : `<tr><td colspan="4" class="hist-empty">Nenhuma regravação registrada este mês.</td></tr>`;
+
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div>
+        <h2 style="font-size:18px;">Custo de clichê — ${NOMES_MESES[agora.getMonth()]}/${agora.getFullYear()}</h2>
+        <p>Pedidos cobrados e regravações registradas neste mês</p>
+      </div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+
+    <hr class="divider">
+    <div class="k" style="font-size:12.5px; margin-bottom:8px;">Pedidos com clichê este mês (${pedidosMes.length})</div>
+    <div class="hist-table-wrap" style="margin-bottom:18px;">
+      <table class="hist">
+        <thead><tr><th>Pedido</th><th>Cliente</th><th style="text-align:right;">Valor total</th><th style="text-align:right;">Cobrado do cliente</th><th style="text-align:right;">Rioplastic</th></tr></thead>
+        <tbody>${pedidosRows}</tbody>
+      </table>
+    </div>
+
+    <div class="k" style="font-size:12.5px; margin-bottom:8px;">Regravações este mês (${regravMes.length})</div>
+    <div class="hist-table-wrap">
+      <table class="hist">
+        <thead><tr><th>OS</th><th>Código</th><th>Item</th><th style="text-align:right;">Valor</th></tr></thead>
+        <tbody>${regravRows}</tbody>
+      </table>
+    </div>
+  `;
+
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  modal.querySelectorAll('.link-pedido-cliche').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      modal.classList.remove('modal-wide');
+      openModal(btn.dataset.id);
+    });
+  });
+  overlay.classList.add('open');
+}
+document.getElementById('home-card-cliche-mes').addEventListener('click', ()=>{
+  openClicheMesModal();
+});
+
+function openFluxoModal(){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  modal.classList.add('modal-wide');
+
+  const FASE_ARTE_IDS = [0,2,3,4,5,6];
+  const FASE_CLICHE_IDS = [7,8,9,10];
+  const fases = {
+    arte:   { label:'Em arte',            cor:'var(--gold)', pedidos: pedidos.filter(p=>FASE_ARTE_IDS.includes(p.stage)) },
+    cliche: { label:'Em clichê',          cor:'var(--blue)', pedidos: pedidos.filter(p=>FASE_CLICHE_IDS.includes(p.stage)) },
+    layout: { label:'Aguardando layout',  cor:'var(--green)', pedidos: pedidos.filter(p=>p.stage===1) },
+  };
+  const maiorValor = Math.max(fases.arte.pedidos.length, fases.cliche.pedidos.length, fases.layout.pedidos.length, 1);
+  const ALTURA_MAX = 120;
+
+  const colunas = Object.entries(fases).map(([key,f])=>{
+    const altura = Math.max(4, Math.round(f.pedidos.length/maiorValor*ALTURA_MAX));
+    return `
+    <div class="fluxo-col" data-fase="${key}" style="display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; flex:1;">
+      <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:14px; color:var(--text);">${f.pedidos.length}</span>
+      <div style="width:100%; max-width:64px; height:${ALTURA_MAX}px; display:flex; align-items:flex-end; background:var(--panel-alt); border-radius:8px; overflow:hidden;">
+        <div class="fluxo-bar" data-fase="${key}" style="width:100%; height:${altura}px; background:${f.cor}; border-radius:8px 8px 0 0; transition:filter .15s ease;"></div>
+      </div>
+      <span style="font-size:11.5px; color:var(--text-dim); text-align:center; line-height:1.25;">${f.label}</span>
+    </div>`;
+  }).join('');
+
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div>
+        <h2 style="font-size:18px;">Fluxo de artes</h2>
+        <p>${pedidos.length} pedido${pedidos.length===1?'':'s'} parado${pedidos.length===1?'':'s'} em Artes</p>
+      </div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+
+    <hr class="divider">
+    <div class="k" style="font-size:12.5px; margin-bottom:14px;">Distribuição por fase — clique numa barra para ver os pedidos</div>
+    <div style="display:flex; gap:22px; justify-content:center; margin-bottom:10px;">${colunas}</div>
+
+    <div id="fluxo-resultado"></div>
+  `;
+
+  function renderResultado(faseKey){
+    const f = fases[faseKey];
+    modal.querySelectorAll('.fluxo-col').forEach(c=>{
+      c.style.opacity = c.dataset.fase === faseKey ? '1' : '.45';
+    });
+    const rows = f.pedidos.length ? f.pedidos
+      .slice()
+      .sort((a,b)=>parseDateBR(a.entrega)-parseDateBR(b.entrega))
+      .map(p=>{
+        const st = STAGES.find(s=>s.id===p.stage);
+        return `
+        <tr>
+          <td class="pedido"><button class="link-pedido-cliche" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">#${p.pedido}</button></td>
+          <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
+          <td>${st ? `${st.id} — ${st.nome}` : '—'}</td>
+          <td>${p.entrega}</td>
+        </tr>`;
+      }).join('') : `<tr><td colspan="4" class="hist-empty">Nenhum pedido nessa fase.</td></tr>`;
+
+    document.getElementById('fluxo-resultado').innerHTML = `
+      <hr class="divider">
+      <div class="k" style="font-size:12.5px; margin-bottom:10px;">${f.label} (${f.pedidos.length})</div>
+      <div class="hist-table-wrap">
+        <table class="hist">
+          <thead><tr><th>Pedido</th><th>Cliente</th><th>Etapa</th><th>Entrega</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+    modal.querySelectorAll('.link-pedido-cliche').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        modal.classList.remove('modal-wide');
+        openModal(btn.dataset.id);
+      });
+    });
+  }
+
+  modal.querySelectorAll('.fluxo-col').forEach(col=>{
+    col.addEventListener('click', ()=>renderResultado(col.dataset.fase));
+  });
+
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  overlay.classList.add('open');
+}
+document.getElementById('home-card-fluxo').addEventListener('click', ()=>{
+  openFluxoModal();
+});
+
+/* ========================================================================
+   INIT
+   ======================================================================== */
+function renderAll(){
+  renderPageHeader();
+  renderAccordion();
+  renderHomeCards();
+  if(currentView === 'history') renderHistory();
+  if(currentView === 'cliche') renderClicheHistory();
+}
+
+(async function init(){
+  await loadState();
+  switchView('home');
+  renderAll();
+})();
+</script>
+</body>
+</html>
