@@ -641,7 +641,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v1.8 · 10/08/2026';
+const APP_VERSION = 'v1.9 · 10/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -2449,14 +2449,26 @@ function renderCatalogo(){
   const tbody = document.querySelector('#catalogo-table tbody');
   const t = catalogoSearchTerm.toLowerCase();
 
-  // popular o seletor de clientes (uma vez, preservando a seleção atual)
+  // mapa real cliente -> vendedores (a partir dos pedidos, não dos itens —
+  // mais preciso, já que um item pode ter sido vendido por mais de um vendedor)
+  const vendedoresPorCliente = {};
+  [...pedidos, ...historico].forEach(p=>{
+    if(!p.vendedor) return;
+    if(!vendedoresPorCliente[p.clienteNome]) vendedoresPorCliente[p.clienteNome] = new Set();
+    vendedoresPorCliente[p.clienteNome].add(p.vendedor);
+  });
+
+  // popular o seletor de clientes — se um representante estiver selecionado,
+  // mostra só os clientes atendidos por ele
   const select = document.getElementById('catalogo-cliente-filter');
-  const clientesUnicos = [...new Set(Object.values(catalogoItens).flatMap(v=>[...v.clientes]))].sort((a,b)=>a.localeCompare(b));
-  const opcoesAtuais = select.options.length - 1;
-  if(opcoesAtuais !== clientesUnicos.length){
-    select.innerHTML = `<option value="">Todos os clientes</option>` + clientesUnicos.map(c=>`<option value="${c}">${c}</option>`).join('');
-    select.value = catalogoClienteFiltro;
+  let clientesUnicos = [...new Set(Object.values(catalogoItens).flatMap(v=>[...v.clientes]))];
+  if(catalogoVendedorFiltro){
+    clientesUnicos = clientesUnicos.filter(c => vendedoresPorCliente[c] && vendedoresPorCliente[c].has(catalogoVendedorFiltro));
   }
+  clientesUnicos.sort((a,b)=>a.localeCompare(b));
+  if(catalogoClienteFiltro && !clientesUnicos.includes(catalogoClienteFiltro)) catalogoClienteFiltro = '';
+  select.innerHTML = `<option value="">Todos os clientes</option>` + clientesUnicos.map(c=>`<option value="${c}">${c}</option>`).join('');
+  select.value = catalogoClienteFiltro;
 
   // popular o seletor de representantes (uma vez, preservando a seleção atual)
   const selectVendedor = document.getElementById('catalogo-vendedor-filter');
