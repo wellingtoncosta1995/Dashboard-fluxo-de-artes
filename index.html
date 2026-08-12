@@ -708,7 +708,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v3.0 · 12/08/2026';
+const APP_VERSION = 'v3.1 · 12/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -1365,6 +1365,9 @@ function fmtDateTime(iso){
   const d = new Date(iso);
   return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 }
+function fmtDate(iso){
+  return new Date(iso).toLocaleDateString('pt-BR');
+}
 function fmtTime(iso){
   if(!iso) return '--:--';
   return new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
@@ -1791,7 +1794,7 @@ function openModal(id){
     return `
       <div class="alt-item" data-idx="${idx}" style="${atual ? 'border-left:3px solid var(--gold); padding-left:9px;' : ''}">
         <div class="alt-date-row" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-          <span class="alt-date">${fmtDateTime(h.entradaEm)}${atual ? ' — em andamento' : ''}</span>
+          <span class="alt-date">${fmtDate(h.entradaEm)}${atual ? ' — em andamento' : ''}</span>
           <span style="display:flex; gap:2px; flex-shrink:0;">
             <button class="alt-edit-btn" data-idx="${idx}" title="Corrigir data" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:12px; padding:2px 5px;">&#9998;</button>
             <button class="alt-del-btn" data-idx="${idx}" title="Excluir esta etapa" style="background:none; border:none; color:var(--red); cursor:pointer; font-size:13px; padding:2px 5px;">&times;</button>
@@ -1958,9 +1961,9 @@ function openModal(id){
       const row = btn.closest('.alt-item').querySelector('.alt-date-row');
       const d = new Date(item.entradaEm);
       const pad = n=>String(n).padStart(2,'0');
-      const localVal = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+      const localVal = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
       row.innerHTML = `
-        <input type="datetime-local" class="alt-date-input" value="${localVal}" style="font-size:12px; padding:5px 6px; border-radius:6px; border:1px solid var(--gold); font-family:'IBM Plex Mono',monospace; background:var(--panel-alt); color:var(--text);">
+        <input type="date" class="alt-date-input" value="${localVal}" style="font-size:12px; padding:5px 6px; border-radius:6px; border:1px solid var(--gold); font-family:'IBM Plex Mono',monospace; background:var(--panel-alt); color:var(--text);">
         <span style="display:flex; gap:2px; flex-shrink:0;">
           <button class="alt-save-btn" title="Salvar" style="background:none; border:none; color:var(--green-dark); cursor:pointer; font-size:13px; padding:2px 5px;">&#10003;</button>
           <button class="alt-cancel-btn" title="Cancelar" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:13px; padding:2px 5px;">&times;</button>
@@ -1969,7 +1972,11 @@ function openModal(id){
       row.querySelector('.alt-save-btn').addEventListener('click', async ()=>{
         const val = row.querySelector('.alt-date-input').value;
         if(!val) return;
-        p.stageHistory[idx].entradaEm = new Date(val).toISOString();
+        // mantém o horário original, só troca o dia
+        const [y,m,dia] = val.split('-').map(Number);
+        const novaData = new Date(item.entradaEm);
+        novaData.setFullYear(y, m-1, dia);
+        p.stageHistory[idx].entradaEm = novaData.toISOString();
         await saveState();
         renderAll();
         openModal(id);
