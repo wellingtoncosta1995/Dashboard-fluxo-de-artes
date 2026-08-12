@@ -700,7 +700,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v2.4 · 12/08/2026';
+const APP_VERSION = 'v2.5 · 12/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -1975,6 +1975,19 @@ function openModal(id){
 }
 function closeModal(){ document.getElementById('overlay').classList.remove('open'); document.getElementById('modal').classList.remove('modal-wide'); }
 document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
+
+document.addEventListener('keydown', (e)=>{
+  if(e.key !== 'Escape') return;
+  const overlay = document.getElementById('overlay');
+  if(overlay.classList.contains('open')){
+    closeModal();
+    return;
+  }
+  const menu = document.getElementById('settings-menu');
+  if(menu && menu.style.display !== 'none'){
+    menu.style.display = 'none';
+  }
+});
 
 /* ========================================================================
    EXPORTAR RELATÓRIO (CSV)
