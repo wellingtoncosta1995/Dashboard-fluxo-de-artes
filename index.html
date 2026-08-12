@@ -121,6 +121,38 @@
   .link-text{color:var(--blue);}
 
   .toolbar-row{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; align-items:center;}
+
+  .stage-cards{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;}
+  .stage-mini-card{
+    flex:1 1 96px; min-width:96px; max-width:150px; background:var(--panel-alt); border:1.5px solid var(--border-soft);
+    border-radius:10px; padding:9px 10px; cursor:pointer; transition:border-color .15s, background .15s;
+  }
+  .stage-mini-card:hover{border-color:var(--gold);}
+  .stage-mini-card.active{border-color:var(--gold); background:#F7F0DE;}
+  .stage-mini-card .smc-num{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--text-faint); font-weight:700;}
+  .stage-mini-card .smc-nome{font-size:11px; font-weight:600; color:var(--text); line-height:1.25; margin:2px 0 6px; min-height:28px;}
+  .stage-mini-card .smc-count{font-family:'Parkinsans',sans-serif; font-size:19px; font-weight:800; color:var(--gold-dark);}
+  .stage-mini-card .smc-count.zero{color:var(--text-faint);}
+
+  .lista-pedidos-wrap{overflow-x:auto;}
+  table.lista-pedidos{width:100%; border-collapse:collapse; font-size:12.5px;}
+  table.lista-pedidos thead th{
+    text-align:left; font-family:'Plus Jakarta Sans',sans-serif; font-size:10.5px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.3px; color:var(--text-faint); padding:8px 10px; border-bottom:1.5px solid var(--border-soft); white-space:nowrap;
+  }
+  table.lista-pedidos tbody tr{cursor:pointer; border-bottom:1px solid var(--border-soft); transition:background .12s;}
+  table.lista-pedidos tbody tr:hover{background:var(--panel-alt);}
+  table.lista-pedidos td{padding:9px 10px; vertical-align:middle; white-space:nowrap;}
+  table.lista-pedidos td.lp-cliente{white-space:normal; min-width:180px;}
+  table.lista-pedidos td.lp-cliente small{display:block; color:var(--text-faint); font-size:10.5px;}
+  table.lista-pedidos td.lp-num{text-align:right; font-family:'IBM Plex Mono',monospace; font-weight:700;}
+  table.lista-pedidos td.lp-etapa{white-space:normal;}
+  .lp-etapa-badge{display:inline-flex; align-items:center; gap:5px; background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:6px; padding:3px 8px; font-size:11px; font-weight:600;}
+  .lp-actions{display:flex; gap:4px; justify-content:flex-end;}
+  .lp-actions button{background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:6px; width:26px; height:26px; cursor:pointer; font-size:12px; color:var(--text-dim);}
+  .lp-actions button:hover{border-color:var(--gold); color:var(--gold-dark);}
+  .lp-actions button:disabled{opacity:.35; cursor:not-allowed;}
+  .lp-empty{padding:30px; text-align:center; color:var(--text-faint); font-size:13px;}
   .btn-outline{
     background:var(--panel); border:1.5px solid var(--border); color:var(--text);
     padding:10px 16px; border-radius:10px; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12px;
@@ -455,8 +487,11 @@
       <div class="topics-card">
         <p class="topics-intro"><span class="mono-label">TÓPICOS DO FLUXO INTERNO</span> <span class="link-text">clique num tópico para expandir e ver os pedidos parados</span></p>
 
+        <div class="stage-cards" id="stage-cards"></div>
+
         <div class="toolbar-row">
           <button class="btn-outline" id="btn-multiselect">&#9745; SELECIONAR VÁRIOS</button>
+          <button class="btn-outline" id="btn-toggle-view">&#9776; VER POR ETAPA</button>
           <div class="search-box">
             <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
             <input type="text" id="search-input" placeholder="Buscar pedido ou cliente...">
@@ -470,7 +505,27 @@
           <button class="btn small ghost" id="bulk-cancel">Cancelar</button>
         </div>
 
-        <div class="accordion" id="accordion"></div>
+        <div class="accordion" id="accordion" style="display:none;"></div>
+
+        <div class="lista-pedidos-wrap" id="lista-pedidos-wrap">
+          <table class="lista-pedidos">
+            <thead>
+              <tr>
+                <th></th>
+                <th>Pedido</th>
+                <th>Cliente</th>
+                <th>Vendedor</th>
+                <th>Classificação</th>
+                <th>Etapa atual</th>
+                <th>Entrega</th>
+                <th style="text-align:right;">Peso</th>
+                <th style="text-align:right;">Valor</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="lista-pedidos-tbody"></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -641,7 +696,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v1.9 · 10/08/2026';
+const APP_VERSION = 'v2.0 · 10/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -1188,6 +1243,8 @@ let nomeRelatorioAtual = '';
 let multiSelectMode = false;
 let selectedIds = new Set();
 let openStages = new Set(); // acordeões abertos
+let boardViewMode = 'lista'; // lista | etapas
+let filtroEtapaLista = null; // id da etapa selecionada nos cards, ou null = todas
 let lastSyncTime = null;
 let lastImportTime = null;
 let seedDescartada = false; // true depois de "Zerar pedidos": impede que os dados fixos antigos (sem vendedor) voltem
@@ -1332,6 +1389,101 @@ function renderPageHeader(){
 /* ========================================================================
    RENDER — ACORDEÃO DE TÓPICOS
    ======================================================================== */
+function renderBoard(){
+  renderStageCards();
+  document.getElementById('accordion').style.display = boardViewMode==='etapas' ? 'block' : 'none';
+  document.getElementById('lista-pedidos-wrap').style.display = boardViewMode==='lista' ? 'block' : 'none';
+  if(boardViewMode==='etapas') renderAccordion();
+  else renderListaPedidos();
+}
+
+function renderStageCards(){
+  const wrap = document.getElementById('stage-cards');
+  wrap.innerHTML = STAGES.map(stage=>{
+    const count = pedidos.filter(p=>p.stage===stage.id).length;
+    const isActive = filtroEtapaLista === stage.id;
+    return `
+      <div class="stage-mini-card ${isActive?'active':''}" data-stage="${stage.id}">
+        <div class="smc-num">${stage.id}</div>
+        <div class="smc-nome">${stage.nome}</div>
+        <div class="smc-count ${count===0?'zero':''}">${count}</div>
+      </div>`;
+  }).join('');
+  wrap.querySelectorAll('.stage-mini-card').forEach(card=>{
+    card.addEventListener('click', ()=>{
+      const stageId = parseInt(card.dataset.stage,10);
+      filtroEtapaLista = (filtroEtapaLista === stageId) ? null : stageId;
+      renderBoard();
+    });
+  });
+}
+
+function renderListaPedidos(){
+  const tbody = document.getElementById('lista-pedidos-tbody');
+  const items = pedidos
+    .filter(p=> (filtroEtapaLista===null || p.stage===filtroEtapaLista) && matchesSearch(p))
+    .sort((a,b)=>parseDateBR(a.entrega)-parseDateBR(b.entrega));
+
+  if(items.length===0){
+    tbody.innerHTML = `<tr><td colspan="10" class="lp-empty">Nenhum pedido encontrado${filtroEtapaLista!==null ? ' nesta etapa' : ''}.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = items.map(p=>{
+    const stage = STAGES.find(s=>s.id===p.stage);
+    const tag = p.tag ? `<span class="tag ${tagClass(p.tag)}">${p.tag}</span>` : '<span style="color:var(--text-faint);">—</span>';
+    const canFinalize = STAGES_FINALIZAVEIS.includes(p.stage);
+    const checkbox = multiSelectMode ? `<input type="checkbox" class="lp-check" data-id="${p.id}" ${selectedIds.has(p.id)?'checked':''}>` : '';
+    return `
+      <tr data-id="${p.id}">
+        <td onclick="event.stopPropagation()">${checkbox}</td>
+        <td class="lp-num">#${p.pedido}</td>
+        <td class="lp-cliente">${p.clienteNome}<small>Cód. ${p.clienteCod} · ${p.itens.length} item${p.itens.length>1?'s':''}</small></td>
+        <td style="color:var(--text-dim); font-size:11.5px;">${p.vendedor || '—'}</td>
+        <td>${tag}</td>
+        <td class="lp-etapa"><span class="lp-etapa-badge">${stage.id} — ${stage.nome}</span></td>
+        <td>${p.entrega}</td>
+        <td style="text-align:right;">${fmtKg(p.pesoTotal)}</td>
+        <td style="text-align:right;">${fmtBRL(p.valorTotal)}</td>
+        <td onclick="event.stopPropagation()">
+          ${multiSelectMode ? '' : `
+          <div class="lp-actions">
+            <button class="lp-prev" data-id="${p.id}" ${p.stage===0?'disabled':''} title="Voltar etapa">&#8592;</button>
+            <button class="lp-next" data-id="${p.id}" ${p.stage===10?'disabled':''} title="Avançar etapa">&#8594;</button>
+            ${canFinalize ? `<button class="lp-finalize" data-id="${p.id}" title="Finalizar">&#10003;</button>` : ''}
+          </div>`}
+        </td>
+      </tr>`;
+  }).join('');
+
+  tbody.querySelectorAll('tr[data-id]').forEach(tr=>{
+    tr.addEventListener('click', ()=>{
+      const id = tr.dataset.id;
+      if(multiSelectMode){
+        const cb = tr.querySelector('.lp-check');
+        if(cb){ cb.checked = !cb.checked; cb.dispatchEvent(new Event('change',{bubbles:true})); }
+      }else{
+        openModal(id);
+      }
+    });
+  });
+  tbody.querySelectorAll('.lp-check').forEach(cb=>{
+    cb.addEventListener('change', e=>{
+      if(e.target.checked) selectedIds.add(e.target.dataset.id); else selectedIds.delete(e.target.dataset.id);
+      updateBulkBar();
+    });
+  });
+  tbody.querySelectorAll('.lp-prev').forEach(btn=>{
+    btn.addEventListener('click', e=>{ e.stopPropagation(); moveStage(btn.dataset.id,-1); });
+  });
+  tbody.querySelectorAll('.lp-next').forEach(btn=>{
+    btn.addEventListener('click', e=>{ e.stopPropagation(); openAvancarEtapaModal(btn.dataset.id); });
+  });
+  tbody.querySelectorAll('.lp-finalize').forEach(btn=>{
+    btn.addEventListener('click', e=>{ e.stopPropagation(); finalizarPedido(btn.dataset.id); });
+  });
+}
+
 function renderAccordion(){
   const wrap = document.getElementById('accordion');
   wrap.innerHTML = '';
@@ -1516,6 +1668,12 @@ async function finalizarPedido(id){
 /* ========================================================================
    SELEÇÃO MÚLTIPLA
    ======================================================================== */
+document.getElementById('btn-toggle-view').addEventListener('click', (e)=>{
+  boardViewMode = boardViewMode === 'lista' ? 'etapas' : 'lista';
+  e.currentTarget.innerHTML = boardViewMode === 'lista' ? '&#9776; VER POR ETAPA' : '&#9776; VER COMO LISTA';
+  e.currentTarget.classList.toggle('on', boardViewMode === 'etapas');
+  renderBoard();
+});
 document.getElementById('btn-multiselect').addEventListener('click', ()=>{
   multiSelectMode = !multiSelectMode;
   selectedIds.clear();
@@ -1526,7 +1684,7 @@ document.getElementById('btn-multiselect').addEventListener('click', ()=>{
     sel.innerHTML = STAGES.map(s=>`<option value="${s.id}">${s.id} — ${s.nome}</option>`).join('');
   }
   updateBulkBar();
-  renderAccordion();
+  renderBoard();
 });
 function updateBulkBar(){
   document.getElementById('bulk-count').textContent = selectedIds.size;
@@ -3003,7 +3161,7 @@ document.getElementById('home-card-fluxo').addEventListener('click', ()=>{
    ======================================================================== */
 function renderAll(){
   renderPageHeader();
-  renderAccordion();
+  renderBoard();
   renderHomeCards();
   if(currentView === 'history') renderHistory();
   if(currentView === 'cliche') renderClicheHistory();
