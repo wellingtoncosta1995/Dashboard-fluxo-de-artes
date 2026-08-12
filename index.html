@@ -708,7 +708,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v2.9 · 12/08/2026';
+const APP_VERSION = 'v3.0 · 12/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -1587,16 +1587,11 @@ function renderPedidoRow(p, stageId){
 function stageInlineSelectHTML(p){
   return `<select class="stage-inline-select" data-id="${p.id}">${STAGES.map(s=>`<option value="${s.id}" ${s.id===p.stage?'selected':''}>${s.id} — ${s.nome}</option>`).join('')}</select>`;
 }
-const STAGE_CONFERENCIA_LAYOUT = 1; // etapa "Aguardando conferência de layout" — ponto de decisão: repetição ou alteração
+const STAGE_CONFERENCIA_LAYOUT = 1; // etapa "Aguardando conferência de layout" — decisão feita dentro do modal, quando o pedido já está parado nela
 async function mudarEtapaDireta(id, novaEtapaStr){
   const novaEtapa = parseInt(novaEtapaStr,10);
   const p = pedidos.find(x=>x.id===id);
   if(!p || novaEtapa===p.stage) return;
-
-  if(novaEtapa === STAGE_CONFERENCIA_LAYOUT){
-    openConferenciaLayoutModal(id);
-    return;
-  }
 
   const pulouEtapas = novaEtapa > p.stage + 1;
 
@@ -1626,49 +1621,6 @@ async function mudarEtapaDireta(id, novaEtapaStr){
   await saveState();
   renderAll();
   if(pulouEtapas) openModal(id);
-}
-function openConferenciaLayoutModal(id){
-  const overlay = document.getElementById('overlay');
-  const modal = document.getElementById('modal');
-  const p = pedidos.find(x=>x.id===id);
-  if(!p) return;
-
-  modal.innerHTML = `
-    <div class="modal-head">
-      <div><h2 style="font-size:16px;">Conferência de layout — #${p.pedido}</h2><p>${p.clienteNome} · o layout desse pedido confere com uma arte já aprovada, ou precisa de alteração?</p></div>
-      <button class="close-x" id="modal-close">&times;</button>
-    </div>
-    <div style="display:flex; flex-direction:column; gap:10px; margin-top:6px;">
-      <button class="btn gold" id="cl-repeticao" style="width:100%; padding:12px;">&#10003; Layout confere — liberar para Arte Repetição</button>
-      <button class="btn" id="cl-alteracao" style="width:100%; padding:12px; background:var(--red); border-color:var(--red); color:#fff;">&#9998; Precisa de alteração — enviar para "Alteração de arte"</button>
-      <button class="btn ghost" id="cl-cancel" style="width:100%; padding:12px;">Cancelar</button>
-    </div>
-  `;
-
-  const restaurar = ()=>{ closeModal(); renderAll(); };
-  document.getElementById('modal-close').addEventListener('click', restaurar);
-  document.getElementById('cl-cancel').addEventListener('click', restaurar);
-
-  document.getElementById('cl-repeticao').addEventListener('click', async ()=>{
-    const idxNoQuadro = pedidos.findIndex(x=>x.id===p.id);
-    if(idxNoQuadro>-1) pedidos.splice(idxNoQuadro,1);
-    p.tag = 'ARTE REPETIÇÃO';
-    p.tipo = 'repeticao';
-    p.stage = null;
-    p.stageHistory = null;
-    await saveState();
-    closeModal();
-    renderAll();
-  });
-  document.getElementById('cl-alteracao').addEventListener('click', async ()=>{
-    if(!p.stageHistory) p.stageHistory = [{stage:p.stage, entradaEm: lastImportTime || new Date().toISOString()}];
-    registrarMudancaEtapa(p, STAGE_ALTERACAO);
-    p.stage = STAGE_ALTERACAO;
-    await saveState();
-    renderAll();
-    openModal(id);
-  });
-  overlay.classList.add('open');
 }
 function moveStage(id, delta){
   const p = pedidos.find(x=>x.id===id);
@@ -1920,7 +1872,35 @@ function openModal(id){
     <div class="alt-list">${fluxoHistorico}</div>
 
     ${isActive && STAGES_FINALIZAVEIS.includes(p.stage) ? `<button class="finalize-mini" id="modal-finalize" style="margin-top:16px; width:100%; padding:9px 0;">&#10003; Finalizar e liberar para produção</button>` : ''}
+
+    ${isActive && p.stage === STAGE_CONFERENCIA_LAYOUT ? `
+    <hr class="divider">
+    <div class="k" style="font-size:12.5px; margin-bottom:8px;">Conferência de layout — pra onde esse pedido vai?</div>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      <button class="btn gold" id="cl-repeticao" style="width:100%; padding:11px;">&#10003; Layout confere — liberar para Arte Repetição</button>
+      <button class="btn" id="cl-alteracao" style="width:100%; padding:11px; background:var(--red); border-color:var(--red); color:#fff;">&#9998; Precisa de alteração — enviar para "Alteração de arte"</button>
+    </div>
+    ` : ''}
   `;
+
+  document.getElementById('cl-repeticao')?.addEventListener('click', async ()=>{
+    const idxNoQuadro = pedidos.findIndex(x=>x.id===p.id);
+    if(idxNoQuadro>-1) pedidos.splice(idxNoQuadro,1);
+    p.tag = 'ARTE REPETIÇÃO';
+    p.tipo = 'repeticao';
+    p.stage = null;
+    p.stageHistory = null;
+    await saveState();
+    closeModal();
+    renderAll();
+  });
+  document.getElementById('cl-alteracao')?.addEventListener('click', async ()=>{
+    registrarMudancaEtapa(p, STAGE_ALTERACAO);
+    p.stage = STAGE_ALTERACAO;
+    await saveState();
+    renderAll();
+    openModal(id);
+  });
 
   document.getElementById('toggle-historico-externo')?.addEventListener('click', (e)=>{
     const lista = document.getElementById('historico-externo-lista');
