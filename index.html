@@ -301,6 +301,8 @@
   table.items td.peso{font-family:'IBM Plex Mono',monospace; color:var(--text); text-align:right; white-space:nowrap;}
   table.items tfoot td{border-bottom:none; padding-top:8px; font-weight:700; color:var(--text);}
   .stage-select{width:100%; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); padding:9px; border-radius:8px; font-size:13px; margin-top:6px; font-family:'Plus Jakarta Sans',sans-serif;}
+  .stage-inline-select{background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); padding:6px 8px; border-radius:7px; font-size:11.5px; font-family:'Plus Jakarta Sans',sans-serif; cursor:pointer; max-width:100%;}
+  .stage-inline-select:hover{border-color:var(--gold);}
   .alt-list{display:flex; flex-direction:column; gap:8px; margin-top:8px; max-height:180px; overflow-y:auto;}
   .alt-item{background:var(--panel-alt); border:1px solid var(--border-soft); border-left:3px solid var(--red); border-radius:6px; padding:8px 10px;}
   .alt-item .alt-date{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--red);}
@@ -696,7 +698,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v2.0 · 10/08/2026';
+const APP_VERSION = 'v2.1 · 10/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -1441,15 +1443,13 @@ function renderListaPedidos(){
         <td class="lp-cliente">${p.clienteNome}<small>Cód. ${p.clienteCod} · ${p.itens.length} item${p.itens.length>1?'s':''}</small></td>
         <td style="color:var(--text-dim); font-size:11.5px;">${p.vendedor || '—'}</td>
         <td>${tag}</td>
-        <td class="lp-etapa"><span class="lp-etapa-badge">${stage.id} — ${stage.nome}</span></td>
+        <td class="lp-etapa" onclick="event.stopPropagation()">${multiSelectMode ? `<span class="lp-etapa-badge">${stage.id} — ${stage.nome}</span>` : stageInlineSelectHTML(p)}</td>
         <td>${p.entrega}</td>
         <td style="text-align:right;">${fmtKg(p.pesoTotal)}</td>
         <td style="text-align:right;">${fmtBRL(p.valorTotal)}</td>
         <td onclick="event.stopPropagation()">
           ${multiSelectMode ? '' : `
           <div class="lp-actions">
-            <button class="lp-prev" data-id="${p.id}" ${p.stage===0?'disabled':''} title="Voltar etapa">&#8592;</button>
-            <button class="lp-next" data-id="${p.id}" ${p.stage===10?'disabled':''} title="Avançar etapa">&#8594;</button>
             ${canFinalize ? `<button class="lp-finalize" data-id="${p.id}" title="Finalizar">&#10003;</button>` : ''}
           </div>`}
         </td>
@@ -1473,11 +1473,9 @@ function renderListaPedidos(){
       updateBulkBar();
     });
   });
-  tbody.querySelectorAll('.lp-prev').forEach(btn=>{
-    btn.addEventListener('click', e=>{ e.stopPropagation(); moveStage(btn.dataset.id,-1); });
-  });
-  tbody.querySelectorAll('.lp-next').forEach(btn=>{
-    btn.addEventListener('click', e=>{ e.stopPropagation(); openAvancarEtapaModal(btn.dataset.id); });
+  tbody.querySelectorAll('.stage-inline-select').forEach(sel=>{
+    sel.addEventListener('click', e=>e.stopPropagation());
+    sel.addEventListener('change', e=>{ e.stopPropagation(); mudarEtapaDireta(e.target.dataset.id, e.target.value); });
   });
   tbody.querySelectorAll('.lp-finalize').forEach(btn=>{
     btn.addEventListener('click', e=>{ e.stopPropagation(); finalizarPedido(btn.dataset.id); });
@@ -1549,8 +1547,7 @@ function renderPedidoRow(p, stageId){
     </div>
     ${multiSelectMode ? '' : `
     <div class="prow-actions">
-      <button class="icon-btn btn-prev" ${stageId===0?'disabled':''} title="Voltar etapa">&#8592;</button>
-      <button class="icon-btn btn-next" ${stageId===10?'disabled':''} title="Avançar etapa">&#8594;</button>
+      ${stageInlineSelectHTML(p)}
       ${canFinalize ? `<button class="finalize-mini btn-finalize">&#10003; Finalizar</button>` : ''}
     </div>`}
   `;
@@ -1570,12 +1567,30 @@ function renderPedidoRow(p, stageId){
       openModal(p.id);
     }
   });
-  row.querySelector('.btn-prev')?.addEventListener('click', e=>{ e.stopPropagation(); moveStage(p.id,-1); });
-  row.querySelector('.btn-next')?.addEventListener('click', e=>{ e.stopPropagation(); openAvancarEtapaModal(p.id); });
+  const stageSel = row.querySelector('.stage-inline-select');
+  stageSel?.addEventListener('click', e=>e.stopPropagation());
+  stageSel?.addEventListener('change', e=>{ e.stopPropagation(); mudarEtapaDireta(e.target.dataset.id, e.target.value); });
   row.querySelector('.btn-finalize')?.addEventListener('click', e=>{ e.stopPropagation(); finalizarPedido(p.id); });
   return row;
 }
 
+function stageInlineSelectHTML(p){
+  return `<select class="stage-inline-select" data-id="${p.id}">${STAGES.map(s=>`<option value="${s.id}" ${s.id===p.stage?'selected':''}>${s.id} — ${s.nome}</option>`).join('')}</select>`;
+}
+async function mudarEtapaDireta(id, novaEtapaStr){
+  const novaEtapa = parseInt(novaEtapaStr,10);
+  const p = pedidos.find(x=>x.id===id);
+  if(!p || novaEtapa===p.stage) return;
+  if(novaEtapa >= STAGE_APROVACAO_ARTE && !osCompleta(p)){
+    alert(`É necessário preencher a OS de todos os itens (na etapa "Arte em desenvolvimento") antes de mudar para "${STAGES.find(s=>s.id===STAGE_APROVACAO_ARTE).nome}".`);
+    renderAll();
+    return;
+  }
+  registrarMudancaEtapa(p, novaEtapa);
+  p.stage = novaEtapa;
+  await saveState();
+  renderAll();
+}
 function moveStage(id, delta){
   const p = pedidos.find(x=>x.id===id);
   if(!p) return;
