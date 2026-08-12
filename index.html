@@ -480,7 +480,15 @@
             <span>Valor total: <b id="hcf-valor-money">R$ 0,00</b></span>
           </div>
         </div>
-        <div class="home-card"><span class="home-card-num">3</span><span class="home-card-label">Card 3</span></div>
+        <div class="home-card home-card-live" id="home-card-vencimento" title="Ver detalhes em Pedidos prestes a vencer">
+          <div class="hcm-label">PRESTES A VENCER</div>
+          <div class="hcm-valor" id="hcv-valor-total">0</div>
+          <div class="hcm-breakdown">
+            <span>Já vencidos: <b id="hcv-valor-vencidos" style="color:var(--red);">0</b></span>
+            <span>Em até 15 dias: <b id="hcv-valor-proximos">0</b></span>
+            <span>Lead time considerado: <b>atual, por diâmetro</b></span>
+          </div>
+        </div>
         <div class="home-card"><span class="home-card-num">4</span><span class="home-card-label">Card 4</span></div>
         <div class="home-card"><span class="home-card-num">5</span><span class="home-card-label">Card 5</span></div>
         <div class="home-card"><span class="home-card-num">6</span><span class="home-card-label">Card 6</span></div>
@@ -700,7 +708,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v2.5 · 12/08/2026';
+const APP_VERSION = 'v2.6 · 12/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -3178,6 +3186,31 @@ function calcularClicheMesAtual(){
   const totalRegrav = regravMes.reduce((s,r)=>s+r.valorCliche, 0);
   return { totalPedidos, totalRegrav, totalRioplastic, total: totalPedidos + totalRegrav + totalRioplastic };
 }
+function diametroPrincipalDoPedido(p){
+  for(const it of p.itens){
+    const cod = fmtCodigo(it.codigo);
+    const {diametro} = diametroDoItem(cod, it.nome);
+    if(diametro!=null) return diametro;
+  }
+  return null;
+}
+function leadTimeAtualDoPedido(p){
+  const d = diametroPrincipalDoPedido(p);
+  if(d==null) return null;
+  const lt = leadTimePorBoca.find(x=>x.diametro===d);
+  return lt ? {diametro:d, dias:lt.atual} : null;
+}
+function diasRestantesVencimento(p){
+  const lt = leadTimeAtualDoPedido(p);
+  if(!lt) return null;
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const entrega = parseDateBR(p.entrega);
+  entrega.setHours(0,0,0,0);
+  const prazoInicio = new Date(entrega);
+  prazoInicio.setDate(prazoInicio.getDate() - lt.dias);
+  return { dias: Math.round((prazoInicio - hoje) / 86400000), diametro: lt.diametro, leadTimeDias: lt.dias };
+}
+
 function renderHomeCards(){
   const agora = new Date();
   const { totalPedidos, totalRegrav, totalRioplastic, total } = calcularClicheMesAtual();
@@ -3192,6 +3225,13 @@ function renderHomeCards(){
   const valorTotalFluxo = pedidos.reduce((s,p)=>s+(p.valorTotal||0), 0);
   document.getElementById('hcf-valor-peso').textContent = fmtKg(pesoTotalFluxo);
   document.getElementById('hcf-valor-money').textContent = fmtBRL(valorTotalFluxo);
+
+  const comVencimento = pedidos.map(p=>({p, v:diasRestantesVencimento(p)})).filter(x=>x.v);
+  const vencidos = comVencimento.filter(x=>x.v.dias<0);
+  const proximos15 = comVencimento.filter(x=>x.v.dias>=0 && x.v.dias<=15);
+  document.getElementById('hcv-valor-total').textContent = vencidos.length + proximos15.length;
+  document.getElementById('hcv-valor-vencidos').textContent = vencidos.length;
+  document.getElementById('hcv-valor-proximos').textContent = proximos15.length;
 }
 function openClicheMesModal(){
   const agora = new Date();
@@ -3350,6 +3390,101 @@ function openFluxoModal(){
 }
 document.getElementById('home-card-fluxo').addEventListener('click', ()=>{
   openFluxoModal();
+});
+
+function openVencimentoModal(){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  modal.classList.add('modal-wide');
+
+  const comVencimento = pedidos.map(p=>({p, v:diasRestantesVencimento(p)})).filter(x=>x.v);
+  const semDiametro = pedidos.length - comVencimento.length;
+
+  const grupos = {
+    vencidos:  { label:'Já vencidos',        cor:'var(--red)',  itens: comVencimento.filter(x=>x.v.dias<0) },
+    proximos:  { label:'Em até 15 dias',     cor:'var(--gold)', itens: comVencimento.filter(x=>x.v.dias>=0 && x.v.dias<=15) },
+    tranquilos:{ label:'Mais de 15 dias',    cor:'var(--green)',itens: comVencimento.filter(x=>x.v.dias>15) },
+  };
+  const maiorValor = Math.max(grupos.vencidos.itens.length, grupos.proximos.itens.length, grupos.tranquilos.itens.length, 1);
+  const ALTURA_MAX = 120;
+
+  const colunas = Object.entries(grupos).map(([key,g])=>{
+    const altura = Math.max(4, Math.round(g.itens.length/maiorValor*ALTURA_MAX));
+    return `
+    <div class="fluxo-col" data-grupo="${key}" style="display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; flex:1;">
+      <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:14px; color:var(--text);">${g.itens.length}</span>
+      <div style="width:100%; max-width:64px; height:${ALTURA_MAX}px; display:flex; align-items:flex-end; background:var(--panel-alt); border-radius:8px; overflow:hidden;">
+        <div style="width:100%; height:${altura}px; background:${g.cor}; border-radius:8px 8px 0 0; transition:filter .15s ease;"></div>
+      </div>
+      <span style="font-size:11.5px; color:var(--text-dim); text-align:center; line-height:1.25;">${g.label}</span>
+    </div>`;
+  }).join('');
+
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div>
+        <h2 style="font-size:18px;">Pedidos prestes a vencer</h2>
+        <p>Considerando a data de entrega e o lead time atual do diâmetro (boca) de cada pedido${semDiametro ? ` · ${semDiametro} pedido(s) sem diâmetro identificado, não entram nesse cálculo` : ''}</p>
+      </div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+
+    <hr class="divider">
+    <div class="k" style="font-size:12.5px; margin-bottom:14px;">Distribuição por urgência — clique numa barra para ver os pedidos</div>
+    <div style="display:flex; gap:22px; justify-content:center; margin-bottom:10px;">${colunas}</div>
+
+    <div id="vencimento-resultado"></div>
+  `;
+
+  function renderResultado(grupoKey){
+    const g = grupos[grupoKey];
+    modal.querySelectorAll('.fluxo-col').forEach(c=>{
+      c.style.opacity = c.dataset.grupo === grupoKey ? '1' : '.45';
+    });
+    const rows = g.itens.length ? g.itens
+      .slice()
+      .sort((a,b)=>a.v.dias-b.v.dias)
+      .map(({p,v})=>{
+        const situacao = v.dias<0 ? `<span style="color:var(--red); font-weight:700;">vencido há ${Math.abs(v.dias)}d</span>` : `<span style="color:${v.dias<=15?'var(--gold-dark)':'var(--green-dark)'}; font-weight:700;">faltam ${v.dias}d</span>`;
+        return `
+        <tr>
+          <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">#${p.pedido}</button></td>
+          <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
+          <td style="font-family:'IBM Plex Mono',monospace;">Ø ${v.diametro}</td>
+          <td>${v.leadTimeDias}d</td>
+          <td>${p.entrega}</td>
+          <td>${situacao}</td>
+        </tr>`;
+      }).join('') : `<tr><td colspan="6" class="hist-empty">Nenhum pedido nesse grupo.</td></tr>`;
+
+    document.getElementById('vencimento-resultado').innerHTML = `
+      <hr class="divider">
+      <div class="k" style="font-size:12.5px; margin-bottom:10px;">${g.label} (${g.itens.length})</div>
+      <div class="hist-table-wrap">
+        <table class="hist">
+          <thead><tr><th>Pedido</th><th>Cliente</th><th>Diâmetro</th><th>Lead time atual</th><th>Entrega</th><th>Situação</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table>
+      </div>
+    `;
+    modal.querySelectorAll('.link-pedido-venc').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        modal.classList.remove('modal-wide');
+        openModal(btn.dataset.id);
+      });
+    });
+  }
+
+  modal.querySelectorAll('.fluxo-col').forEach(col=>{
+    col.addEventListener('click', ()=>renderResultado(col.dataset.grupo));
+  });
+  renderResultado('proximos');
+
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  overlay.classList.add('open');
+}
+document.getElementById('home-card-vencimento').addEventListener('click', ()=>{
+  openVencimentoModal();
 });
 
 /* ========================================================================
