@@ -708,7 +708,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v3.1 · 12/08/2026';
+const APP_VERSION = 'v3.2 · 12/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -2035,9 +2035,10 @@ function openModal(id){
       p.valorClicheTotal = raw ? parseFloat(raw) : null;
       e.target.value = p.valorClicheTotal!=null ? fmtBRL(p.valorClicheTotal) : '';
       if(p.clicheBonificado){
-        p.valorClichePedido = p.valorClicheTotal;
+        // bonificado: o valor não é cobrado no pedido, vira custo Rioplastic
+        p.valorClichePedido = 0;
         const pedidoInput = document.getElementById('cliche-pedido-input');
-        if(pedidoInput) pedidoInput.value = p.valorClichePedido!=null ? fmtBRL(p.valorClichePedido) : '';
+        if(pedidoInput) pedidoInput.value = fmtBRL(0);
       }
       p.clicheRegistradoEm = new Date().toISOString();
       await saveState();
@@ -2053,7 +2054,8 @@ function openModal(id){
     });
     document.getElementById('cliche-bonificado-check')?.addEventListener('change', async (e)=>{
       p.clicheBonificado = e.target.checked;
-      p.valorClichePedido = p.clicheBonificado ? p.valorClicheTotal : null;
+      // bonificado: nada é cobrado no pedido — o valor todo vira custo Rioplastic
+      p.valorClichePedido = p.clicheBonificado ? 0 : null;
       p.clicheRegistradoEm = new Date().toISOString();
       await saveState();
       renderAll();
