@@ -698,7 +698,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v2.1 · 10/08/2026';
+const APP_VERSION = 'v2.2 · 10/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -761,7 +761,7 @@ const STAGES = [
   {id:10, nome:"Clichê em fábrica"},
 ];
 const STAGE_ALTERACAO = 4; // etapa "Alteração de arte"
-const STAGE_DESENVOLVIMENTO = 3; // etapa "Arte em desenvolvimento" — única etapa onde a OS é editável
+const STAGE_DESENVOLVIMENTO = 3; // etapa "Arte em desenvolvimento" — a partir daqui a OS fica editável
 const STAGE_APROVACAO_ARTE = 5; // etapa "Aguardando aprovação de arte" — exige OS preenchida em todos os itens
 const STAGE_APROVACAO_CLICHE = 7; // etapa "Aguardando aprovação custo clichê" — só a partir daqui o bloco de clichê aparece
 const STAGES_FINALIZAVEIS = [10, 1]; // Clichê em fábrica / Aguardando conferência de layout
@@ -1581,15 +1581,35 @@ async function mudarEtapaDireta(id, novaEtapaStr){
   const novaEtapa = parseInt(novaEtapaStr,10);
   const p = pedidos.find(x=>x.id===id);
   if(!p || novaEtapa===p.stage) return;
-  if(novaEtapa >= STAGE_APROVACAO_ARTE && !osCompleta(p)){
+
+  const pulouEtapas = novaEtapa > p.stage + 1;
+
+  // Só exige OS completa quando o avanço é passo a passo normal. Ao pular
+  // direto várias etapas (pedido que já chegou pronto em outra etapa), o
+  // histórico é preenchido automaticamente e os detalhes (OS, clichê, datas)
+  // ficam para o usuário completar depois, antes de liberar para o histórico.
+  if(!pulouEtapas && novaEtapa >= STAGE_APROVACAO_ARTE && !osCompleta(p)){
     alert(`É necessário preencher a OS de todos os itens (na etapa "Arte em desenvolvimento") antes de mudar para "${STAGES.find(s=>s.id===STAGE_APROVACAO_ARTE).nome}".`);
     renderAll();
     return;
   }
-  registrarMudancaEtapa(p, novaEtapa);
+
+  if(!p.stageHistory) p.stageHistory = [{stage:p.stage, entradaEm: lastImportTime || new Date().toISOString()}];
+
+  if(pulouEtapas){
+    // preenche uma entrada pra cada etapa intermediária pulada, prontas pra
+    // o usuário corrigir a data de cada uma (botão ✎ no histórico de fluxo)
+    const base = Date.now();
+    for(let s = p.stage+1; s <= novaEtapa; s++){
+      p.stageHistory.push({stage:s, entradaEm: new Date(base + (s - p.stage)*1000).toISOString()});
+    }
+  }else{
+    registrarMudancaEtapa(p, novaEtapa);
+  }
   p.stage = novaEtapa;
   await saveState();
   renderAll();
+  if(pulouEtapas) openModal(id);
 }
 function moveStage(id, delta){
   const p = pedidos.find(x=>x.id===id);
@@ -1736,7 +1756,7 @@ function openModal(id){
   const overlay = document.getElementById('overlay');
   const modal = document.getElementById('modal');
   const isActive = p.tipo === 'ativo';
-  const osEditavel = isActive && p.stage === STAGE_DESENVOLVIMENTO;
+  const osEditavel = isActive && p.stage >= STAGE_DESENVOLVIMENTO;
   const clicheAplicavel = isActive ? (p.stage >= STAGE_APROVACAO_CLICHE) : (p.tipo === 'finalizado');
   const clicheEditavel = isActive && p.stage === STAGE_APROVACAO_CLICHE;
 
