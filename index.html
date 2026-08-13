@@ -741,7 +741,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v4.1 · 13/08/2026';
+const APP_VERSION = 'v4.2 · 13/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -2451,7 +2451,7 @@ document.getElementById('menu-item-validar-repeticao').addEventListener('click',
 
 /* ========================================================================
    HISTÓRICO EXTERNO (RVEN304) — Comercial / PCP / Artes / Produção antes de
-   entrar no fluxo interno. A data em que o pedido entrou (pela última vez)
+   entrar no fluxo interno. A data em que o pedido entrou (pela primeira vez)
    em "WEB - IMPRESSO - ARTES" é fixada como o início da etapa "Sem
    tratativa", em vez de usar a data de importação.
    ======================================================================== */
@@ -2507,13 +2507,13 @@ function aplicarHistoricoExterno(parsed){
 
     const linhasArtes = pp.historico.filter(h=>h.setor.toUpperCase().includes('ARTES'));
     if(linhasArtes.length===0){ semArtes++; return; }
-    const ultimaArtes = linhasArtes[linhasArtes.length-1];
+    const primeiraArtes = linhasArtes[0];
 
     p.historicoExterno = pp.historico;
     if(!p.stageHistory || !p.stageHistory.length){
-      p.stageHistory = [{stage: p.stage!=null ? p.stage : 0, entradaEm: ultimaArtes.dataISO}];
+      p.stageHistory = [{stage: p.stage!=null ? p.stage : 0, entradaEm: primeiraArtes.dataISO}];
     }else{
-      p.stageHistory[0].entradaEm = ultimaArtes.dataISO;
+      p.stageHistory[0].entradaEm = primeiraArtes.dataISO;
     }
     aplicados++;
   });
@@ -2527,7 +2527,7 @@ function openHistoricoExternoModal(){
 
   modal.innerHTML = `
     <div class="modal-head">
-      <div><h2 style="font-size:16px;">Importar histórico externo (RVEN304)</h2><p>Envie o arquivo XLSX do relatório. A data em que cada pedido entrou pela última vez em "ARTES" será usada como início da etapa "Sem tratativa".</p></div>
+      <div><h2 style="font-size:16px;">Importar histórico externo (RVEN304)</h2><p>Envie o arquivo XLSX do relatório. A data em que cada pedido entrou pela primeira vez em "ARTES" será usada como início da etapa "Sem tratativa".</p></div>
       <button class="close-x" id="modal-close">&times;</button>
     </div>
     <div class="export-row">
