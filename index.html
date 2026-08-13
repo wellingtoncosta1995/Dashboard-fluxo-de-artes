@@ -426,6 +426,8 @@
       <button class="nav-item active" data-view="home"><span class="icon">&#127968;</span> Home</button>
       <button class="nav-item" data-view="board"><span class="icon">&#127912;</span> Fluxo de artes</button>
       <button class="nav-item" data-view="cliche"><span class="icon">&#128176;</span> Custo de clichê</button>
+      <button class="nav-item" data-view="custo-mensal" style="padding-left:34px; font-size:12.5px;"><span class="icon">&#128197;</span> Custo mensal</button>
+      <button class="nav-item" data-view="custo-anual" style="padding-left:34px; font-size:12.5px;"><span class="icon">&#128202;</span> Custo anual</button>
       <button class="nav-item" data-view="regravacao"><span class="icon">&#128260;</span> Regravação de clichê</button>
       <button class="nav-item" data-view="catalogo"><span class="icon">&#128218;</span> Catálogo de itens</button>
       <button class="nav-item" data-view="codigos"><span class="icon">&#127991;</span> Tabela de Códigos</button>
@@ -573,9 +575,11 @@
           <tbody></tbody>
         </table>
       </div>
+    </div>
 
-      <div class="topics-card" style="margin-top:20px;">
-        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">HISTÓRICO MENSAL</span> <span class="link-text">total de clichê lançado em cada mês</span></p>
+    <div id="view-custo-mensal" style="display:none;">
+      <div class="topics-card">
+        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">CUSTO MENSAL</span> <span class="link-text">total de clichê lançado em cada mês</span></p>
       </div>
       <div class="hist-table-wrap" style="margin-top:12px;">
         <table class="hist" id="cliche-mensal-table">
@@ -585,9 +589,11 @@
           <tbody></tbody>
         </table>
       </div>
+    </div>
 
-      <div class="topics-card" style="margin-top:20px;">
-        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">HISTÓRICO ANUAL</span> <span class="link-text">total de clichê lançado em cada ano</span></p>
+    <div id="view-custo-anual" style="display:none;">
+      <div class="topics-card">
+        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">CUSTO ANUAL</span> <span class="link-text">total de clichê lançado em cada ano</span></p>
       </div>
       <div class="hist-table-wrap" style="margin-top:12px;">
         <table class="hist" id="cliche-anual-table">
@@ -731,7 +737,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v3.5 · 12/08/2026';
+const APP_VERSION = 'v3.6 · 12/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -3263,6 +3269,8 @@ const VIEW_TITULOS = {
   home: "Controle de fluxo de artes",
   board: "Fluxo de artes",
   cliche: "Custo de clichê",
+  'custo-mensal': "Custo mensal",
+  'custo-anual': "Custo anual",
   regravacao: "Regravação de clichê",
   catalogo: "Catálogo de itens",
   codigos: "Tabela de Códigos",
@@ -3275,6 +3283,8 @@ function switchView(view){
   document.getElementById('view-home').style.display = view==='home' ? 'block' : 'none';
   document.getElementById('view-board').style.display = view==='board' ? 'block' : 'none';
   document.getElementById('view-cliche').style.display = view==='cliche' ? 'block' : 'none';
+  document.getElementById('view-custo-mensal').style.display = view==='custo-mensal' ? 'block' : 'none';
+  document.getElementById('view-custo-anual').style.display = view==='custo-anual' ? 'block' : 'none';
   document.getElementById('view-regravacao').style.display = view==='regravacao' ? 'block' : 'none';
   document.getElementById('view-catalogo').style.display = view==='catalogo' ? 'block' : 'none';
   document.getElementById('view-codigos').style.display = view==='codigos' ? 'block' : 'none';
@@ -3286,6 +3296,7 @@ function switchView(view){
   document.getElementById('status-line-wrap').style.display = VIEWS_COM_STATUS_LINE.has(view) ? 'block' : 'none';
   if(view==='history') renderHistory();
   if(view==='cliche') renderClicheHistory();
+  if(view==='custo-mensal' || view==='custo-anual') renderClicheHistoricoPeriodos();
   if(view==='regravacao') renderRegravacao();
   if(view==='catalogo') renderCatalogo();
   if(view==='codigos') renderCodigosInternos();
