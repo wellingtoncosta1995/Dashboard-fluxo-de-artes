@@ -153,6 +153,8 @@
   .lp-actions button{background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:6px; width:26px; height:26px; cursor:pointer; font-size:12px; color:var(--text-dim);}
   .lp-actions button:hover{border-color:var(--gold); color:var(--gold-dark);}
   .lp-actions button:disabled{opacity:.35; cursor:not-allowed;}
+  .lp-cobrar-liberada{background:var(--red-bg); border-color:var(--red); color:var(--red); animation:cobranca-pulse 1.8s ease-in-out infinite;}
+  @keyframes cobranca-pulse{0%,100%{opacity:1;} 50%{opacity:.55;}}
   .lp-empty{padding:30px; text-align:center; color:var(--text-faint); font-size:13px;}
   .btn-outline{
     background:var(--panel); border:1.5px solid var(--border); color:var(--text);
@@ -446,7 +448,7 @@
       <div class="header-icons" style="flex-direction:column; align-items:flex-end; gap:4px;">
         <div style="display:flex; align-items:center; gap:10px;">
           <span class="sync-chip">&#9650; Sincronizado às <span id="sync-time"></span> · <span id="app-version" title="Versão publicada deste dashboard"></span></span>
-          <button class="icon-circle" title="Notificações">&#128276;<span class="badge-dot" id="notif-badge" style="display:none;"></span></button>
+          <button class="icon-circle" id="btn-notif" title="Cobranças de aprovação pendentes">&#128276;<span class="badge-dot" id="notif-badge" style="display:none;"></span></button>
           <div style="position:relative;">
             <button class="icon-circle" id="btn-settings-header" title="Configurações">&#9881;&#65039;</button>
             <div id="settings-menu" style="display:none; position:absolute; top:44px; right:0; z-index:50; background:var(--panel); border:1px solid var(--border-soft); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.12); min-width:210px; padding:6px; overflow:hidden;">
@@ -741,7 +743,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v4.2 · 13/08/2026';
+const APP_VERSION = 'v4.3 · 13/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -806,6 +808,28 @@ const STAGES = [
 const STAGE_ALTERACAO = 4; // etapa "Alteração de arte"
 const STAGE_DESENVOLVIMENTO = 3; // etapa "Arte em desenvolvimento" — a partir daqui a OS fica editável
 const STAGE_APROVACAO_ARTE = 5; // etapa "Aguardando aprovação de arte" — exige OS preenchida em todos os itens
+const LIMITE_DIAS_COBRANCA_APROVACAO = 3; // dias após o envio da arte pra liberar a cobrança
+function diasEmAprovacao(p){
+  if(!p.stageHistory) return null;
+  const entradas = p.stageHistory.filter(h=>h.stage===STAGE_APROVACAO_ARTE);
+  if(!entradas.length) return null;
+  const inicio = new Date(entradas[entradas.length-1].entradaEm);
+  const hoje = new Date();
+  return Math.floor((hoje - inicio) / 86400000);
+}
+function precisaCobranca(p){
+  if(p.stage !== STAGE_APROVACAO_ARTE) return false;
+  const dias = diasEmAprovacao(p);
+  return dias!=null && dias >= LIMITE_DIAS_COBRANCA_APROVACAO;
+}
+async function registrarCobranca(id){
+  const p = pedidos.find(x=>x.id===id);
+  if(!p) return;
+  if(!p.cobrancas) p.cobrancas = [];
+  p.cobrancas.push(new Date().toISOString());
+  await saveState();
+  renderAll();
+}
 const STAGE_APROVACAO_CLICHE = 7; // etapa "Aguardando aprovação custo clichê" — a partir daqui o bloco de clichê aparece e fica editável
 const STAGES_FINALIZAVEIS = [10, 1]; // Clichê em fábrica / Aguardando conferência de layout
 const STAGE_REMAP_V2 = {0:0, 1:2, 2:3, 3:4, 4:5, 5:6, 6:7, 7:8, 8:9, 9:10, 10:1}; // migração da ordem antiga p/ nova
@@ -1430,9 +1454,9 @@ function renderPageHeader(){
   document.getElementById('ultima-importacao').textContent = lastImportTime ? fmtDateTime(lastImportTime) : '—';
   document.getElementById('sync-time').textContent = fmtTime(lastSyncTime);
   document.getElementById('app-version').textContent = APP_VERSION;
-  const emAlteracao = pedidos.filter(p=>p.stage===STAGE_ALTERACAO).length;
+  const cobrancasPendentes = pedidos.filter(p=>precisaCobranca(p)).length;
   const badge = document.getElementById('notif-badge');
-  if(emAlteracao>0){ badge.style.display='flex'; badge.textContent = emAlteracao; } else { badge.style.display='none'; }
+  if(cobrancasPendentes>0){ badge.style.display='flex'; badge.textContent = cobrancasPendentes; } else { badge.style.display='none'; }
 }
 
 /* ========================================================================
@@ -1482,6 +1506,8 @@ function renderListaPedidos(){
     const stage = STAGES.find(s=>s.id===p.stage);
     const tag = p.tag ? `<span class="tag ${tagClass(p.tag)}">${p.tag}</span>` : '<span style="color:var(--text-faint);">—</span>';
     const canFinalize = STAGES_FINALIZAVEIS.includes(p.stage);
+    const emAprovacao = p.stage === STAGE_APROVACAO_ARTE;
+    const cobrancaLiberada = precisaCobranca(p);
     const checkbox = multiSelectMode ? `<input type="checkbox" class="lp-check" data-id="${p.id}" ${selectedIds.has(p.id)?'checked':''}>` : '';
     return `
       <tr data-id="${p.id}">
@@ -1497,6 +1523,7 @@ function renderListaPedidos(){
         <td onclick="event.stopPropagation()">
           ${multiSelectMode ? '' : `
           <div class="lp-actions">
+            ${emAprovacao ? `<button class="lp-cobrar ${cobrancaLiberada?'lp-cobrar-liberada':''}" data-id="${p.id}" title="${cobrancaLiberada ? 'Cobrar aprovação — ' + diasEmAprovacao(p) + ' dias aguardando' : 'Ainda dentro do prazo de ' + LIMITE_DIAS_COBRANCA_APROVACAO + ' dias'}" ${cobrancaLiberada?'':'disabled'}>&#128276;</button>` : ''}
             ${canFinalize ? `<button class="lp-finalize" data-id="${p.id}" title="Finalizar">&#10003;</button>` : ''}
           </div>`}
         </td>
@@ -1526,6 +1553,9 @@ function renderListaPedidos(){
   });
   tbody.querySelectorAll('.lp-finalize').forEach(btn=>{
     btn.addEventListener('click', e=>{ e.stopPropagation(); finalizarPedido(btn.dataset.id); });
+  });
+  tbody.querySelectorAll('.lp-cobrar').forEach(btn=>{
+    btn.addEventListener('click', e=>{ e.stopPropagation(); registrarCobranca(btn.dataset.id); });
   });
 }
 
@@ -1575,6 +1605,8 @@ function renderPedidoRow(p, stageId){
   const tag = p.tag ? `<span class="tag ${tagClass(p.tag)}">${p.tag}</span>` : '';
   const altBadge = p.alteracoes.length>0 ? `<div class="prow-alt-badge">${p.alteracoes.length}x alteração${p.alteracoes.length>1?'ões':''}</div>` : '';
   const canFinalize = STAGES_FINALIZAVEIS.includes(stageId);
+  const emAprovacao = stageId === STAGE_APROVACAO_ARTE;
+  const cobrancaLiberada = precisaCobranca(p);
   const checkbox = multiSelectMode ? `<input type="checkbox" class="prow-check" ${selectedIds.has(p.id)?'checked':''}>` : '';
 
   row.innerHTML = `
@@ -1595,6 +1627,7 @@ function renderPedidoRow(p, stageId){
     ${multiSelectMode ? '' : `
     <div class="prow-actions">
       ${stageInlineSelectHTML(p)}
+      ${emAprovacao ? `<button class="lp-cobrar ${cobrancaLiberada?'lp-cobrar-liberada':''}" title="${cobrancaLiberada ? 'Cobrar aprovação — ' + diasEmAprovacao(p) + ' dias aguardando' : 'Ainda dentro do prazo de ' + LIMITE_DIAS_COBRANCA_APROVACAO + ' dias'}" ${cobrancaLiberada?'':'disabled'}>&#128276;</button>` : ''}
       ${canFinalize ? `<button class="finalize-mini btn-finalize">&#10003; Finalizar</button>` : ''}
     </div>`}
   `;
@@ -1618,6 +1651,7 @@ function renderPedidoRow(p, stageId){
   stageSel?.addEventListener('click', e=>e.stopPropagation());
   stageSel?.addEventListener('change', e=>{ e.stopPropagation(); mudarEtapaDireta(e.target.dataset.id, e.target.value); });
   row.querySelector('.btn-finalize')?.addEventListener('click', e=>{ e.stopPropagation(); finalizarPedido(p.id); });
+  row.querySelector('.lp-cobrar')?.addEventListener('click', e=>{ e.stopPropagation(); registrarCobranca(p.id); });
   return row;
 }
 
@@ -1908,6 +1942,26 @@ function openModal(id){
     <div class="k" style="font-size:12.5px; margin-bottom:2px;">Histórico de fluxo</div>
     <div class="alt-list">${fluxoHistorico}</div>
 
+    ${isActive && p.stage === STAGE_APROVACAO_ARTE ? `
+    <hr class="divider">
+    <div class="k" style="font-size:12.5px; margin-bottom:8px;">Cobrança de aprovação</div>
+    <div style="font-size:12.5px; color:var(--text-dim); margin-bottom:10px;">
+      Arte enviada há <b style="color:var(--text);">${diasEmAprovacao(p) ?? '—'} dia${diasEmAprovacao(p)===1?'':'s'}</b>
+      ${precisaCobranca(p) ? ` — <span style="color:var(--red); font-weight:700;">já pode cobrar (limite de ${LIMITE_DIAS_COBRANCA_APROVACAO} dias)</span>` : ` — libera cobrança em ${Math.max(0, LIMITE_DIAS_COBRANCA_APROVACAO - (diasEmAprovacao(p)||0))} dia(s)`}
+    </div>
+    <button id="modal-cobrar-btn" ${precisaCobranca(p)?'':'disabled'} style="width:100%; padding:10px; border-radius:9px; border:1px solid ${precisaCobranca(p)?'var(--red)':'var(--border-soft)'}; background:${precisaCobranca(p)?'var(--red-bg)':'var(--panel-alt)'}; color:${precisaCobranca(p)?'var(--red)':'var(--text-faint)'}; font-weight:700; font-size:13px; cursor:${precisaCobranca(p)?'pointer':'not-allowed'};">&#128276; Cobrar aprovação</button>
+    ${p.cobrancas && p.cobrancas.length ? `
+    <div style="margin-top:10px; font-size:11.5px; color:var(--text-dim);">
+      ${p.cobrancas.slice().reverse().map(dt=>`<div style="padding:3px 0; border-bottom:1px solid var(--border-soft);">Cobrado em ${fmtDateTime(dt)}</div>`).join('')}
+    </div>` : ''}
+    ` : (p.cobrancas && p.cobrancas.length ? `
+    <hr class="divider">
+    <div class="k" style="font-size:12.5px; margin-bottom:8px;">Cobrança de aprovação — histórico</div>
+    <div style="font-size:11.5px; color:var(--text-dim);">
+      ${p.cobrancas.slice().reverse().map(dt=>`<div style="padding:3px 0; border-bottom:1px solid var(--border-soft);">Cobrado em ${fmtDateTime(dt)}</div>`).join('')}
+    </div>
+    ` : '')}
+
     ${isActive && STAGES_FINALIZAVEIS.includes(p.stage) ? `<button class="finalize-mini" id="modal-finalize" style="margin-top:16px; width:100%; padding:9px 0;">&#10003; Finalizar e liberar para produção</button>` : ''}
 
     ${isActive && p.stage === STAGE_CONFERENCIA_LAYOUT ? `
@@ -1936,6 +1990,11 @@ function openModal(id){
     p.stage = STAGE_ALTERACAO;
     await saveState();
     renderAll();
+    openModal(id);
+  });
+
+  document.getElementById('modal-cobrar-btn')?.addEventListener('click', async ()=>{
+    await registrarCobranca(id);
     openModal(id);
   });
 
@@ -3803,6 +3862,56 @@ function openGargaloModal(){
 document.getElementById('home-card-gargalo').addEventListener('click', ()=>{
   openGargaloModal();
 });
+
+function openNotificacoesModal(){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  modal.classList.add('modal-wide');
+
+  const pendentes = pedidos.filter(p=>precisaCobranca(p)).sort((a,b)=>diasEmAprovacao(b)-diasEmAprovacao(a));
+
+  const rows = pendentes.length ? pendentes.map(p=>`
+    <tr>
+      <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">#${p.pedido}</button></td>
+      <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
+      <td>${p.vendedor || '—'}</td>
+      <td><span style="color:var(--red); font-weight:700;">${diasEmAprovacao(p)} dias</span></td>
+      <td>${p.cobrancas && p.cobrancas.length ? fmtDateTime(p.cobrancas[p.cobrancas.length-1]) : '<span style="color:var(--text-faint);">nunca cobrado</span>'}</td>
+      <td onclick="event.stopPropagation()"><button class="lp-cobrar lp-cobrar-liberada" data-id="${p.id}" title="Cobrar aprovação">&#128276; Cobrar</button></td>
+    </tr>`).join('') : `<tr><td colspan="6" class="hist-empty">Nenhuma cobrança pendente no momento. 🎉</td></tr>`;
+
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div>
+        <h2 style="font-size:18px;">Cobranças de aprovação pendentes</h2>
+        <p>Pedidos em "Aguardando aprovação de arte" há ${LIMITE_DIAS_COBRANCA_APROVACAO}+ dias, sem resposta</p>
+      </div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <hr class="divider">
+    <div class="hist-table-wrap">
+      <table class="hist">
+        <thead><tr><th>Pedido</th><th>Cliente</th><th>Vendedor</th><th>Dias aguardando</th><th>Última cobrança</th><th></th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+  modal.querySelectorAll('.link-pedido-venc').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      modal.classList.remove('modal-wide');
+      openModal(btn.dataset.id);
+    });
+  });
+  modal.querySelectorAll('.lp-cobrar').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      await registrarCobranca(btn.dataset.id);
+      openNotificacoesModal();
+    });
+  });
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  overlay.classList.add('open');
+}
+document.getElementById('btn-notif').addEventListener('click', openNotificacoesModal);
 
 /* ========================================================================
    INIT
