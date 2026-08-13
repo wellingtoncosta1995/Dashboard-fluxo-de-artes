@@ -557,6 +557,12 @@
               <option value="">Todas as situações</option>
             </select>
           </div>
+          <div>
+            <label style="display:block; font-size:11px; color:var(--text-dim); font-weight:600; margin-bottom:5px;">Filtrar por representante</label>
+            <select id="cliche-vendedor-filter" style="background:var(--panel-alt); border:1.5px solid var(--gold); color:var(--text); padding:9px 11px; border-radius:9px; font-size:13px; font-weight:600; font-family:'Plus Jakarta Sans',sans-serif; min-width:260px; cursor:pointer;">
+              <option value="">Todos os representantes</option>
+            </select>
+          </div>
         </div>
       </div>
       <div class="hist-table-wrap">
@@ -725,7 +731,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v3.4 · 12/08/2026';
+const APP_VERSION = 'v3.5 · 12/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -2711,6 +2717,7 @@ function renderHistory(){
    ======================================================================== */
 let clicheClienteFiltro = '';
 let clicheSituacaoFiltro = '';
+let clicheVendedorFiltro = '';
 function situacaoLabelPedido(p){
   if(p.tipo==='finalizado') return 'Finalizado';
   const st = STAGES.find(s=>s.id===p.stage);
@@ -2739,10 +2746,19 @@ function renderClicheHistory(){
     selectSituacao.value = clicheSituacaoFiltro;
   }
 
+  // popular seletor de representantes
+  const selectVendedor = document.getElementById('cliche-vendedor-filter');
+  const vendedoresUnicos = [...new Set(comCliche.map(p=>p.vendedor).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  if(selectVendedor.options.length - 1 !== vendedoresUnicos.length){
+    selectVendedor.innerHTML = `<option value="">Todos os representantes</option>` + vendedoresUnicos.map(v=>`<option value="${v}">${v}</option>`).join('');
+    selectVendedor.value = clicheVendedorFiltro;
+  }
+
   const items = comCliche.filter(p=>{
     if(!matchesSearch(p)) return false;
     if(clicheClienteFiltro && p.clienteNome !== clicheClienteFiltro) return false;
     if(clicheSituacaoFiltro && situacaoLabelPedido(p) !== clicheSituacaoFiltro) return false;
+    if(clicheVendedorFiltro && p.vendedor !== clicheVendedorFiltro) return false;
     return true;
   });
 
@@ -2765,6 +2781,10 @@ document.getElementById('cliche-cliente-filter').addEventListener('change', (e)=
 });
 document.getElementById('cliche-situacao-filter').addEventListener('change', (e)=>{
   clicheSituacaoFiltro = e.target.value;
+  renderClicheHistory();
+});
+document.getElementById('cliche-vendedor-filter').addEventListener('change', (e)=>{
+  clicheVendedorFiltro = e.target.value;
   renderClicheHistory();
 });
 
