@@ -438,29 +438,30 @@
     <div class="page-header">
       <div>
         <h1 id="page-title">Controle de fluxo de artes</h1>
-        <p class="status-line" id="status-line-wrap">Situação atual: <b id="situacao-count">—</b> · Última importação: <b id="ultima-importacao">—</b></p>
       </div>
-      <div class="header-icons">
-        <span class="sync-chip">&#9650; Sincronizado às <span id="sync-time"></span> · <span id="app-version" title="Versão publicada deste dashboard"></span></span>
-        <button class="icon-circle" title="Notificações">&#128276;<span class="badge-dot" id="notif-badge" style="display:none;"></span></button>
-        <div style="position:relative;">
-          <button class="icon-circle" id="btn-settings-header" title="Configurações">&#9881;&#65039;</button>
-          <div id="settings-menu" style="display:none; position:absolute; top:44px; right:0; z-index:50; background:var(--panel); border:1px solid var(--border-soft); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.12); min-width:210px; padding:6px; overflow:hidden;">
-            <button id="menu-item-importar" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#8613; Importar relatório (CSV)</button>
-            <button id="menu-item-exportar" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#8681; Exportar relatório</button>
-            <button id="menu-item-validar-repeticao" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#10003; Validar Arte Repetição</button>
-            <button id="menu-item-historico-externo" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#128203; Importar histórico externo (RVEN304)</button>
-            <hr style="border:none; border-top:1px solid var(--border-soft); margin:4px 6px;">
-            <button id="menu-item-zerar" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--red); font-family:'Plus Jakarta Sans',sans-serif;">&#128465; Zerar pedidos</button>
-            <hr style="border:none; border-top:1px solid var(--border-soft); margin:4px 6px;">
-            <button id="menu-item-sair" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#128682; Sair</button>
+      <div class="header-icons" style="flex-direction:column; align-items:flex-end; gap:4px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <span class="sync-chip">&#9650; Sincronizado às <span id="sync-time"></span> · <span id="app-version" title="Versão publicada deste dashboard"></span></span>
+          <button class="icon-circle" title="Notificações">&#128276;<span class="badge-dot" id="notif-badge" style="display:none;"></span></button>
+          <div style="position:relative;">
+            <button class="icon-circle" id="btn-settings-header" title="Configurações">&#9881;&#65039;</button>
+            <div id="settings-menu" style="display:none; position:absolute; top:44px; right:0; z-index:50; background:var(--panel); border:1px solid var(--border-soft); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.12); min-width:210px; padding:6px; overflow:hidden;">
+              <button id="menu-item-importar" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#8613; Importar relatório (CSV)</button>
+              <button id="menu-item-exportar" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#8681; Exportar relatório</button>
+              <button id="menu-item-validar-repeticao" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#10003; Validar Arte Repetição</button>
+              <button id="menu-item-historico-externo" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#128203; Importar histórico externo (RVEN304)</button>
+              <hr style="border:none; border-top:1px solid var(--border-soft); margin:4px 6px;">
+              <button id="menu-item-zerar" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--red); font-family:'Plus Jakarta Sans',sans-serif;">&#128465; Zerar pedidos</button>
+              <hr style="border:none; border-top:1px solid var(--border-soft); margin:4px 6px;">
+              <button id="menu-item-sair" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#128682; Sair</button>
+            </div>
           </div>
         </div>
+        <span class="status-line" id="status-line-wrap" style="font-size:11.5px;">Última importação: <b id="ultima-importacao">—</b></span>
       </div>
     </div>
 
     <div id="view-home">
-      <p class="home-intro">Espaço reservado para os cards do painel inicial — conteúdo a definir.</p>
       <div class="home-cards-grid">
         <div class="home-card home-card-live" id="home-card-cliche-mes" title="Ver detalhes em Custo de clichê">
           <div class="hcm-label" id="hcm-mes-nome">—</div>
@@ -708,7 +709,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v3.2 · 12/08/2026';
+const APP_VERSION = 'v3.3 · 12/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -1392,7 +1393,6 @@ function matchesSearch(p){
    RENDER — CABEÇALHO
    ======================================================================== */
 function renderPageHeader(){
-  document.getElementById('situacao-count').textContent = pedidos.length + ' pedido' + (pedidos.length===1?'':'s') + ' parado' + (pedidos.length===1?'':'s') + ' em Artes';
   document.getElementById('ultima-importacao').textContent = lastImportTime ? fmtDateTime(lastImportTime) : '—';
   document.getElementById('sync-time').textContent = fmtTime(lastSyncTime);
   document.getElementById('app-version').textContent = APP_VERSION;
