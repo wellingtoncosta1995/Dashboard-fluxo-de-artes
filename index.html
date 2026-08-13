@@ -741,7 +741,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v3.9 · 12/08/2026';
+const APP_VERSION = 'v4.0 · 12/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -1242,6 +1242,7 @@ let regravacoes = [];   // registros manuais de regravação de clichê
 let catalogoItens = {}; // {codigo: nome} — deduplicado, extraído de todos os pedidos
 const DIAMETROS_CONHECIDOS = [68,75,79,93,101,120,150,185];
 let diametrosManual = {}; // {codigo: diametro} — identificação manual, quando não dá pra detectar pelo nome
+let clicheItensInfo = {}; // {codigo: {osCliche, numeroCliche, qtdCores}} — ficha do clichê de cada item do catálogo
 function extrairDiametro(nome){
   const n = String(nome||'');
   // Potes/copos/embalagens costumam trazer a boca no formato "(101X82,5)" —
@@ -1316,6 +1317,7 @@ async function loadState(){
     if(saved.tabelaCodigosInternos) TABELA_CODIGOS_INTERNOS = saved.tabelaCodigosInternos;
     if(saved.codigosUltimaAtualizacao) codigosUltimaAtualizacao = saved.codigosUltimaAtualizacao;
     if(saved.diametrosManual) diametrosManual = saved.diametrosManual;
+    if(saved.clicheItensInfo) clicheItensInfo = saved.clicheItensInfo;
     if(saved.leadTimePorBoca) leadTimePorBoca = saved.leadTimePorBoca;
     const known = new Set([...pedidos, ...historico].map(p=>p.pedido));
     const origemPadrao = nomeRelatorioAtual || ('Importação ' + new Date().toLocaleDateString('pt-BR'));
@@ -1383,7 +1385,7 @@ function buildCatalogoItens(){
 }
 async function saveState(){
   try{
-    await window.storage.set('artes-pedidos-v3', JSON.stringify({pedidos, historico, regravacoes, nomeRelatorioAtual, lastImportTime, seedDescartada, tabelaCodigosInternos: TABELA_CODIGOS_INTERNOS, codigosUltimaAtualizacao, diametrosManual, leadTimePorBoca, stageOrderV2:true}), false);
+    await window.storage.set('artes-pedidos-v3', JSON.stringify({pedidos, historico, regravacoes, nomeRelatorioAtual, lastImportTime, seedDescartada, tabelaCodigosInternos: TABELA_CODIGOS_INTERNOS, codigosUltimaAtualizacao, diametrosManual, clicheItensInfo, leadTimePorBoca, stageOrderV2:true}), false);
   }catch(e){ console.error('Falha ao salvar', e); }
 }
 
@@ -3027,15 +3029,20 @@ function renderCatalogo(){
           ${DIAMETROS_CONHECIDOS.map(d=>`<option value="${d}">Ø ${d}</option>`).join('')}
         </select>`;
     }
+    const temFicha = clicheItensInfo[cod] && (clicheItensInfo[cod].osCliche || clicheItensInfo[cod].numeroCliche || clicheItensInfo[cod].qtdCores);
     return `
-    <tr>
+    <tr class="catalogo-item-row" data-cod="${cod}" style="cursor:pointer;">
       <td class="pedido">${cod}</td>
-      <td>${info.nome}</td>
+      <td>${info.nome} ${temFicha ? '<span title="Ficha de clichê preenchida" style="color:var(--green-dark); font-size:11px;">&#9679;</span>' : ''}</td>
       <td style="color:var(--text-dim); font-size:12px;">${[...info.clientes].join(', ')}</td>
       <td style="color:var(--text-dim); font-size:12px;">${info.vendedor || '—'}</td>
-      <td>${colDiametro}</td>
+      <td onclick="event.stopPropagation()">${colDiametro}</td>
     </tr>`;
   }).join('') : `<tr><td colspan="5" class="hist-empty">${catalogoSoNaoIdentificados ? 'Nenhum item pendente de identificação — tudo certo! 🎉' : 'Nenhum item encontrado.'}</td></tr>`;
+
+  tbody.querySelectorAll('.catalogo-item-row').forEach(tr=>{
+    tr.addEventListener('click', ()=> openItemClicheModal(tr.dataset.cod));
+  });
 
   tbody.querySelectorAll('.diametro-select').forEach(sel=>{
     sel.addEventListener('change', async (e)=>{
@@ -3057,6 +3064,58 @@ function renderCatalogo(){
       renderCatalogo();
     });
   });
+}
+
+function openItemClicheModal(cod){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  const info = catalogoItens[cod];
+  if(!info) return;
+
+  const {diametro} = diametroDoItem(cod, info.nome);
+  const ficha = clicheItensInfo[cod] || {};
+
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div><h2 style="font-size:16px;">Ficha de clichê — ${cod}</h2><p>${info.nome}</p></div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <div class="modal-row"><span class="k">Representante</span><span class="v">${info.vendedor || '—'}</span></div>
+    <div class="modal-row"><span class="k">Diâmetro do item</span><span class="v">${diametro!=null ? `Ø ${diametro}` : '—'}</span></div>
+    <hr class="divider">
+    <div class="export-row">
+      <label>OS de clichê</label>
+      <input type="text" id="ficha-os-input" placeholder="Número da OS" value="${ficha.osCliche || ''}">
+    </div>
+    <div class="export-row">
+      <label>Número do clichê</label>
+      <input type="text" id="ficha-numero-input" placeholder="Número do clichê" value="${ficha.numeroCliche || ''}">
+    </div>
+    <div class="export-row">
+      <label>Quantidade de cores</label>
+      <input type="number" min="0" id="ficha-cores-input" placeholder="Ex: 4" value="${ficha.qtdCores!=null ? ficha.qtdCores : ''}">
+    </div>
+    <div class="export-actions">
+      <button class="btn ghost" id="ficha-cancel">Cancelar</button>
+      <button class="btn gold" id="ficha-salvar">Salvar</button>
+    </div>
+  `;
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('ficha-cancel').addEventListener('click', closeModal);
+  document.getElementById('ficha-salvar').addEventListener('click', async ()=>{
+    const os = document.getElementById('ficha-os-input').value.trim();
+    const numero = document.getElementById('ficha-numero-input').value.trim();
+    const coresRaw = document.getElementById('ficha-cores-input').value.trim();
+    clicheItensInfo[cod] = {
+      osCliche: os || null,
+      numeroCliche: numero || null,
+      qtdCores: coresRaw ? parseInt(coresRaw,10) : null,
+    };
+    await saveState();
+    closeModal();
+    renderCatalogo();
+  });
+  overlay.classList.add('open');
 }
 document.getElementById('catalogo-search-input').addEventListener('input', (e)=>{
   catalogoSearchTerm = e.target.value.trim();
