@@ -556,12 +556,6 @@
             </select>
           </div>
           <div>
-            <label style="display:block; font-size:11px; color:var(--text-dim); font-weight:600; margin-bottom:5px;">Filtrar por situação</label>
-            <select id="cliche-situacao-filter" style="background:var(--panel-alt); border:1.5px solid var(--gold); color:var(--text); padding:9px 11px; border-radius:9px; font-size:13px; font-weight:600; font-family:'Plus Jakarta Sans',sans-serif; min-width:220px; cursor:pointer;">
-              <option value="">Todas as situações</option>
-            </select>
-          </div>
-          <div>
             <label style="display:block; font-size:11px; color:var(--text-dim); font-weight:600; margin-bottom:5px;">Filtrar por representante</label>
             <select id="cliche-vendedor-filter" style="background:var(--panel-alt); border:1.5px solid var(--gold); color:var(--text); padding:9px 11px; border-radius:9px; font-size:13px; font-weight:600; font-family:'Plus Jakarta Sans',sans-serif; min-width:260px; cursor:pointer;">
               <option value="">Todos os representantes</option>
@@ -739,7 +733,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v3.7 · 12/08/2026';
+const APP_VERSION = 'v3.8 · 12/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -2724,7 +2718,6 @@ function renderHistory(){
    CUSTO DE CLICHÊ — histórico consolidado
    ======================================================================== */
 let clicheClienteFiltro = '';
-let clicheSituacaoFiltro = '';
 let clicheVendedorFiltro = '';
 function situacaoLabelPedido(p){
   if(p.tipo==='finalizado') return 'Finalizado';
@@ -2746,14 +2739,6 @@ function renderClicheHistory(){
     selectCliente.value = clicheClienteFiltro;
   }
 
-  // popular seletor de situação
-  const selectSituacao = document.getElementById('cliche-situacao-filter');
-  const situacoesUnicas = [...new Set(comCliche.map(p=>situacaoLabelPedido(p)))].sort((a,b)=>a.localeCompare(b));
-  if(selectSituacao.options.length - 1 !== situacoesUnicas.length){
-    selectSituacao.innerHTML = `<option value="">Todas as situações</option>` + situacoesUnicas.map(s=>`<option value="${s}">${s}</option>`).join('');
-    selectSituacao.value = clicheSituacaoFiltro;
-  }
-
   // popular seletor de representantes
   const selectVendedor = document.getElementById('cliche-vendedor-filter');
   const vendedoresUnicos = [...new Set(comCliche.map(p=>p.vendedor).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
@@ -2765,7 +2750,6 @@ function renderClicheHistory(){
   const items = comCliche.filter(p=>{
     if(!matchesSearch(p)) return false;
     if(clicheClienteFiltro && p.clienteNome !== clicheClienteFiltro) return false;
-    if(clicheSituacaoFiltro && situacaoLabelPedido(p) !== clicheSituacaoFiltro) return false;
     if(clicheVendedorFiltro && p.vendedor !== clicheVendedorFiltro) return false;
     return true;
   });
@@ -2785,10 +2769,6 @@ function renderClicheHistory(){
 }
 document.getElementById('cliche-cliente-filter').addEventListener('change', (e)=>{
   clicheClienteFiltro = e.target.value;
-  renderClicheHistory();
-});
-document.getElementById('cliche-situacao-filter').addEventListener('change', (e)=>{
-  clicheSituacaoFiltro = e.target.value;
   renderClicheHistory();
 });
 document.getElementById('cliche-vendedor-filter').addEventListener('change', (e)=>{
