@@ -426,8 +426,10 @@
       <button class="nav-item active" data-view="home"><span class="icon">&#127968;</span> Home</button>
       <button class="nav-item" data-view="board"><span class="icon">&#127912;</span> Fluxo de artes</button>
       <button class="nav-item" data-view="cliche"><span class="icon">&#128176;</span> Custo de clichê</button>
-      <button class="nav-item" data-view="custo-mensal" style="padding-left:34px; font-size:12.5px;"><span class="icon">&#128197;</span> Custo mensal</button>
-      <button class="nav-item" data-view="custo-anual" style="padding-left:34px; font-size:12.5px;"><span class="icon">&#128202;</span> Custo anual</button>
+      <div id="cliche-submenu" style="display:none;">
+        <button class="nav-item" data-view="custo-mensal" style="padding-left:34px; font-size:12.5px;"><span class="icon">&#128197;</span> Custo mensal</button>
+        <button class="nav-item" data-view="custo-anual" style="padding-left:34px; font-size:12.5px;"><span class="icon">&#128202;</span> Custo anual</button>
+      </div>
       <button class="nav-item" data-view="regravacao"><span class="icon">&#128260;</span> Regravação de clichê</button>
       <button class="nav-item" data-view="catalogo"><span class="icon">&#128218;</span> Catálogo de itens</button>
       <button class="nav-item" data-view="codigos"><span class="icon">&#127991;</span> Tabela de Códigos</button>
@@ -737,7 +739,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v3.6 · 12/08/2026';
+const APP_VERSION = 'v3.7 · 12/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -3285,6 +3287,7 @@ function switchView(view){
   document.getElementById('view-cliche').style.display = view==='cliche' ? 'block' : 'none';
   document.getElementById('view-custo-mensal').style.display = view==='custo-mensal' ? 'block' : 'none';
   document.getElementById('view-custo-anual').style.display = view==='custo-anual' ? 'block' : 'none';
+  document.getElementById('cliche-submenu').style.display = (view==='cliche' || view==='custo-mensal' || view==='custo-anual') ? 'block' : 'none';
   document.getElementById('view-regravacao').style.display = view==='regravacao' ? 'block' : 'none';
   document.getElementById('view-catalogo').style.display = view==='catalogo' ? 'block' : 'none';
   document.getElementById('view-codigos').style.display = view==='codigos' ? 'block' : 'none';
