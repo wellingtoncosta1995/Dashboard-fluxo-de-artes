@@ -286,7 +286,7 @@
   .overlay{position:fixed; inset:0; background:rgba(30,26,16,.45); backdrop-filter:blur(2px); display:none; align-items:flex-start; justify-content:center; z-index:100; padding:40px 16px; overflow-y:auto;}
   .overlay.open{display:flex;}
   .modal{background:var(--panel); border:1px solid var(--border-soft); border-radius:14px; width:100%; max-width:560px; padding:22px; animation:pop .12s ease-out;}
-  .modal.modal-wide{max-width:760px;}
+  .modal.modal-wide{max-width:920px;}
   @keyframes pop{from{transform:translateY(6px); opacity:0;} to{transform:translateY(0); opacity:1;}}
   .modal-head{display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px;}
   .modal-head h2{font-size:19px; margin:0; color:var(--gold-dark);}
@@ -385,7 +385,7 @@
   .hist-tabs{display:flex; gap:8px; margin-bottom:16px;}
   .hist-tab{padding:8px 16px; border-radius:9px; border:1px solid var(--border-soft); background:var(--panel-alt); color:var(--text-dim); font-size:12.5px; font-weight:600;}
   .hist-tab.active{border-color:var(--gold); color:var(--gold-dark); background:var(--gold-bg-light);}
-  .hist-table-wrap{background:var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius); overflow:hidden;}
+  .hist-table-wrap{background:var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius); overflow-x:auto; overflow-y:hidden;}
   table.hist{width:100%; border-collapse:collapse; font-size:12.5px;}
   table.hist th{text-align:left; padding:10px 14px; background:var(--panel-alt); color:var(--text-faint); font-size:10px; text-transform:uppercase; letter-spacing:.4px; border-bottom:1px solid var(--border-soft);}
   table.hist td{padding:10px 14px; border-bottom:1px solid var(--border-soft); color:var(--text-dim); vertical-align:top;}
@@ -745,7 +745,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v5.2 · 13/08/2026';
+const APP_VERSION = 'v5.3 · 13/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
