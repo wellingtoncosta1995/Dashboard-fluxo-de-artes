@@ -745,7 +745,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v4.6 · 13/08/2026';
+const APP_VERSION = 'v4.7 · 13/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -3564,9 +3564,31 @@ function renderHomeCards(){
 function openClicheMesModal(){
   const agora = new Date();
   const { pedidosMes, regravMes } = listaClicheMesAtual();
+  const { totalPedidos, totalRegrav, totalRioplastic, total } = calcularClicheMesAtual();
   const overlay = document.getElementById('overlay');
   const modal = document.getElementById('modal');
   modal.classList.add('modal-wide');
+
+  const modalidades = [
+    { label:'Cliente', valor:totalPedidos, cor:'var(--gold)' },
+    { label:'Regravações', valor:totalRegrav, cor:'var(--blue)' },
+    { label:'Rioplastic', valor:totalRioplastic, cor:'var(--red)' },
+  ];
+  const maiorValor = Math.max(...modalidades.map(m=>m.valor), 1);
+  const ALTURA_MAX = 120;
+  const colunasModalidade = modalidades.map(m=>{
+    const altura = Math.max(4, Math.round(m.valor/maiorValor*ALTURA_MAX));
+    const pct = total>0 ? Math.round(m.valor/total*100) : 0;
+    return `
+    <div style="display:flex; flex-direction:column; align-items:center; gap:8px; flex:1;">
+      <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13px; color:var(--text);">${fmtBRL(m.valor)}</span>
+      <div style="width:100%; max-width:72px; height:${ALTURA_MAX}px; display:flex; align-items:flex-end; background:var(--panel-alt); border-radius:8px; overflow:hidden;">
+        <div style="width:100%; height:${altura}px; background:${m.cor}; border-radius:8px 8px 0 0;"></div>
+      </div>
+      <span style="font-size:12px; color:var(--text-dim); text-align:center; font-weight:600;">${m.label}</span>
+      <span style="font-size:10.5px; color:var(--text-faint);">${pct}%</span>
+    </div>`;
+  }).join('');
 
   const pedidosRows = pedidosMes.length ? pedidosMes
     .sort((a,b)=> b.totalEfetivo - a.totalEfetivo)
@@ -3597,6 +3619,10 @@ function openClicheMesModal(){
       </div>
       <button class="close-x" id="modal-close">&times;</button>
     </div>
+
+    <hr class="divider">
+    <div class="k" style="font-size:12.5px; margin-bottom:14px;">Distribuição por modalidade — total ${fmtBRL(total)}</div>
+    <div style="display:flex; gap:24px; justify-content:center; margin-bottom:20px;">${colunasModalidade}</div>
 
     <hr class="divider">
     <div class="k" style="font-size:12.5px; margin-bottom:8px;">Pedidos com clichê este mês (${pedidosMes.length})</div>
