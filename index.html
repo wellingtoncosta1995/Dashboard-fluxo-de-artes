@@ -578,7 +578,7 @@
       <div class="hist-table-wrap">
         <table class="hist" id="cliche-table">
           <thead>
-            <tr><th>Pedido</th><th>Cliente</th><th>Situação</th><th style="text-align:right;">Valor total do clichê</th><th style="text-align:right;">Valor inserido no pedido</th></tr>
+            <tr><th>Pedido</th><th>Cliente</th><th>Situação</th><th style="text-align:right;">Valor total do clichê</th><th style="text-align:right;">Valor inserido no pedido</th><th></th></tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -745,7 +745,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v4.8 · 13/08/2026';
+const APP_VERSION = 'v4.9 · 13/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -2873,7 +2873,12 @@ function renderClicheHistory(){
       <td>${situacaoLabelPedido(p)}</td>
       <td class="val">${p.valorClicheTotal!=null ? fmtBRL(p.valorClicheTotal) : '—'}</td>
       <td class="val">${p.clicheBonificado ? `<span class="tag tag-repeticao">BONIFICADO</span>` : (p.valorClichePedido!=null ? fmtBRL(p.valorClichePedido) : '—')}</td>
-    </tr>`).join('') : `<tr><td colspan="5" class="hist-empty">Nenhum pedido com custo de clichê registrado ainda.</td></tr>`;
+      <td><button class="btn small ghost btn-editar-cliche" data-id="${p.id}" title="Corrigir valores de clichê deste pedido">&#9998; Corrigir</button></td>
+    </tr>`).join('') : `<tr><td colspan="6" class="hist-empty">Nenhum pedido com custo de clichê registrado ainda.</td></tr>`;
+
+  tbody.querySelectorAll('.btn-editar-cliche').forEach(btn=>{
+    btn.addEventListener('click', ()=> openEditarClicheModal(btn.dataset.id));
+  });
 
   renderClicheHistoricoPeriodos();
 }
@@ -2885,6 +2890,61 @@ document.getElementById('cliche-vendedor-filter').addEventListener('change', (e)
   clicheVendedorFiltro = e.target.value;
   renderClicheHistory();
 });
+
+function openEditarClicheModal(id){
+  const p = pedidos.find(x=>x.id===id) || historico.find(x=>x.id===id);
+  if(!p) return;
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div><h2 style="font-size:16px;">Corrigir clichê — #${p.pedido}</h2><p>${p.clienteNome} · ${situacaoLabelPedido(p)}</p></div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <div class="export-row">
+      <label>Valor total do clichê</label>
+      <input type="text" id="editcliche-total-input" placeholder="R$ 0,00" value="${p.valorClicheTotal!=null ? fmtBRL(p.valorClicheTotal) : ''}">
+    </div>
+    <div class="export-row">
+      <label>Valor inserido no pedido</label>
+      <input type="text" id="editcliche-pedido-input" placeholder="R$ 0,00" value="${p.valorClichePedido!=null ? fmtBRL(p.valorClichePedido) : ''}" ${p.clicheBonificado?'disabled':''}>
+    </div>
+    <div class="export-row" style="flex-direction:row; align-items:center; gap:8px;">
+      <input type="checkbox" id="editcliche-bonificado-check" ${p.clicheBonificado?'checked':''} style="width:16px; height:16px;">
+      <label style="margin:0;">Bonificado (não cobrado do cliente — vira custo Rioplastic)</label>
+    </div>
+    <div id="editcliche-result" style="font-size:12.5px; margin-bottom:10px;"></div>
+    <div class="export-actions">
+      <button class="btn ghost" id="editcliche-cancel">Cancelar</button>
+      <button class="btn gold" id="editcliche-salvar">Salvar</button>
+    </div>
+  `;
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('editcliche-cancel').addEventListener('click', closeModal);
+
+  const pedidoInput = document.getElementById('editcliche-pedido-input');
+  document.getElementById('editcliche-bonificado-check').addEventListener('change', (e)=>{
+    pedidoInput.disabled = e.target.checked;
+    if(e.target.checked) pedidoInput.value = '';
+  });
+
+  document.getElementById('editcliche-salvar').addEventListener('click', async ()=>{
+    const totalRaw = document.getElementById('editcliche-total-input').value.replace(/\./g,'').replace(',', '.').replace(/[^\d.]/g,'');
+    const bonificado = document.getElementById('editcliche-bonificado-check').checked;
+    const pedidoRaw = pedidoInput.value.replace(/\./g,'').replace(',', '.').replace(/[^\d.]/g,'');
+
+    p.valorClicheTotal = totalRaw ? parseFloat(totalRaw) : null;
+    p.clicheBonificado = bonificado;
+    p.valorClichePedido = bonificado ? 0 : (pedidoRaw ? parseFloat(pedidoRaw) : null);
+    if(!p.clicheRegistradoEm) p.clicheRegistradoEm = new Date().toISOString();
+
+    await saveState();
+    closeModal();
+    renderAll();
+  });
+  overlay.classList.add('open');
+}
 
 /* ========================================================================
    CUSTO DE CLICHÊ — histórico mensal / anual
