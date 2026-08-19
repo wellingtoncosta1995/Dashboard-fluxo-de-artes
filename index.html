@@ -489,8 +489,8 @@
             <span>Valor total: <b id="hcf-valor-money">R$ 0,00</b></span>
           </div>
         </div>
-        <div class="home-card home-card-live" id="home-card-vencimento" title="Ver detalhes em Pedidos acima da média">
-          <div class="hcm-label">ACIMA DA MÉDIA</div>
+        <div class="home-card home-card-live" id="home-card-vencimento" title="Ver detalhes em Lead time por pedidos">
+          <div class="hcm-label">LEAD TIME POR PEDIDOS</div>
           <div class="hcm-valor" id="hcv-valor-total">0</div>
           <div class="hcm-breakdown">
             <span>Atraso de 1-7 dias: <b id="hcv-valor-vencidos">0</b></span>
@@ -745,7 +745,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v5.1 · 13/08/2026';
+const APP_VERSION = 'v5.2 · 13/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -3839,7 +3839,7 @@ function openVencimentoModal(){
   modal.innerHTML = `
     <div class="modal-head">
       <div>
-        <h2 style="font-size:18px;">Pedidos acima da média</h2>
+        <h2 style="font-size:18px;">Lead time por pedidos</h2>
         <p>Data de entrega projetada = data de entrada na etapa atual + lead time atual do diâmetro, comparada à data de entrega prometida${semCalculo ? ` · ${semCalculo} pedido(s) sem diâmetro identificado ou sem lead time cadastrado, não entram nesse cálculo` : ''}</p>
       </div>
       <button class="close-x" id="modal-close">&times;</button>
