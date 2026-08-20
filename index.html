@@ -726,6 +726,10 @@
         <div class="hist-tab" data-tab="repeticao">Arte Repetição — a validar <span id="hist-count-repeticao"></span></div>
         <div class="hist-tab" data-tab="repeticao-validados">Repetição — validados e liberados <span id="hist-count-repeticao-validados"></span></div>
       </div>
+      <div class="search-box" style="max-width:340px; margin-bottom:14px;">
+        <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
+        <input type="text" id="hist-search-input" placeholder="Buscar pedido ou cliente...">
+      </div>
       <div class="hist-table-wrap">
         <table class="hist" id="hist-table">
           <thead></thead>
@@ -745,7 +749,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v5.4 · 13/08/2026';
+const APP_VERSION = 'v5.5 · 13/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -1323,6 +1327,7 @@ let catalogoSearchTerm = '';
 let currentHistTab = 'finalizados';
 let currentView = 'board'; // board | leadtime | history
 let searchTerm = '';
+let historySearchTerm = '';
 let nomeRelatorioAtual = '';
 let multiSelectMode = false;
 let selectedIds = new Set();
@@ -1453,9 +1458,9 @@ function tagClass(tag){
   if(tag === 'ARTE REPETIÇÃO') return 'tag-repeticao';
   return '';
 }
-function matchesSearch(p){
-  if(!searchTerm) return true;
-  const t = searchTerm.toLowerCase();
+function matchesSearch(p, term){
+  if(!term) return true;
+  const t = term.toLowerCase();
   return p.pedido.toLowerCase().includes(t) ||
          p.clienteNome.toLowerCase().includes(t) ||
          p.clienteCod.toLowerCase().includes(t);
@@ -1508,7 +1513,7 @@ function renderStageCards(){
 function renderListaPedidos(){
   const tbody = document.getElementById('lista-pedidos-tbody');
   const items = pedidos
-    .filter(p=> (filtroEtapaLista===null || p.stage===filtroEtapaLista) && matchesSearch(p))
+    .filter(p=> (filtroEtapaLista===null || p.stage===filtroEtapaLista) && matchesSearch(p, searchTerm))
     .sort((a,b)=>parseDateBR(a.entrega)-parseDateBR(b.entrega));
 
   if(items.length===0){
@@ -1578,7 +1583,7 @@ function renderAccordion(){
   wrap.innerHTML = '';
 
   STAGES.forEach(stage=>{
-    const items = pedidos.filter(p=>p.stage===stage.id && matchesSearch(p))
+    const items = pedidos.filter(p=>p.stage===stage.id && matchesSearch(p, searchTerm))
                           .sort((a,b)=>parseDateBR(a.entrega)-parseDateBR(b.entrega));
     const isOpen = openStages.has(stage.id);
 
@@ -2737,11 +2742,11 @@ function renderHistory(){
     if(currentHistTab==='finalizados') tabMatch = p.tipo==='finalizado';
     else if(currentHistTab==='repeticao') tabMatch = p.tipo==='repeticao' && !p.validado;
     else tabMatch = p.tipo==='repeticao' && p.validado;
-    return tabMatch && matchesSearch(p);
+    return tabMatch && matchesSearch(p, historySearchTerm);
   });
 
   if(currentHistTab==='finalizados'){
-    thead.innerHTML = `<tr><th>Pedido</th><th>Cliente</th><th>Entrega</th><th>Finalizado em</th><th style="text-align:right;">Peso</th><th style="text-align:right;">Valor</th></tr>`;
+    thead.innerHTML = `<tr><th>Pedido</th><th>Cliente</th><th>Entrega</th><th>Finalizado em</th><th style="text-align:right;">Peso</th><th style="text-align:right;">Valor</th><th></th></tr>`;
     tbody.innerHTML = items.length ? items
       .sort((a,b)=> new Date(b.finalizadoEm) - new Date(a.finalizadoEm))
       .map(p=>`
@@ -2752,7 +2757,28 @@ function renderHistory(){
         <td>${fmtDateTime(p.finalizadoEm)}</td>
         <td class="val">${fmtKg(p.pesoTotal)}</td>
         <td class="val">${fmtBRL(p.valorTotal)}</td>
-      </tr>`).join('') : `<tr><td colspan="6" class="hist-empty">Nenhum pedido finalizado ainda.</td></tr>`;
+        <td onclick="event.stopPropagation()">
+          <button class="btn small ghost btn-voltar-sem-tratativa" data-id="${p.id}" title="Reabrir e voltar para o fluxo, na etapa Sem tratativa">&#8618; Voltar p/ sem tratativa</button>
+        </td>
+      </tr>`).join('') : `<tr><td colspan="7" class="hist-empty">Nenhum pedido finalizado ainda.</td></tr>`;
+
+    tbody.querySelectorAll('.btn-voltar-sem-tratativa').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const pid = btn.dataset.id;
+        const idx = historico.findIndex(x=>x.id===pid);
+        if(idx===-1) return;
+        const p = historico[idx];
+        if(!confirm(`Reabrir o pedido #${p.pedido} e voltar para "Sem tratativa" no Fluxo de artes?`)) return;
+        historico.splice(idx,1);
+        p.tipo = 'ativo';
+        p.finalizadoEm = null;
+        p.stage = 0;
+        p.stageHistory = [{stage:0, entradaEm: new Date().toISOString()}];
+        pedidos.push(p);
+        await saveState();
+        renderAll();
+      });
+    });
   }else if(currentHistTab==='repeticao-validados'){
     thead.innerHTML = `<tr><th>Pedido</th><th>Cliente</th><th>Entrega</th><th style="text-align:right;">Peso</th><th style="text-align:right;">Valor</th><th>Validado em</th></tr>`;
     tbody.innerHTML = items.length ? items
@@ -2858,7 +2884,7 @@ function renderClicheHistory(){
   }
 
   const items = comCliche.filter(p=>{
-    if(!matchesSearch(p)) return false;
+    if(!matchesSearch(p, "")) return false;
     if(clicheClienteFiltro && p.clienteNome !== clicheClienteFiltro) return false;
     if(clicheVendedorFiltro && p.vendedor !== clicheVendedorFiltro) return false;
     return true;
@@ -3462,6 +3488,10 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
 document.getElementById('search-input').addEventListener('input', (e)=>{
   searchTerm = e.target.value.trim();
   renderAll();
+});
+document.getElementById('hist-search-input').addEventListener('input', (e)=>{
+  historySearchTerm = e.target.value.trim();
+  renderHistory();
 });
 
 /* ========================================================================
