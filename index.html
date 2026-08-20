@@ -471,15 +471,6 @@
 
     <div id="view-home">
       <div class="home-cards-grid">
-        <div class="home-card home-card-live" id="home-card-cliche-mes" title="Ver detalhes em Custo de clichê">
-          <div class="hcm-label" id="hcm-mes-nome">—</div>
-          <div class="hcm-valor" id="hcm-valor-total">R$ 0,00</div>
-          <div class="hcm-breakdown">
-            <span>Cliente: <b id="hcm-valor-pedidos">R$ 0,00</b></span>
-            <span>Regravações: <b id="hcm-valor-regrav">R$ 0,00</b></span>
-            <span>Rioplastic: <b id="hcm-valor-rioplastic">R$ 0,00</b></span>
-          </div>
-        </div>
         <div class="home-card home-card-live" id="home-card-fluxo" title="Ver detalhes em Fluxo de artes">
           <div class="hcm-label">FLUXO DE ARTES</div>
           <div class="hcm-valor" id="hcf-valor-total">0</div>
@@ -489,6 +480,7 @@
             <span>Valor total: <b id="hcf-valor-money">R$ 0,00</b></span>
           </div>
         </div>
+        <div class="home-card"><span class="home-card-num">2</span><span class="home-card-label">Card 2</span></div>
         <div class="home-card home-card-live" id="home-card-vencimento" title="Ver detalhes em Lead time por pedidos">
           <div class="hcm-label">LEAD TIME POR PEDIDOS</div>
           <div class="hcm-valor" id="hcv-valor-total">0</div>
@@ -507,7 +499,15 @@
             <span>3ª colocada: <b id="hcg-terceira">—</b></span>
           </div>
         </div>
-        <div class="home-card"><span class="home-card-num">5</span><span class="home-card-label">Card 5</span></div>
+        <div class="home-card home-card-live" id="home-card-cliche-mes" title="Ver detalhes em Custo de clichê">
+          <div class="hcm-label" id="hcm-mes-nome">—</div>
+          <div class="hcm-valor" id="hcm-valor-total">R$ 0,00</div>
+          <div class="hcm-breakdown">
+            <span>Cliente: <b id="hcm-valor-pedidos">R$ 0,00</b></span>
+            <span>Regravações: <b id="hcm-valor-regrav">R$ 0,00</b></span>
+            <span>Rioplastic: <b id="hcm-valor-rioplastic">R$ 0,00</b></span>
+          </div>
+        </div>
         <div class="home-card"><span class="home-card-num">6</span><span class="home-card-label">Card 6</span></div>
       </div>
     </div>
@@ -749,7 +749,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v5.6 · 13/08/2026';
+const APP_VERSION = 'v5.7 · 13/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
