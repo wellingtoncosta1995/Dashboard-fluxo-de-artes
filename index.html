@@ -378,6 +378,10 @@
     border-radius:8px; padding:9px 10px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif; width:140px;
   }
   .regrav-form input#regrav-item-input{width:100%;}
+  .regrav-suggestion{padding:8px 12px; cursor:pointer; font-size:12.5px; border-bottom:1px solid var(--border-soft);}
+  .regrav-suggestion:last-child{border-bottom:none;}
+  .regrav-suggestion:hover{background:var(--panel-alt);}
+  .regrav-suggestion b{color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700;}
   .icon-btn.danger{color:var(--red);}
   .icon-btn.danger:hover{border-color:var(--red); background:var(--red-bg);}
 
@@ -625,9 +629,10 @@
             <label>Código</label>
             <input type="text" id="regrav-codigo-input" placeholder="Código">
           </div>
-          <div style="flex:1; min-width:200px;">
+          <div style="flex:1; min-width:200px; position:relative;">
             <label>Item</label>
-            <input type="text" id="regrav-item-input" placeholder="Nome do item">
+            <input type="text" id="regrav-item-input" placeholder="Nome do item" autocomplete="off">
+            <div id="regrav-item-suggestions" style="display:none; position:absolute; top:100%; left:0; right:0; z-index:60; background:var(--panel); border:1px solid var(--border-soft); border-radius:8px; box-shadow:0 8px 20px rgba(0,0,0,0.12); max-height:220px; overflow-y:auto; margin-top:2px;"></div>
           </div>
           <div>
             <label>Valor do clichê</label>
@@ -750,7 +755,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v5.9 · 13/08/2026';
+const APP_VERSION = 'v6.0 · 13/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -3113,6 +3118,38 @@ document.getElementById('regrav-codigo-input').addEventListener('input', (e)=>{
       itemInput.value = nomeEncontrado;
       regravUltimoAutoNome = nomeEncontrado;
     }
+  }
+});
+
+const regravItemInput = document.getElementById('regrav-item-input');
+const regravSuggestBox = document.getElementById('regrav-item-suggestions');
+regravItemInput.addEventListener('input', (e)=>{
+  const termo = e.target.value.trim().toLowerCase();
+  if(termo.length < 2){ regravSuggestBox.style.display = 'none'; return; }
+  const resultados = Object.entries(catalogoItens)
+    .filter(([cod,info])=> info.nome.toLowerCase().includes(termo) || cod.toLowerCase().includes(termo))
+    .slice(0, 8);
+  if(resultados.length===0){ regravSuggestBox.style.display = 'none'; return; }
+  regravSuggestBox.innerHTML = resultados.map(([cod,info])=>
+    `<div class="regrav-suggestion" data-cod="${cod}"><b>${cod}</b> — ${info.nome}</div>`
+  ).join('');
+  regravSuggestBox.style.display = 'block';
+  regravSuggestBox.querySelectorAll('.regrav-suggestion').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      const cod = el.dataset.cod;
+      document.getElementById('regrav-codigo-input').value = cod;
+      regravItemInput.value = catalogoItens[cod].nome;
+      regravUltimoAutoNome = catalogoItens[cod].nome;
+      regravSuggestBox.style.display = 'none';
+    });
+  });
+});
+regravItemInput.addEventListener('focus', (e)=>{
+  if(e.target.value.trim().length >= 2) e.target.dispatchEvent(new Event('input'));
+});
+document.addEventListener('click', (e)=>{
+  if(!regravSuggestBox.contains(e.target) && e.target !== regravItemInput){
+    regravSuggestBox.style.display = 'none';
   }
 });
 document.getElementById('regrav-add-btn').addEventListener('click', async ()=>{
