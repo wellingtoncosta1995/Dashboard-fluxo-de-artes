@@ -453,6 +453,12 @@
       <button class="nav-item" data-view="codigos"><span class="icon">&#127991;</span> Tabela de Códigos</button>
       <button class="nav-item" data-view="leadtime"><span class="icon">&#128337;</span> Lead time por boca</button>
       <button class="nav-item" data-view="history"><span class="icon">&#128220;</span> Histórico</button>
+      <div id="history-submenu" style="display:none;">
+        <button class="nav-item hist-submenu-item" data-histtab="finalizados" style="padding-left:34px; font-size:12.5px;"><span class="icon">&#9989;</span> Finalizados</button>
+        <button class="nav-item hist-submenu-item" data-histtab="repeticao" style="padding-left:34px; font-size:12.5px;"><span class="icon">&#128203;</span> Arte Repetição — a validar</button>
+        <button class="nav-item hist-submenu-item" data-histtab="repeticao-validados" style="padding-left:34px; font-size:12.5px;"><span class="icon">&#9989;</span> Repetição — validados</button>
+        <button class="nav-item hist-submenu-item" data-histtab="cancelados" style="padding-left:34px; font-size:12.5px;"><span class="icon">&#10060;</span> Cancelados</button>
+      </div>
     </nav>
   </aside>
 
@@ -799,7 +805,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v6.4 · 21/08/2026';
+const APP_VERSION = 'v6.5 · 21/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -3831,6 +3837,7 @@ function switchView(view){
   document.getElementById('view-custo-mensal').style.display = view==='custo-mensal' ? 'block' : 'none';
   document.getElementById('view-custo-anual').style.display = view==='custo-anual' ? 'block' : 'none';
   document.getElementById('cliche-submenu').style.display = (view==='cliche' || view==='custo-mensal' || view==='custo-anual') ? 'block' : 'none';
+  document.getElementById('history-submenu').style.display = (view==='history') ? 'block' : 'none';
   document.getElementById('view-regravacao').style.display = view==='regravacao' ? 'block' : 'none';
   document.getElementById('view-catalogo').style.display = view==='catalogo' ? 'block' : 'none';
   document.getElementById('view-codigos').style.display = view==='codigos' ? 'block' : 'none';
@@ -3850,8 +3857,16 @@ function switchView(view){
 }
 document.querySelectorAll('.nav-item').forEach(btn=>{
   btn.addEventListener('click', ()=>{
-    if(btn.classList.contains('disabled')) return;
+    if(btn.classList.contains('disabled') || !btn.dataset.view) return;
     switchView(btn.dataset.view);
+  });
+});
+document.querySelectorAll('.hist-submenu-item').forEach(btn=>{
+  btn.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    currentHistTab = btn.dataset.histtab;
+    switchView('history');
+    document.querySelectorAll('.hist-tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===currentHistTab));
   });
 });
 
