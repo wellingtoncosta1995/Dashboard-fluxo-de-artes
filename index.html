@@ -642,10 +642,6 @@
             <label>Data da solicitação</label>
             <input type="date" id="regrav-data-solicitacao-input">
           </div>
-          <div>
-            <label>Chegada na fábrica</label>
-            <input type="date" id="regrav-data-chegada-input">
-          </div>
           <button class="btn gold" id="regrav-add-btn" style="align-self:flex-end;">+ Adicionar</button>
         </div>
       </div>
@@ -755,7 +751,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v6.0 · 13/08/2026';
+const APP_VERSION = 'v6.1 · 13/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -3093,9 +3089,34 @@ function renderRegravacao(){
       <td>${r.item || '—'}</td>
       <td class="val">${r.valorCliche!=null ? fmtBRL(r.valorCliche) : '—'}</td>
       <td>${fmtDataISO(r.dataSolicitacao)}</td>
-      <td>${fmtDataISO(r.dataChegada)}</td>
+      <td id="chegada-cell-${r.id}">
+        ${r.dataChegada
+          ? `<span style="color:var(--green-dark); font-weight:700;">&#10003; ${fmtDataISO(r.dataChegada)}</span>`
+          : `<button class="btn small ghost btn-marcar-chegada" data-id="${r.id}">Marcar chegada</button>`
+        }
+      </td>
       <td style="text-align:right;"><button class="icon-btn danger btn-del-regrav" data-id="${r.id}" title="Excluir">&#128465;</button></td>
     </tr>`).join('') : `<tr><td colspan="7" class="hist-empty">Nenhuma regravação de clichê registrada ainda.</td></tr>`;
+
+  tbody.querySelectorAll('.btn-marcar-chegada').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = btn.dataset.id;
+      const cell = document.getElementById(`chegada-cell-${id}`);
+      const hoje = new Date().toISOString().slice(0,10);
+      cell.innerHTML = `
+        <input type="date" id="chegada-input-${id}" value="${hoje}" style="font-size:12px; padding:5px 6px; border-radius:6px; border:1px solid var(--gold); font-family:'IBM Plex Mono',monospace; background:var(--panel-alt); color:var(--text);">
+        <button class="btn small gold" id="chegada-confirmar-${id}" style="margin-left:4px;">&#10003;</button>
+      `;
+      document.getElementById(`chegada-confirmar-${id}`).addEventListener('click', async ()=>{
+        const valor = document.getElementById(`chegada-input-${id}`).value;
+        if(!valor) return;
+        const r = regravacoes.find(x=>x.id===id);
+        r.dataChegada = valor;
+        await saveState();
+        renderRegravacao();
+      });
+    });
+  });
 
   tbody.querySelectorAll('.btn-del-regrav').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
@@ -3159,13 +3180,12 @@ document.getElementById('regrav-add-btn').addEventListener('click', async ()=>{
   const rawValor = document.getElementById('regrav-valor-input').value.replace(/\./g,'').replace(',', '.').replace(/[^\d.]/g,'');
   const valorCliche = rawValor ? parseFloat(rawValor) : null;
   const dataSolicitacao = document.getElementById('regrav-data-solicitacao-input').value || null;
-  const dataChegada = document.getElementById('regrav-data-chegada-input').value || null;
 
-  if(!os && !codigo && !item && valorCliche==null && !dataSolicitacao && !dataChegada){ return; }
+  if(!os && !codigo && !item && valorCliche==null && !dataSolicitacao){ return; }
 
   regravacoes.push({
     id: 'reg_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
-    os, codigo, item, valorCliche, dataSolicitacao, dataChegada,
+    os, codigo, item, valorCliche, dataSolicitacao, dataChegada:null,
     criadoEm: new Date().toISOString()
   });
   await saveState();
@@ -3175,7 +3195,6 @@ document.getElementById('regrav-add-btn').addEventListener('click', async ()=>{
   document.getElementById('regrav-item-input').value = '';
   document.getElementById('regrav-valor-input').value = '';
   document.getElementById('regrav-data-solicitacao-input').value = '';
-  document.getElementById('regrav-data-chegada-input').value = '';
   regravUltimoAutoNome = '';
   renderRegravacao();
   renderHomeCards();
