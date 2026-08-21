@@ -396,7 +396,8 @@
 
   /* ===== HISTORY VIEW ===== */
   .hist-tabs{display:flex; gap:8px; margin-bottom:16px;}
-  .hist-tab{padding:8px 16px; border-radius:9px; border:1px solid var(--border-soft); background:var(--panel-alt); color:var(--text-dim); font-size:12.5px; font-weight:600;}
+  .hist-tab{padding:8px 16px; border-radius:9px; border:1px solid var(--border-soft); background:var(--panel-alt); color:var(--text-dim); font-size:12.5px; font-weight:600; cursor:pointer; transition:box-shadow .15s ease, transform .15s ease, border-color .15s ease, color .15s ease;}
+  .hist-tab:hover{box-shadow:0 4px 14px rgba(140,114,56,.18); transform:translateY(-2px); border-color:var(--gold);}
   .hist-tab.active{border-color:var(--gold); color:var(--gold-dark); background:var(--gold-bg-light);}
   .hist-table-wrap{background:var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius); overflow-x:auto; overflow-y:hidden;}
   table.hist{width:100%; border-collapse:collapse; font-size:12.5px;}
@@ -762,7 +763,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v6.2 · 13/08/2026';
+const APP_VERSION = 'v6.3 · 21/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
