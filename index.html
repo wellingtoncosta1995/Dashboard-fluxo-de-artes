@@ -748,6 +748,42 @@
           <tbody></tbody>
         </table>
       </div>
+
+      <div class="home-cards-grid" style="grid-template-columns:repeat(4, 1fr); margin-top:20px;">
+        <div class="home-card home-card-live" id="histcard-geral" title="Ver detalhes gerais">
+          <div class="hcm-label">GERAL DE PEDIDOS</div>
+          <div class="hcm-valor" id="histcard-geral-total">0</div>
+          <div class="hcm-breakdown">
+            <span>Finalizados: <b id="histcard-geral-finalizados">0</b></span>
+            <span>Repetição: <b id="histcard-geral-repeticao">0</b></span>
+            <span>Cancelados: <b id="histcard-geral-cancelados">0</b></span>
+          </div>
+        </div>
+        <div class="home-card home-card-live" id="histcard-finalizados" title="Ver detalhes de Finalizados">
+          <div class="hcm-label">FINALIZADOS</div>
+          <div class="hcm-valor" id="histcard-fin-total">0</div>
+          <div class="hcm-breakdown">
+            <span>Peso total: <b id="histcard-fin-peso">0 kg</b></span>
+            <span>Valor total: <b id="histcard-fin-valor">R$ 0,00</b></span>
+          </div>
+        </div>
+        <div class="home-card home-card-live" id="histcard-repeticao" title="Ver detalhes de Arte Repetição">
+          <div class="hcm-label">REPETIÇÃO</div>
+          <div class="hcm-valor" id="histcard-rep-total">0</div>
+          <div class="hcm-breakdown">
+            <span>A validar: <b id="histcard-rep-avalidar">0</b></span>
+            <span>Validados e liberados: <b id="histcard-rep-validados">0</b></span>
+          </div>
+        </div>
+        <div class="home-card home-card-live" id="histcard-cancelados" title="Ver detalhes de Cancelados">
+          <div class="hcm-label">CANCELADOS</div>
+          <div class="hcm-valor" id="histcard-canc-total">0</div>
+          <div class="hcm-breakdown">
+            <span>Peso total: <b id="histcard-canc-peso">0 kg</b></span>
+            <span>Valor total: <b id="histcard-canc-valor">R$ 0,00</b></span>
+          </div>
+        </div>
+      </div>
     </div>
   </main>
 </div>
@@ -763,7 +799,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v6.3 · 21/08/2026';
+const APP_VERSION = 'v6.4 · 21/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -2941,7 +2977,193 @@ function renderHistory(){
   tbody.querySelectorAll('.link-pedido-hist').forEach(btn=>{
     btn.addEventListener('click', ()=> openModal(btn.dataset.id));
   });
+
+  renderHistoryCards();
 }
+
+function renderHistoryCards(){
+  const finalizados = historico.filter(p=>p.tipo==='finalizado');
+  const repAvalidar = historico.filter(p=>p.tipo==='repeticao' && !p.validado);
+  const repValidados = historico.filter(p=>p.tipo==='repeticao' && p.validado);
+  const cancelados = historico.filter(p=>p.tipo==='cancelado');
+  const repeticaoTotal = repAvalidar.length + repValidados.length;
+
+  document.getElementById('histcard-geral-total').textContent = historico.length;
+  document.getElementById('histcard-geral-finalizados').textContent = finalizados.length;
+  document.getElementById('histcard-geral-repeticao').textContent = repeticaoTotal;
+  document.getElementById('histcard-geral-cancelados').textContent = cancelados.length;
+
+  document.getElementById('histcard-fin-total').textContent = finalizados.length;
+  document.getElementById('histcard-fin-peso').textContent = fmtKg(finalizados.reduce((s,p)=>s+(p.pesoTotal||0),0));
+  document.getElementById('histcard-fin-valor').textContent = fmtBRL(finalizados.reduce((s,p)=>s+(p.valorTotal||0),0));
+
+  document.getElementById('histcard-rep-total').textContent = repeticaoTotal;
+  document.getElementById('histcard-rep-avalidar').textContent = repAvalidar.length;
+  document.getElementById('histcard-rep-validados').textContent = repValidados.length;
+
+  document.getElementById('histcard-canc-total').textContent = cancelados.length;
+  document.getElementById('histcard-canc-peso').textContent = fmtKg(cancelados.reduce((s,p)=>s+(p.pesoTotal||0),0));
+  document.getElementById('histcard-canc-valor').textContent = fmtBRL(cancelados.reduce((s,p)=>s+(p.valorTotal||0),0));
+}
+
+function tabelaSimplesPedidos(itens, colunaExtra){
+  if(!itens.length) return `<tr><td colspan="6" class="hist-empty">Nenhum pedido nesse grupo.</td></tr>`;
+  return itens.map(p=>`
+    <tr>
+      <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">#${p.pedido}</button></td>
+      <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
+      <td>${p.entrega}</td>
+      <td style="text-align:right;">${fmtKg(p.pesoTotal)}</td>
+      <td style="text-align:right;">${fmtBRL(p.valorTotal)}</td>
+      <td>${colunaExtra(p)}</td>
+    </tr>`).join('');
+}
+function bindLinksPedidoModal(modal){
+  modal.querySelectorAll('.link-pedido-venc').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      modal.classList.remove('modal-wide');
+      openModal(btn.dataset.id);
+    });
+  });
+}
+
+function openHistCardGeralModal(){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  modal.classList.add('modal-wide');
+
+  const grupos = {
+    finalizados: { label:'Finalizados', cor:'var(--green)', itens: historico.filter(p=>p.tipo==='finalizado'), extra:p=>fmtDateTime(p.finalizadoEm) },
+    repeticao:   { label:'Repetição (a validar + validados)', cor:'var(--blue)', itens: historico.filter(p=>p.tipo==='repeticao'), extra:p=>p.validado?'Validado':'Pendente' },
+    cancelados:  { label:'Cancelados', cor:'var(--red)', itens: historico.filter(p=>p.tipo==='cancelado'), extra:p=>p.canceladoEm?fmtDateTime(p.canceladoEm):'—' },
+  };
+  const maiorValor = Math.max(...Object.values(grupos).map(g=>g.itens.length), 1);
+  const ALTURA_MAX = 120;
+  const colunas = Object.entries(grupos).map(([key,g])=>{
+    const altura = Math.max(4, Math.round(g.itens.length/maiorValor*ALTURA_MAX));
+    return `
+    <div class="fluxo-col" data-grupo="${key}" style="display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; flex:1;">
+      <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:14px; color:var(--text);">${g.itens.length}</span>
+      <div style="width:100%; max-width:64px; height:${ALTURA_MAX}px; display:flex; align-items:flex-end; background:var(--panel-alt); border-radius:8px; overflow:hidden;">
+        <div style="width:100%; height:${altura}px; background:${g.cor}; border-radius:8px 8px 0 0;"></div>
+      </div>
+      <span style="font-size:11.5px; color:var(--text-dim); text-align:center; line-height:1.25;">${g.label}</span>
+    </div>`;
+  }).join('');
+
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div><h2 style="font-size:18px;">Geral de pedidos — Histórico</h2><p>${historico.length} registro${historico.length===1?'':'s'} no total</p></div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <hr class="divider">
+    <div class="k" style="font-size:12.5px; margin-bottom:14px;">Distribuição por categoria — clique numa barra para ver os pedidos</div>
+    <div style="display:flex; gap:22px; justify-content:center; margin-bottom:10px;">${colunas}</div>
+    <div id="histcard-geral-resultado"></div>
+  `;
+  function renderResultado(key){
+    const g = grupos[key];
+    modal.querySelectorAll('.fluxo-col').forEach(c=>{ c.style.opacity = c.dataset.grupo===key ? '1' : '.45'; });
+    document.getElementById('histcard-geral-resultado').innerHTML = `
+      <hr class="divider">
+      <div class="k" style="font-size:12.5px; margin-bottom:10px;">${g.label} (${g.itens.length})</div>
+      <div class="hist-table-wrap">
+        <table class="hist">
+          <thead><tr><th>Pedido</th><th>Cliente</th><th>Entrega</th><th style="text-align:right;">Peso</th><th style="text-align:right;">Valor</th><th>Status</th></tr></thead>
+          <tbody>${tabelaSimplesPedidos(g.itens, g.extra)}</tbody>
+        </table>
+      </div>`;
+    bindLinksPedidoModal(modal);
+  }
+  modal.querySelectorAll('.fluxo-col').forEach(col=>col.addEventListener('click', ()=>renderResultado(col.dataset.grupo)));
+  renderResultado('finalizados');
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  overlay.classList.add('open');
+}
+
+function openHistCardRepeticaoModal(){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  modal.classList.add('modal-wide');
+
+  const grupos = {
+    avalidar:  { label:'A validar', cor:'var(--gold)', itens: historico.filter(p=>p.tipo==='repeticao' && !p.validado), extra:()=>'Pendente' },
+    validados: { label:'Validados e liberados', cor:'var(--green)', itens: historico.filter(p=>p.tipo==='repeticao' && p.validado), extra:p=>p.validadoEm?fmtDateTime(p.validadoEm):'—' },
+  };
+  const maiorValor = Math.max(grupos.avalidar.itens.length, grupos.validados.itens.length, 1);
+  const ALTURA_MAX = 120;
+  const colunas = Object.entries(grupos).map(([key,g])=>{
+    const altura = Math.max(4, Math.round(g.itens.length/maiorValor*ALTURA_MAX));
+    return `
+    <div class="fluxo-col" data-grupo="${key}" style="display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; flex:1;">
+      <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:14px; color:var(--text);">${g.itens.length}</span>
+      <div style="width:100%; max-width:64px; height:${ALTURA_MAX}px; display:flex; align-items:flex-end; background:var(--panel-alt); border-radius:8px; overflow:hidden;">
+        <div style="width:100%; height:${altura}px; background:${g.cor}; border-radius:8px 8px 0 0;"></div>
+      </div>
+      <span style="font-size:11.5px; color:var(--text-dim); text-align:center; line-height:1.25;">${g.label}</span>
+    </div>`;
+  }).join('');
+
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div><h2 style="font-size:18px;">Arte Repetição</h2><p>${grupos.avalidar.itens.length + grupos.validados.itens.length} pedido(s) no total</p></div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <hr class="divider">
+    <div class="k" style="font-size:12.5px; margin-bottom:14px;">Clique numa barra para ver os pedidos</div>
+    <div style="display:flex; gap:22px; justify-content:center; margin-bottom:10px;">${colunas}</div>
+    <div id="histcard-rep-resultado"></div>
+  `;
+  function renderResultado(key){
+    const g = grupos[key];
+    modal.querySelectorAll('.fluxo-col').forEach(c=>{ c.style.opacity = c.dataset.grupo===key ? '1' : '.45'; });
+    document.getElementById('histcard-rep-resultado').innerHTML = `
+      <hr class="divider">
+      <div class="k" style="font-size:12.5px; margin-bottom:10px;">${g.label} (${g.itens.length})</div>
+      <div class="hist-table-wrap">
+        <table class="hist">
+          <thead><tr><th>Pedido</th><th>Cliente</th><th>Entrega</th><th style="text-align:right;">Peso</th><th style="text-align:right;">Valor</th><th>Situação</th></tr></thead>
+          <tbody>${tabelaSimplesPedidos(g.itens, g.extra)}</tbody>
+        </table>
+      </div>`;
+    bindLinksPedidoModal(modal);
+  }
+  modal.querySelectorAll('.fluxo-col').forEach(col=>col.addEventListener('click', ()=>renderResultado(col.dataset.grupo)));
+  renderResultado('avalidar');
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  overlay.classList.add('open');
+}
+
+function openHistCardSimplesModal(titulo, itens, extraLabel, extraFn){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  modal.classList.add('modal-wide');
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div><h2 style="font-size:18px;">${titulo}</h2><p>${itens.length} pedido${itens.length===1?'':'s'}</p></div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <hr class="divider">
+    <div class="hist-table-wrap">
+      <table class="hist">
+        <thead><tr><th>Pedido</th><th>Cliente</th><th>Entrega</th><th style="text-align:right;">Peso</th><th style="text-align:right;">Valor</th><th>${extraLabel}</th></tr></thead>
+        <tbody>${tabelaSimplesPedidos(itens, extraFn)}</tbody>
+      </table>
+    </div>
+  `;
+  bindLinksPedidoModal(modal);
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  overlay.classList.add('open');
+}
+
+document.getElementById('histcard-geral').addEventListener('click', openHistCardGeralModal);
+document.getElementById('histcard-repeticao').addEventListener('click', openHistCardRepeticaoModal);
+document.getElementById('histcard-finalizados').addEventListener('click', ()=>{
+  openHistCardSimplesModal('Finalizados', historico.filter(p=>p.tipo==='finalizado'), 'Finalizado em', p=>fmtDateTime(p.finalizadoEm));
+});
+document.getElementById('histcard-cancelados').addEventListener('click', ()=>{
+  openHistCardSimplesModal('Cancelados', historico.filter(p=>p.tipo==='cancelado'), 'Cancelado em', p=>p.canceladoEm?fmtDateTime(p.canceladoEm):'—');
+});
 
 /* ========================================================================
    CUSTO DE CLICHÊ — histórico consolidado
