@@ -796,7 +796,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v7.1 · 21/08/2026';
+const APP_VERSION = 'v7.2 · 21/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -1376,6 +1376,7 @@ let currentView = 'board'; // board | leadtime | history
 let searchTerm = '';
 let historySearchTerm = '';
 let historyShowOnlyCards = true; // true = clicou em "Histórico" (só cards); false = clicou num sub-item específico
+let historySubmenuOpen = false; // controla se o submenu do Histórico está expandido no menu lateral
 let nomeRelatorioAtual = '';
 let multiSelectMode = false;
 let selectedIds = new Set();
@@ -3954,7 +3955,7 @@ function switchView(view){
   document.getElementById('view-custo-mensal').style.display = view==='custo-mensal' ? 'block' : 'none';
   document.getElementById('view-custo-anual').style.display = view==='custo-anual' ? 'block' : 'none';
   document.getElementById('cliche-submenu').style.display = (view==='cliche' || view==='custo-mensal' || view==='custo-anual') ? 'block' : 'none';
-  document.getElementById('history-submenu').style.display = (view==='history') ? 'block' : 'none';
+  document.getElementById('history-submenu').style.display = (view==='history' && historySubmenuOpen) ? 'block' : 'none';
   document.getElementById('view-regravacao').style.display = view==='regravacao' ? 'block' : 'none';
   document.getElementById('view-catalogo').style.display = view==='catalogo' ? 'block' : 'none';
   document.getElementById('view-codigos').style.display = view==='codigos' ? 'block' : 'none';
@@ -3975,7 +3976,16 @@ function switchView(view){
 document.querySelectorAll('.nav-item').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     if(btn.classList.contains('disabled') || !btn.dataset.view) return;
-    if(btn.dataset.view === 'history') historyShowOnlyCards = true;
+    if(btn.dataset.view === 'history'){
+      if(currentView === 'history'){
+        // já está na tela de histórico: só abre/fecha o submenu, sem recarregar nada
+        historySubmenuOpen = !historySubmenuOpen;
+        document.getElementById('history-submenu').style.display = historySubmenuOpen ? 'block' : 'none';
+        return;
+      }
+      historyShowOnlyCards = true;
+      historySubmenuOpen = true;
+    }
     switchView(btn.dataset.view);
     document.getElementById('hist-detail-section').style.display = historyShowOnlyCards ? 'none' : 'block';
   });
@@ -3984,6 +3994,7 @@ document.querySelectorAll('.hist-submenu-item').forEach(btn=>{
   btn.addEventListener('click', (e)=>{
     e.stopPropagation();
     historyShowOnlyCards = false;
+    historySubmenuOpen = true;
     currentHistTab = btn.dataset.histtab;
     switchView('history');
     document.getElementById('hist-detail-section').style.display = 'block';
