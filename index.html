@@ -800,7 +800,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v7.3 · 21/08/2026';
+const APP_VERSION = 'v7.4 · 24/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -3986,12 +3986,13 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     if(btn.classList.contains('disabled') || !btn.dataset.view) return;
     if(btn.dataset.view === 'history'){
-      if(currentView === 'history'){
-        // já está na tela de histórico: só abre/fecha o submenu, sem recarregar nada
+      if(currentView === 'history' && historyShowOnlyCards){
+        // já está mostrando só os cards: apenas abre/fecha o submenu
         historySubmenuOpen = !historySubmenuOpen;
         document.getElementById('history-submenu').style.display = historySubmenuOpen ? 'block' : 'none';
         return;
       }
+      // estava fora do histórico, ou vendo uma aba detalhada: volta pra tela de cards
       historyShowOnlyCards = true;
       historySubmenuOpen = true;
     }
