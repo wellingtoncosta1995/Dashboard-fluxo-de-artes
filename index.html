@@ -767,6 +767,9 @@
           </div>
         </div>
       </div>
+
+      <p class="topics-intro" style="margin-top:24px; margin-bottom:10px; padding-bottom:0; border-bottom:none;"><span class="mono-label">POR MÊS</span> <span class="link-text">um card pra cada mês, contando os eventos daquele período</span></p>
+      <div class="home-cards-grid" id="hist-month-cards" style="grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));"></div>
     </div>
   </main>
 </div>
@@ -782,7 +785,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v6.9 · 21/08/2026';
+const APP_VERSION = 'v7.0 · 21/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -2976,6 +2979,82 @@ function renderHistoryCards(){
   document.getElementById('histcard-geral-finalizados').textContent = finalizados.length;
   document.getElementById('histcard-geral-repeticao').textContent = repeticaoTotal;
   document.getElementById('histcard-geral-cancelados').textContent = cancelados.length;
+
+  renderHistoryMonthCards();
+}
+
+// data que representa "quando esse registro aconteceu" no histórico, pra
+// poder agrupar por mês — cada tipo tem seu próprio campo de data relevante
+function dataReferenciaHistorico(p){
+  const iso = p.finalizadoEm || p.canceladoEm || p.validadoEm || null;
+  return iso ? new Date(iso) : null;
+}
+function renderHistoryMonthCards(){
+  const wrap = document.getElementById('hist-month-cards');
+  const porMes = {}; // "YYYY-MM" -> {label, itens:[]}
+  const agora = new Date();
+  const chaveMesAtual = `${agora.getFullYear()}-${String(agora.getMonth()+1).padStart(2,'0')}`;
+  // garante que o mês atual sempre apareça, mesmo sem nenhum evento ainda
+  porMes[chaveMesAtual] = { label: `${NOMES_MESES[agora.getMonth()]}/${agora.getFullYear()}`, itens: [] };
+
+  historico.forEach(p=>{
+    const d = dataReferenciaHistorico(p);
+    if(!d) return;
+    const chave = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    if(!porMes[chave]) porMes[chave] = { label: `${NOMES_MESES[d.getMonth()]}/${d.getFullYear()}`, itens: [] };
+    porMes[chave].itens.push(p);
+  });
+
+  const chavesOrdenadas = Object.keys(porMes).sort().reverse(); // mês mais recente primeiro
+
+  wrap.innerHTML = chavesOrdenadas.map(chave=>{
+    const m = porMes[chave];
+    const fin = m.itens.filter(p=>p.tipo==='finalizado').length;
+    const rep = m.itens.filter(p=>p.tipo==='repeticao').length;
+    const canc = m.itens.filter(p=>p.tipo==='cancelado').length;
+    return `
+    <div class="home-card home-card-live hist-month-card" data-mes="${chave}" title="Ver detalhes de ${m.label}">
+      <div class="hcm-label">${m.label.toUpperCase()}</div>
+      <div class="hcm-valor">${m.itens.length}</div>
+      <div class="hcm-breakdown">
+        <span>Finalizados: <b>${fin}</b></span>
+        <span>Repetição: <b>${rep}</b></span>
+        <span>Cancelados: <b>${canc}</b></span>
+      </div>
+    </div>`;
+  }).join('');
+
+  wrap.querySelectorAll('.hist-month-card').forEach(card=>{
+    card.addEventListener('click', ()=>{
+      const chave = card.dataset.mes;
+      openHistMonthModal(porMes[chave].label, porMes[chave].itens);
+    });
+  });
+}
+function openHistMonthModal(label, itens){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  modal.classList.add('modal-wide');
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div><h2 style="font-size:18px;">Histórico — ${label}</h2><p>${itens.length} evento${itens.length===1?'':'s'} nesse mês</p></div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <hr class="divider">
+    <div class="hist-table-wrap">
+      <table class="hist">
+        <thead><tr><th>Pedido</th><th>Cliente</th><th>Entrega</th><th style="text-align:right;">Peso</th><th style="text-align:right;">Valor</th><th>Situação</th></tr></thead>
+        <tbody>${tabelaSimplesPedidos(itens, p=>{
+          if(p.tipo==='finalizado') return 'Finalizado';
+          if(p.tipo==='cancelado') return 'Cancelado';
+          return p.validado ? 'Repetição — validado' : 'Repetição — a validar';
+        })}</tbody>
+      </table>
+    </div>
+  `;
+  bindLinksPedidoModal(modal);
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  overlay.classList.add('open');
 }
 
 function tabelaSimplesPedidos(itens, colunaExtra){
