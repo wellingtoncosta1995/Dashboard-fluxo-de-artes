@@ -737,6 +737,8 @@
     </div>
 
     <div id="view-history" style="display:none;">
+      <p id="hist-detail-subtitle" class="topics-intro" style="display:none; margin-bottom:14px; padding-bottom:0; border-bottom:none;"></p>
+
       <div id="hist-detail-section" style="display:none;">
         <div class="hist-tabs" style="display:none;">
           <div class="hist-tab active" data-tab="finalizados">Finalizados <span id="hist-count-finalizados"></span></div>
@@ -767,20 +769,22 @@
         </div>
       </div>
 
-      <div class="home-cards-grid" style="grid-template-columns:1fr; margin-top:20px; max-width:420px;">
-        <div class="home-card home-card-live" id="histcard-geral" title="Ver detalhes gerais">
-          <div class="hcm-label">GERAL DE PEDIDOS</div>
-          <div class="hcm-valor" id="histcard-geral-total">0</div>
-          <div class="hcm-breakdown">
-            <span>Finalizados: <b id="histcard-geral-finalizados">0</b></span>
-            <span>Repetição: <b id="histcard-geral-repeticao">0</b></span>
-            <span>Cancelados: <b id="histcard-geral-cancelados">0</b></span>
+      <div id="hist-overview-section">
+        <div class="home-cards-grid" style="grid-template-columns:1fr; margin-top:20px; max-width:420px;">
+          <div class="home-card home-card-live" id="histcard-geral" title="Ver detalhes gerais">
+            <div class="hcm-label">GERAL DE PEDIDOS</div>
+            <div class="hcm-valor" id="histcard-geral-total">0</div>
+            <div class="hcm-breakdown">
+              <span>Finalizados: <b id="histcard-geral-finalizados">0</b></span>
+              <span>Repetição: <b id="histcard-geral-repeticao">0</b></span>
+              <span>Cancelados: <b id="histcard-geral-cancelados">0</b></span>
+            </div>
           </div>
         </div>
-      </div>
 
-      <p class="topics-intro" style="margin-top:24px; margin-bottom:10px; padding-bottom:0; border-bottom:none;"><span class="mono-label">POR MÊS</span> <span class="link-text">um card pra cada mês, contando os eventos daquele período</span></p>
-      <div class="home-cards-grid" id="hist-month-cards" style="grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));"></div>
+        <p class="topics-intro" style="margin-top:24px; margin-bottom:10px; padding-bottom:0; border-bottom:none;"><span class="mono-label">POR MÊS</span> <span class="link-text">um card pra cada mês, contando os eventos daquele período</span></p>
+        <div class="home-cards-grid" id="hist-month-cards" style="grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));"></div>
+      </div>
     </div>
   </main>
 </div>
@@ -796,7 +800,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v7.2 · 21/08/2026';
+const APP_VERSION = 'v7.3 · 21/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -3973,6 +3977,11 @@ function switchView(view){
   if(view==='codigos') renderCodigosInternos();
   if(view==='leadtime') renderLeadTime();
 }
+const HIST_TAB_LABELS = {
+  finalizados: 'Histórico de pedidos finalizados',
+  'repeticao-validados': 'Histórico de pedidos de Arte Repetição — validados e liberados',
+  cancelados: 'Histórico de pedidos cancelados',
+};
 document.querySelectorAll('.nav-item').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     if(btn.classList.contains('disabled') || !btn.dataset.view) return;
@@ -3988,6 +3997,8 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
     }
     switchView(btn.dataset.view);
     document.getElementById('hist-detail-section').style.display = historyShowOnlyCards ? 'none' : 'block';
+    document.getElementById('hist-overview-section').style.display = historyShowOnlyCards ? 'block' : 'none';
+    document.getElementById('hist-detail-subtitle').style.display = 'none';
   });
 });
 document.querySelectorAll('.hist-submenu-item').forEach(btn=>{
@@ -3998,6 +4009,10 @@ document.querySelectorAll('.hist-submenu-item').forEach(btn=>{
     currentHistTab = btn.dataset.histtab;
     switchView('history');
     document.getElementById('hist-detail-section').style.display = 'block';
+    document.getElementById('hist-overview-section').style.display = 'none';
+    const subtitle = document.getElementById('hist-detail-subtitle');
+    subtitle.textContent = HIST_TAB_LABELS[currentHistTab] || '';
+    subtitle.style.display = 'block';
     document.querySelectorAll('.hist-tab').forEach(t=>t.classList.toggle('active', t.dataset.tab===currentHistTab));
   });
 });
