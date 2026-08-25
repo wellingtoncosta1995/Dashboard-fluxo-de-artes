@@ -371,6 +371,7 @@
 
     body.printing > *:not(#print-area){display:none !important;}
     #print-area{display:block !important; padding:20px; background:#fff;}
+    #print-area, #print-area *{-webkit-print-color-adjust:exact !important; print-color-adjust:exact !important; color-adjust:exact !important;}
     #print-area h1{font-family:'Parkinsans',sans-serif; font-size:20px; margin:0 0 4px;}
     #print-area p{color:#555; font-size:12px; margin:0 0 16px;}
     #print-area table{width:100%; border-collapse:collapse; font-size:11px;}
@@ -808,7 +809,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.1 · 24/08/2026';
+const APP_VERSION = 'v8.2 · 24/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -4454,14 +4455,19 @@ document.getElementById('home-card-fluxo').addEventListener('click', ()=>{
   openFluxoModal();
 });
 
-function exportarTabelaPDF({titulo, subtitulo, colunas, linhas}){
+function exportarTabelaPDF({titulo, subtitulo, colunas, linhas, corLinhas}){
   const printArea = document.getElementById('print-area');
+  const rows = linhas.map((l,i)=>{
+    const cor = corLinhas && corLinhas[i];
+    const style = cor ? ` style="background:${cor};"` : '';
+    return `<tr${style}>${l.map(v=>`<td>${v}</td>`).join('')}</tr>`;
+  }).join('');
   printArea.innerHTML = `
     <h1>${titulo}</h1>
     <p>${subtitulo}</p>
     <table>
       <thead><tr>${colunas.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
-      <tbody>${linhas.length ? linhas.map(l=>`<tr>${l.map(v=>`<td>${v}</td>`).join('')}</tr>`).join('') : `<tr><td colspan="${colunas.length}">Nenhum registro.</td></tr>`}</tbody>
+      <tbody>${linhas.length ? rows : `<tr><td colspan="${colunas.length}">Nenhum registro.</td></tr>`}</tbody>
     </table>
   `;
   document.body.classList.add('printing');
@@ -4688,7 +4694,8 @@ function statusLeadTimeProducao(p){
   const novaData = new Date(finalizado);
   novaData.setDate(novaData.getDate() + lt.producao);
   const entrega = parseDateBR(p.entrega); entrega.setHours(0,0,0,0);
-  return { novaData, noPrazo: novaData <= entrega, diasProducao: lt.producao, diametro };
+  const diasDiferenca = Math.round((novaData - entrega) / 86400000);
+  return { novaData, noPrazo: diasDiferenca <= 0, diasDiferenca, diasProducao: lt.producao, diametro };
 }
 
 function openFinalizarSemanaModal(){
@@ -4703,12 +4710,15 @@ function openFinalizarSemanaModal(){
   const rows = itens.length ? itens.map(p=>{
     const st = statusLeadTimeProducao(p);
     let leadCell = '<span style="color:var(--text-faint);">—</span>';
+    let sugestaoCell = '<span style="color:var(--text-faint);">—</span>';
     let corLinha = '';
     if(st){
       const cor = st.noPrazo ? 'var(--green-dark)' : 'var(--red)';
       const bg = st.noPrazo ? 'var(--green-bg)' : 'var(--red-bg)';
-      const label = st.noPrazo ? 'No prazo' : 'Atrasado';
-      leadCell = `<span style="display:inline-block; background:${bg}; color:${cor}; padding:4px 9px; border-radius:6px; font-weight:700; font-size:11px; white-space:nowrap;">${label} — ${st.novaData.toLocaleDateString('pt-BR')}</span>`;
+      const dias = Math.abs(st.diasDiferenca);
+      const texto = st.noPrazo ? `Faltam ${dias} dia${dias===1?'':'s'}` : `Atrasado ${dias} dia${dias===1?'':'s'}`;
+      leadCell = `<span style="display:inline-block; background:${bg}; color:${cor}; padding:4px 9px; border-radius:6px; font-weight:700; font-size:11px; white-space:nowrap;">${texto}</span>`;
+      sugestaoCell = `<b style="color:${cor};">${st.novaData.toLocaleDateString('pt-BR')}</b>`;
       corLinha = `background:${bg};`;
     }
     return `
@@ -4719,14 +4729,15 @@ function openFinalizarSemanaModal(){
       <td>${p.entrega}</td>
       <td>${fmtDateTime(p.finalizadoEm)}</td>
       <td>${leadCell}</td>
+      <td>${sugestaoCell}</td>
       <td style="text-align:right;">${fmtKg(p.pesoTotal)}</td>
       <td style="text-align:right;">${fmtBRL(p.valorTotal)}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="8" class="hist-empty">Nenhum clichê finalizado nos últimos 7 dias.</td></tr>`;
+  }).join('') : `<tr><td colspan="9" class="hist-empty">Nenhum clichê finalizado nos últimos 7 dias.</td></tr>`;
 
   const totalRow = itens.length ? `
     <tr style="font-weight:700; border-top:2px solid var(--border);">
-      <td colspan="6" style="text-align:right;">Total</td>
+      <td colspan="7" style="text-align:right;">Total</td>
       <td style="text-align:right;">${fmtKg(pesoTotal)}</td>
       <td style="text-align:right;">${fmtBRL(valorTotal)}</td>
     </tr>` : '';
@@ -4738,29 +4749,40 @@ function openFinalizarSemanaModal(){
     </div>
     <hr class="divider">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-      <div class="k" style="font-size:12.5px;">Lead time = chegada na fábrica + dias de produção do diâmetro, comparado à entrega prometida</div>
+      <div class="k" style="font-size:12.5px;">Lead time = folga ou atraso em relação à entrega, considerando o tempo de produção do diâmetro</div>
       <button class="btn small ghost" id="btn-exportar-finalizados-pdf">&#8681; Exportar PDF</button>
     </div>
     <div class="hist-table-wrap">
       <table class="hist">
-        <thead><tr><th>Pedido</th><th>Cliente</th><th>Vendedor</th><th>Entrega</th><th>Finalizado em</th><th>Lead time</th><th style="text-align:right;">Peso</th><th style="text-align:right;">Valor</th></tr></thead>
+        <thead><tr><th>Pedido</th><th>Cliente</th><th>Vendedor</th><th>Entrega</th><th>Clichê em fábrica</th><th>Lead time</th><th>Sugestão de nova data</th><th style="text-align:right;">Peso</th><th style="text-align:right;">Valor</th></tr></thead>
         <tbody>${rows}${totalRow}</tbody>
       </table>
     </div>
   `;
   document.getElementById('btn-exportar-finalizados-pdf').addEventListener('click', ()=>{
+    const corLinhas = itens.map(p=>{
+      const st = statusLeadTimeProducao(p);
+      if(!st) return null;
+      return st.noPrazo ? '#E3F3E9' : '#F7E9E7';
+    });
     exportarTabelaPDF({
       titulo: 'Clichê finalizado — últimos 7 dias',
       subtitulo: `${itens.length} pedido${itens.length===1?'':'s'} · Peso total: ${fmtKg(pesoTotal)} · Valor total: ${fmtBRL(valorTotal)} · gerado em ${new Date().toLocaleString('pt-BR')}`,
-      colunas: ['Pedido','Cliente','Vendedor','Entrega','Finalizado em','Lead time','Peso','Valor'],
+      colunas: ['Pedido','Cliente','Vendedor','Entrega','Clichê em fábrica','Lead time','Sugestão de nova data','Peso','Valor'],
       linhas: itens.map(p=>{
         const st = statusLeadTimeProducao(p);
-        const leadTexto = st ? `${st.noPrazo ? 'No prazo' : 'Atrasado'} — ${st.novaData.toLocaleDateString('pt-BR')}` : '—';
+        let leadTexto = '—', sugestaoTexto = '—';
+        if(st){
+          const dias = Math.abs(st.diasDiferenca);
+          leadTexto = st.noPrazo ? `Faltam ${dias} dia${dias===1?'':'s'}` : `Atrasado ${dias} dia${dias===1?'':'s'}`;
+          sugestaoTexto = st.novaData.toLocaleDateString('pt-BR');
+        }
         return [
           p.pedido, p.clienteNome, p.vendedor || '—', p.entrega, fmtDateTime(p.finalizadoEm),
-          leadTexto, fmtKg(p.pesoTotal), fmtBRL(p.valorTotal)
+          leadTexto, sugestaoTexto, fmtKg(p.pesoTotal), fmtBRL(p.valorTotal)
         ];
       }),
+      corLinhas,
     });
   });
   bindLinksPedidoModal(modal);
