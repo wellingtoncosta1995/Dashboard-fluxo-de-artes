@@ -808,7 +808,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v7.7 · 24/08/2026';
+const APP_VERSION = 'v7.8 · 24/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -4174,13 +4174,15 @@ function atrasoProjetado(p){
   return { ...info, entregaPrometida, diasAtraso: dias };
 }
 
+const CARD6_INICIO_CONTAGEM = new Date('2026-08-24T00:00:00'); // zera a contagem a partir desta data — finalizados antes dela não entram
 function pedidosAFinalizarEssaSemana(){
   const hoje = new Date();
-  const limite = new Date(hoje); limite.setDate(limite.getDate()-7);
+  const limite7dias = new Date(hoje); limite7dias.setDate(limite7dias.getDate()-7);
+  const inicio = limite7dias > CARD6_INICIO_CONTAGEM ? limite7dias : CARD6_INICIO_CONTAGEM;
   return historico.filter(p=>{
     if(p.tipo!=='finalizado' || !p.finalizadoEm) return false;
     const dataFin = new Date(p.finalizadoEm);
-    return dataFin >= limite && dataFin <= hoje;
+    return dataFin >= inicio && dataFin <= hoje;
   });
 }
 function renderHomeCards(){
