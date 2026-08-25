@@ -808,7 +808,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.0 · 24/08/2026';
+const APP_VERSION = 'v8.1 · 24/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -1592,7 +1592,7 @@ function renderListaPedidos(){
     return `
       <tr data-id="${p.id}">
         <td onclick="event.stopPropagation()">${checkbox}</td>
-        <td class="lp-num">#${p.pedido}</td>
+        <td class="lp-num">${p.pedido}</td>
         <td class="lp-cliente">${p.clienteNome}<small>Cód. ${p.clienteCod} · ${p.itens.length} item${p.itens.length>1?'s':''}</small></td>
         <td style="color:var(--text-dim); font-size:11.5px;">${p.vendedor || '—'}</td>
         <td>${tag}</td>
@@ -1693,7 +1693,7 @@ function renderPedidoRow(p, stageId){
     ${checkbox}
     <div class="prow-main">
       <div class="prow-top">
-        <span class="prow-pedido">#${p.pedido}</span>
+        <span class="prow-pedido">${p.pedido}</span>
         ${tag}
       </div>
       <div class="prow-cliente">${p.clienteNome}<small>Cód. ${p.clienteCod} · ${p.itens.length} item${p.itens.length>1?'s':''}</small></div>
@@ -1810,7 +1810,7 @@ function openAvancarEtapaModal(id){
     <div class="modal-head">
       <div>
         <h2 style="font-size:18px;">Avançar etapa</h2>
-        <p>Pedido #${p.pedido} · ${p.clienteNome}</p>
+        <p>Pedido ${p.pedido} · ${p.clienteNome}</p>
       </div>
       <button class="close-x" id="modal-close">&times;</button>
     </div>
@@ -1851,7 +1851,7 @@ async function finalizarPedido(id){
   const idx = pedidos.findIndex(x=>x.id===id);
   if(idx===-1) return;
   const p = pedidos[idx];
-  if(!confirm(`Finalizar o pedido #${p.pedido} e enviar para o histórico de liberação de produção?`)) return;
+  if(!confirm(`Finalizar o pedido ${p.pedido} e enviar para o histórico de liberação de produção?`)) return;
   p.finalizado = true;
   p.finalizadoEm = new Date().toISOString();
   p.tipo = 'finalizado';
@@ -1903,7 +1903,7 @@ document.getElementById('bulk-apply').addEventListener('click', async ()=>{
     p.stage = target;
   });
   if(bloqueados.length){
-    alert(`Pedido(s) #${bloqueados.join(', #')} não foram movidos: falta preencher a OS de todos os itens antes de avançar para "${STAGES.find(s=>s.id===STAGE_APROVACAO_ARTE).nome}".`);
+    alert(`Pedido(s) ${bloqueados.join(', ')} não foram movidos: falta preencher a OS de todos os itens antes de avançar para "${STAGES.find(s=>s.id===STAGE_APROVACAO_ARTE).nome}".`);
   }
   await saveState();
   document.getElementById('btn-multiselect').click(); // sai do modo seleção
@@ -1955,7 +1955,7 @@ function openModal(id){
   modal.innerHTML = `
     <div class="modal-head">
       <div>
-        <h2>#${p.pedido}</h2>
+        <h2>${p.pedido}</h2>
         <p>${p.clienteNome} · Cód. ${p.clienteCod}</p>
         ${p.vendedor ? `<p style="margin-top:2px; color:var(--text-dim); font-size:12.5px;">Vendedor: ${p.vendedor}</p>` : ''}
       </div>
@@ -2081,7 +2081,7 @@ function openModal(id){
   });
 
   document.getElementById('modal-cancelar')?.addEventListener('click', async ()=>{
-    const motivo = prompt(`Cancelar o pedido #${p.pedido}. Descreva o motivo (opcional):`);
+    const motivo = prompt(`Cancelar o pedido ${p.pedido}. Descreva o motivo (opcional):`);
     if(motivo === null) return; // clicou em cancelar o prompt, não confirma o cancelamento
     const idxNoQuadro = pedidos.findIndex(x=>x.id===p.id);
     if(idxNoQuadro===-1) return;
@@ -2596,7 +2596,7 @@ function openValidarRepeticaoModal(){
 
     resultDiv.innerHTML = `
       <b style="color:var(--green-dark);">${liberados.length} pedido(s) confirmados como liberados e validados.</b>
-      ${aindaPendentes.length ? `<br><span style="color:var(--gold-dark);">${aindaPendentes.length} pedido(s) continuam no relatório e ficaram pendentes, para avaliação: ${aindaPendentes.map(p=>'#'+p.pedido).join(', ')}</span>` : '<br><span style="color:var(--text-dim);">Nenhum pedido ficou pendente — todos foram liberados.</span>'}
+      ${aindaPendentes.length ? `<br><span style="color:var(--gold-dark);">${aindaPendentes.length} pedido(s) continuam no relatório e ficaram pendentes, para avaliação: ${aindaPendentes.map(p=>p.pedido).join(', ')}</span>` : '<br><span style="color:var(--text-dim);">Nenhum pedido ficou pendente — todos foram liberados.</span>'}
     `;
     if(liberados.length>0) renderAll();
   });
@@ -2836,7 +2836,7 @@ function renderHistory(){
       .sort((a,b)=> new Date(b.finalizadoEm) - new Date(a.finalizadoEm))
       .map(p=>`
       <tr>
-        <td class="pedido"><button class="link-pedido-hist" data-id="${p.id}">#${p.pedido}</button></td>
+        <td class="pedido"><button class="link-pedido-hist" data-id="${p.id}">${p.pedido}</button></td>
         <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
         <td>${p.entrega}</td>
         <td>${fmtDateTime(p.finalizadoEm)}</td>
@@ -2853,7 +2853,7 @@ function renderHistory(){
         const idx = historico.findIndex(x=>x.id===pid);
         if(idx===-1) return;
         const p = historico[idx];
-        if(!confirm(`Reabrir o pedido #${p.pedido} e voltar para "Sem tratativa" no Fluxo de artes?`)) return;
+        if(!confirm(`Reabrir o pedido ${p.pedido} e voltar para "Sem tratativa" no Fluxo de artes?`)) return;
         historico.splice(idx,1);
         p.tipo = 'ativo';
         p.finalizadoEm = null;
@@ -2870,7 +2870,7 @@ function renderHistory(){
       .sort((a,b)=> new Date(b.validadoEm||0) - new Date(a.validadoEm||0))
       .map(p=>`
       <tr>
-        <td class="pedido"><button class="link-pedido-hist" data-id="${p.id}">#${p.pedido}</button></td>
+        <td class="pedido"><button class="link-pedido-hist" data-id="${p.id}">${p.pedido}</button></td>
         <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
         <td>${p.entrega}</td>
         <td class="val">${fmtKg(p.pesoTotal)}</td>
@@ -2887,7 +2887,7 @@ function renderHistory(){
         const idx = historico.findIndex(x=>x.id===pid);
         if(idx===-1) return;
         const p = historico[idx];
-        if(!confirm(`Reabrir o pedido #${p.pedido} e voltar para "Sem tratativa" no Fluxo de artes?`)) return;
+        if(!confirm(`Reabrir o pedido ${p.pedido} e voltar para "Sem tratativa" no Fluxo de artes?`)) return;
         historico.splice(idx,1);
         p.tipo = 'ativo';
         p.validado = false;
@@ -2905,7 +2905,7 @@ function renderHistory(){
       .sort((a,b)=>parseDateBR(a.entrega)-parseDateBR(b.entrega))
       .map(p=>`
       <tr>
-        <td class="pedido"><button class="link-pedido-hist" data-id="${p.id}">#${p.pedido}</button></td>
+        <td class="pedido"><button class="link-pedido-hist" data-id="${p.id}">${p.pedido}</button></td>
         <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
         <td>${p.entrega}</td>
         <td class="val">${fmtKg(p.pesoTotal)}</td>
@@ -2927,7 +2927,7 @@ function renderHistory(){
         const idx = historico.findIndex(x=>x.id===pid);
         if(idx===-1) return;
         const p = historico[idx];
-        if(!confirm(`Mover o pedido #${p.pedido} para o Fluxo de artes, na etapa "Sem tratativa"?`)) return;
+        if(!confirm(`Mover o pedido ${p.pedido} para o Fluxo de artes, na etapa "Sem tratativa"?`)) return;
         historico.splice(idx,1);
         p.tipo = 'ativo';
         p.tag = null;
@@ -2956,7 +2956,7 @@ function renderHistory(){
       .sort((a,b)=> new Date(b.canceladoEm||0) - new Date(a.canceladoEm||0))
       .map(p=>`
       <tr>
-        <td class="pedido"><button class="link-pedido-hist" data-id="${p.id}">#${p.pedido}</button></td>
+        <td class="pedido"><button class="link-pedido-hist" data-id="${p.id}">${p.pedido}</button></td>
         <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
         <td>${p.entrega}</td>
         <td class="val">${fmtKg(p.pesoTotal)}</td>
@@ -2974,7 +2974,7 @@ function renderHistory(){
         const idx = historico.findIndex(x=>x.id===pid);
         if(idx===-1) return;
         const p = historico[idx];
-        if(!confirm(`Reabrir o pedido #${p.pedido} e voltar para "Sem tratativa" no Fluxo de artes?`)) return;
+        if(!confirm(`Reabrir o pedido ${p.pedido} e voltar para "Sem tratativa" no Fluxo de artes?`)) return;
         historico.splice(idx,1);
         p.tipo = 'ativo';
         p.canceladoEm = null;
@@ -3149,7 +3149,7 @@ function openRepAvalidarModal(){
 
   const rows = itens.length ? itens.map(p=>`
     <tr>
-      <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">#${p.pedido}</button></td>
+      <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
       <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
       <td>${p.entrega}</td>
       <td style="text-align:right;">${fmtKg(p.pesoTotal)}</td>
@@ -3188,7 +3188,7 @@ function openRepAvalidarModal(){
       const idx = historico.findIndex(x=>x.id===pid);
       if(idx===-1) return;
       const p = historico[idx];
-      if(!confirm(`Mover o pedido #${p.pedido} para o Fluxo de artes, na etapa "Sem tratativa"?`)) return;
+      if(!confirm(`Mover o pedido ${p.pedido} para o Fluxo de artes, na etapa "Sem tratativa"?`)) return;
       historico.splice(idx,1);
       p.tipo = 'ativo';
       p.tag = null;
@@ -3210,7 +3210,7 @@ function tabelaSimplesPedidos(itens, colunaExtra){
   if(!itens.length) return `<tr><td colspan="6" class="hist-empty">Nenhum pedido nesse grupo.</td></tr>`;
   return itens.map(p=>`
     <tr>
-      <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">#${p.pedido}</button></td>
+      <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
       <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
       <td>${p.entrega}</td>
       <td style="text-align:right;">${fmtKg(p.pesoTotal)}</td>
@@ -3402,7 +3402,7 @@ function renderClicheHistory(){
     .sort((a,b)=>(b.valorClicheTotal||0)-(a.valorClicheTotal||0))
     .map(p=>`
     <tr>
-      <td class="pedido">#${p.pedido}</td>
+      <td class="pedido">${p.pedido}</td>
       <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
       <td>${situacaoLabelPedido(p)}</td>
       <td class="val">${p.valorClicheTotal!=null ? fmtBRL(p.valorClicheTotal) : '—'}</td>
@@ -4255,7 +4255,7 @@ function openClicheMesModal(){
   function linhaPedido({p,totalEfetivo,cobradoCliente,parteRioplastic}){
     return `
     <tr>
-      <td class="pedido"><button class="link-pedido-cliche" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">#${p.pedido}</button></td>
+      <td class="pedido"><button class="link-pedido-cliche" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
       <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
       <td class="val">${fmtBRL(totalEfetivo)}</td>
       <td class="val">${p.clicheBonificado ? `<span class="tag tag-repeticao">BONIFICADO</span>` : fmtBRL(cobradoCliente)}</td>
@@ -4417,7 +4417,7 @@ function openFluxoModal(){
       .map(p=>{
         return `
         <tr>
-          <td class="pedido"><button class="link-pedido-cliche" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">#${p.pedido}</button></td>
+          <td class="pedido"><button class="link-pedido-cliche" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
           <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
           <td>${p.vendedor || '—'}</td>
           <td>${p.entrega}</td>
@@ -4529,7 +4529,7 @@ function openVencimentoModal(){
         const situacao = info.diasAtraso>0 ? `atraso de ${info.diasAtraso}d` : 'no prazo';
         return `
         <tr>
-          <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">#${p.pedido}</button></td>
+          <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
           <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
           <td>${st ? `${st.id} — ${st.nome}` : '—'}</td>
           <td style="font-family:'IBM Plex Mono',monospace;">Ø ${info.diametro} (${info.leadTimeDias}d)</td>
@@ -4562,7 +4562,7 @@ function openVencimentoModal(){
           const st = STAGES.find(s=>s.id===p.stage);
           const situacao = info.diasAtraso>0 ? `Atraso de ${info.diasAtraso}d` : 'No prazo';
           return [
-            '#'+p.pedido, p.clienteNome, st ? `${st.id} — ${st.nome}` : '—',
+            p.pedido, p.clienteNome, st ? `${st.id} — ${st.nome}` : '—',
             `Ø ${info.diametro} (${info.leadTimeDias}d)`, info.inicio.toLocaleDateString('pt-BR'),
             p.entrega, info.projetada.toLocaleDateString('pt-BR'), situacao
           ];
@@ -4640,7 +4640,7 @@ function openGargaloModal(){
       .sort((a,b)=>parseDateBR(a.entrega)-parseDateBR(b.entrega))
       .map(p=>`
         <tr>
-          <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">#${p.pedido}</button></td>
+          <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
           <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
           <td>${p.vendedor || '—'}</td>
           <td>${p.entrega}</td>
@@ -4713,7 +4713,7 @@ function openFinalizarSemanaModal(){
     }
     return `
     <tr style="${corLinha}">
-      <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">#${p.pedido}</button></td>
+      <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
       <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
       <td>${p.vendedor || '—'}</td>
       <td>${p.entrega}</td>
@@ -4757,7 +4757,7 @@ function openFinalizarSemanaModal(){
         const st = statusLeadTimeProducao(p);
         const leadTexto = st ? `${st.noPrazo ? 'No prazo' : 'Atrasado'} — ${st.novaData.toLocaleDateString('pt-BR')}` : '—';
         return [
-          '#'+p.pedido, p.clienteNome, p.vendedor || '—', p.entrega, fmtDateTime(p.finalizadoEm),
+          p.pedido, p.clienteNome, p.vendedor || '—', p.entrega, fmtDateTime(p.finalizadoEm),
           leadTexto, fmtKg(p.pesoTotal), fmtBRL(p.valorTotal)
         ];
       }),
@@ -4778,7 +4778,7 @@ function openNotificacoesModal(){
 
   const rows = pendentes.length ? pendentes.map(p=>`
     <tr>
-      <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">#${p.pedido}</button></td>
+      <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
       <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
       <td>${p.vendedor || '—'}</td>
       <td><span style="color:var(--red); font-weight:700;">${diasDesdeUltimaCobranca(p)} dias</span></td>
