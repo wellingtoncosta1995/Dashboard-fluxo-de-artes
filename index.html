@@ -527,7 +527,15 @@
             <span>Rioplastic: <b id="hcm-valor-rioplastic">R$ 0,00</b></span>
           </div>
         </div>
-        <div class="home-card"><span class="home-card-num">6</span><span class="home-card-label">Card 6</span></div>
+        <div class="home-card home-card-live" id="home-card-finalizar-semana" title="Ver pedidos a finalizar essa semana">
+          <div class="hcm-label">A FINALIZAR ESSA SEMANA</div>
+          <div class="hcm-valor" id="hcfs-valor-total">0</div>
+          <div class="hcm-breakdown">
+            <span>Entrega nos próximos 7 dias</span>
+            <span>Peso total: <b id="hcfs-valor-peso">0 kg</b></span>
+            <span>Valor total: <b id="hcfs-valor-money">R$ 0,00</b></span>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -800,7 +808,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v7.5 · 24/08/2026';
+const APP_VERSION = 'v7.6 · 24/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -4166,6 +4174,15 @@ function atrasoProjetado(p){
   return { ...info, entregaPrometida, diasAtraso: dias };
 }
 
+function pedidosAFinalizarEssaSemana(){
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const limite = new Date(hoje); limite.setDate(limite.getDate()+7);
+  return pedidos.filter(p=>{
+    const entrega = parseDateBR(p.entrega);
+    entrega.setHours(0,0,0,0);
+    return entrega >= hoje && entrega <= limite;
+  });
+}
 function renderHomeCards(){
   const agora = new Date();
   const { totalPedidos, totalRegrav, totalRioplastic, total } = calcularClicheMesAtual();
@@ -4198,6 +4215,11 @@ function renderHomeCards(){
   document.getElementById('hcg-etapa-nome').textContent = primeira ? `${primeira.st.id} — ${primeira.st.nome}` : '—';
   document.getElementById('hcg-segunda').textContent = segunda ? `${segunda.st.id} — ${segunda.st.nome} (${segunda.count})` : '—';
   document.getElementById('hcg-terceira').textContent = terceira ? `${terceira.st.id} — ${terceira.st.nome} (${terceira.count})` : '—';
+
+  const pedidosSemana = pedidosAFinalizarEssaSemana();
+  document.getElementById('hcfs-valor-total').textContent = pedidosSemana.length;
+  document.getElementById('hcfs-valor-peso').textContent = fmtKg(pedidosSemana.reduce((s,p)=>s+(p.pesoTotal||0),0));
+  document.getElementById('hcfs-valor-money').textContent = fmtBRL(pedidosSemana.reduce((s,p)=>s+(p.valorTotal||0),0));
 }
 function openClicheMesModal(){
   const agora = new Date();
@@ -4653,6 +4675,46 @@ function openGargaloModal(){
 document.getElementById('home-card-gargalo').addEventListener('click', ()=>{
   openGargaloModal();
 });
+
+function openFinalizarSemanaModal(){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  modal.classList.add('modal-wide');
+
+  const itens = pedidosAFinalizarEssaSemana().sort((a,b)=>parseDateBR(a.entrega)-parseDateBR(b.entrega));
+
+  const rows = itens.length ? itens.map(p=>{
+    const st = STAGES.find(s=>s.id===p.stage);
+    return `
+    <tr>
+      <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">#${p.pedido}</button></td>
+      <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
+      <td>${p.vendedor || '—'}</td>
+      <td>${st ? `${st.id} — ${st.nome}` : '—'}</td>
+      <td>${p.entrega}</td>
+      <td style="text-align:right;">${fmtKg(p.pesoTotal)}</td>
+      <td style="text-align:right;">${fmtBRL(p.valorTotal)}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="7" class="hist-empty">Nenhum pedido com entrega nos próximos 7 dias.</td></tr>`;
+
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div><h2 style="font-size:18px;">Pedidos a finalizar essa semana</h2><p>Pedidos ativos com entrega prometida entre hoje e os próximos 7 dias</p></div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <hr class="divider">
+    <div class="hist-table-wrap">
+      <table class="hist">
+        <thead><tr><th>Pedido</th><th>Cliente</th><th>Vendedor</th><th>Etapa atual</th><th>Entrega</th><th style="text-align:right;">Peso</th><th style="text-align:right;">Valor</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+  bindLinksPedidoModal(modal);
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  overlay.classList.add('open');
+}
+document.getElementById('home-card-finalizar-semana').addEventListener('click', openFinalizarSemanaModal);
 
 function openNotificacoesModal(){
   const overlay = document.getElementById('overlay');
