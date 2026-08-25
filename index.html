@@ -808,7 +808,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v7.8 · 24/08/2026';
+const APP_VERSION = 'v7.9 · 24/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -4678,6 +4678,13 @@ document.getElementById('home-card-gargalo').addEventListener('click', ()=>{
   openGargaloModal();
 });
 
+function leadTimeRealizado(p){
+  if(!p.stageHistory || !p.stageHistory.length || !p.finalizadoEm) return null;
+  const inicio = new Date(p.stageHistory[0].entradaEm);
+  const fim = new Date(p.finalizadoEm);
+  return Math.round((fim - inicio) / 86400000);
+}
+
 function openFinalizarSemanaModal(){
   const overlay = document.getElementById('overlay');
   const modal = document.getElementById('modal');
@@ -4685,16 +4692,20 @@ function openFinalizarSemanaModal(){
 
   const itens = pedidosAFinalizarEssaSemana().sort((a,b)=> new Date(b.finalizadoEm) - new Date(a.finalizadoEm));
 
-  const rows = itens.length ? itens.map(p=>`
+  const rows = itens.length ? itens.map(p=>{
+    const lt = leadTimeRealizado(p);
+    return `
     <tr>
       <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">#${p.pedido}</button></td>
       <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
       <td>${p.vendedor || '—'}</td>
       <td>${p.entrega}</td>
       <td>${fmtDateTime(p.finalizadoEm)}</td>
+      <td style="text-align:right;">${lt!=null ? lt+'d' : '—'}</td>
       <td style="text-align:right;">${fmtKg(p.pesoTotal)}</td>
       <td style="text-align:right;">${fmtBRL(p.valorTotal)}</td>
-    </tr>`).join('') : `<tr><td colspan="7" class="hist-empty">Nenhum clichê finalizado nos últimos 7 dias.</td></tr>`;
+    </tr>`;
+  }).join('') : `<tr><td colspan="8" class="hist-empty">Nenhum clichê finalizado nos últimos 7 dias.</td></tr>`;
 
   modal.innerHTML = `
     <div class="modal-head">
@@ -4702,13 +4713,31 @@ function openFinalizarSemanaModal(){
       <button class="close-x" id="modal-close">&times;</button>
     </div>
     <hr class="divider">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+      <div class="k" style="font-size:12.5px;">Lead time = dias entre a entrada no fluxo ("Sem tratativa") e a finalização</div>
+      <button class="btn small ghost" id="btn-exportar-finalizados-pdf">&#8681; Exportar PDF</button>
+    </div>
     <div class="hist-table-wrap">
       <table class="hist">
-        <thead><tr><th>Pedido</th><th>Cliente</th><th>Vendedor</th><th>Entrega</th><th>Finalizado em</th><th style="text-align:right;">Peso</th><th style="text-align:right;">Valor</th></tr></thead>
+        <thead><tr><th>Pedido</th><th>Cliente</th><th>Vendedor</th><th>Entrega</th><th>Finalizado em</th><th style="text-align:right;">Lead time</th><th style="text-align:right;">Peso</th><th style="text-align:right;">Valor</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
   `;
+  document.getElementById('btn-exportar-finalizados-pdf').addEventListener('click', ()=>{
+    exportarTabelaPDF({
+      titulo: 'Clichê finalizado — últimos 7 dias',
+      subtitulo: `${itens.length} pedido${itens.length===1?'':'s'} · gerado em ${new Date().toLocaleString('pt-BR')}`,
+      colunas: ['Pedido','Cliente','Vendedor','Entrega','Finalizado em','Lead time','Peso','Valor'],
+      linhas: itens.map(p=>{
+        const lt = leadTimeRealizado(p);
+        return [
+          '#'+p.pedido, p.clienteNome, p.vendedor || '—', p.entrega, fmtDateTime(p.finalizadoEm),
+          lt!=null ? lt+'d' : '—', fmtKg(p.pesoTotal), fmtBRL(p.valorTotal)
+        ];
+      }),
+    });
+  });
   bindLinksPedidoModal(modal);
   document.getElementById('modal-close').addEventListener('click', closeModal);
   overlay.classList.add('open');
