@@ -301,7 +301,7 @@
   .entrega-badge .entrega-label{font-family:'Plus Jakarta Sans',sans-serif; text-transform:uppercase; font-size:9px; font-weight:700; letter-spacing:.4px; opacity:.75;}
   .entrega-badge button{background:none; border:none; color:inherit; opacity:.7; cursor:pointer; font-size:12px; padding:0;}
   .entrega-badge button:hover{opacity:1;}
-  .pedido-info-grid{display:grid; grid-template-columns:1fr 1fr; gap:4px 18px; margin-bottom:10px;}
+  .pedido-info-grid{display:grid; grid-template-columns:1fr; gap:4px; margin-bottom:10px;}
   .pedido-info-grid .modal-row{margin-bottom:2px;}
   .divider{border:none; border-top:1px solid var(--border-soft); margin:14px 0;}
   table.items{width:100%; border-collapse:collapse; font-size:11.5px;}
@@ -942,7 +942,7 @@ function P(pedido, clienteCod, clienteNome, entrega, tag, itens, pesoTotal, valo
     pedido, clienteCod, clienteNome, entrega, tag,
     itens, pesoTotal, valorTotal, vendedor: vendedor || null,
     stage:0, alteracoes:[], finalizado:false, finalizadoEm:null, tipo:'ativo', validado:false,
-    origem:null, valorClicheTotal:null, valorClichePedido:null, clicheBonificado:false, clicheRegistradoEm:null,
+    origem:null, valorClicheTotal:null, valorClichePedido:null, clicheBonificado:false, clicheBonificado50:false, clicheRegistradoEm:null,
     stageHistory:null
   };
 }
@@ -1976,11 +1976,16 @@ function openModal(id){
       </div>`;
   }).join('') : `<div class="empty-alt">Sem histórico de fluxo registrado para este pedido.</div>`;
 
+  const classificacaoHTML = p.tag
+    ? `<span class="tag ${tagClass(p.tag)}">${p.tag}</span>`
+    : (isActive ? `<select class="stage-select" id="modal-tag-select" style="margin-top:0; width:auto; display:inline-block; padding:5px 8px; font-size:12px;"><option value="">— selecionar —</option>${TAGS_CLASSIFICACAO.map(t=>`<option value="${t}">${t}</option>`).join('')}</select>` : '');
+
   modal.innerHTML = `
     <div class="modal-head" style="margin-bottom:10px;">
       <div>
-        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; justify-content:center; gap:10px; flex-wrap:wrap; text-align:center;">
           <h2 style="font-size:21px;">${p.pedido}</h2>
+          ${classificacaoHTML}
           <span class="entrega-badge" id="entrega-view">
             <span class="entrega-label">Entrega</span> ${p.entrega}
             ${isActive ? `<button id="entrega-edit-btn" title="Corrigir data de entrega">&#9998;</button>` : ''}
@@ -1995,7 +2000,6 @@ function openModal(id){
     <div id="entrega-hist-lista" style="display:none; margin:0 0 10px; font-size:11.5px; color:var(--text-dim);"></div>
 
     <div class="pedido-info-grid">
-      <div class="modal-row"><span class="k">Classificação da arte</span><span class="v">${p.tag ? `<span class="tag ${tagClass(p.tag)}">${p.tag}</span>` : (isActive ? `<select class="stage-select" id="modal-tag-select" style="margin-top:0; width:auto; display:inline-block; padding:5px 8px; font-size:12px;"><option value="">— selecionar —</option>${TAGS_CLASSIFICACAO.map(t=>`<option value="${t}">${t}</option>`).join('')}</select>` : '—')}</span></div>
       <div class="modal-row"><span class="k">Peso total</span><span class="v">${fmtKg(p.pesoTotal)}</span></div>
       <div class="modal-row"><span class="k">Valor total</span><span class="v">${fmtBRL(p.valorTotal)}</span></div>
       ${p.finalizadoEm ? `<div class="modal-row"><span class="k">Finalizado em</span><span class="v" style="font-size:11px;">${fmtDateTime(p.finalizadoEm)}</span></div>` : ''}
@@ -2019,11 +2023,14 @@ function openModal(id){
           </div>
           <div>
             <div class="k" style="font-size:11px; margin-bottom:5px;">Valor inserido no pedido</div>
-            <input type="text" id="cliche-pedido-input" placeholder="R$ 0,00" value="${p.valorClichePedido!=null?fmtBRL(p.valorClichePedido):''}" ${p.clicheBonificado?'disabled':''}
+            <input type="text" id="cliche-pedido-input" placeholder="R$ 0,00" value="${p.valorClichePedido!=null?fmtBRL(p.valorClichePedido):''}" ${(p.clicheBonificado||p.clicheBonificado50)?'disabled':''}
               style="width:140px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:8px; padding:7px 10px; font-size:12.5px; font-family:'IBM Plex Mono',monospace;">
           </div>
           <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim); cursor:pointer; padding-bottom:9px;">
             <input type="checkbox" id="cliche-bonificado-check" ${p.clicheBonificado?'checked':''} style="width:15px; height:15px; accent-color:var(--teal); cursor:pointer;"> Bonificado
+          </label>
+          <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim); cursor:pointer; padding-bottom:9px;">
+            <input type="checkbox" id="cliche-bonificado50-check" ${p.clicheBonificado50?'checked':''} style="width:15px; height:15px; accent-color:var(--teal); cursor:pointer;"> Bonificado 50%
           </label>
           ${!isActive ? `<button class="finalize-mini" id="btn-finalizar-cliche" style="padding:8px 14px;">&#10003; Finalizar tratativa</button>` : ''}
         ` : `
@@ -2036,14 +2043,7 @@ function openModal(id){
 
     <hr class="divider" style="margin:10px 0;">
     ${p.historicoExterno && p.historicoExterno.length ? `
-    <button id="toggle-historico-externo" style="background:none; border:none; color:var(--blue-dark); font-weight:600; font-size:12.5px; cursor:pointer; padding:0 0 10px; display:flex; align-items:center; gap:5px;">&#128203; Ver histórico externo (Comercial/PCP/Artes) — antes do fluxo interno</button>
-    <div id="historico-externo-lista" style="display:none; margin-bottom:14px;">
-      ${p.historicoExterno.map(h=>`
-        <div class="alt-item">
-          <div class="alt-date">${fmtDateTime(h.dataISO)}</div>
-          <div class="alt-note"><b style="color:var(--text);">${h.seq} — ${h.setor}</b> · parado por <b style="color:var(--gold-dark); font-family:'IBM Plex Mono',monospace;">${h.tempo}</b>${h.usuarioInclusao ? ` · <span style="color:var(--text-faint);">${h.usuarioInclusao}</span>` : ''}</div>
-        </div>`).join('')}
-    </div>
+    <button id="toggle-historico-externo" style="background:none; border:none; color:var(--blue-dark); font-weight:600; font-size:12.5px; cursor:pointer; padding:0 0 10px; display:flex; align-items:center; gap:5px;">&#128203; Histórico externo</button>
     ` : ''}
     <div class="k" style="font-size:12.5px; margin-bottom:2px;">Histórico de fluxo</div>
     <div class="alt-list">${fluxoHistorico}</div>
@@ -2121,13 +2121,8 @@ function openModal(id){
     renderAll();
   });
 
-  document.getElementById('toggle-historico-externo')?.addEventListener('click', (e)=>{
-    const lista = document.getElementById('historico-externo-lista');
-    const aberto = lista.style.display !== 'none';
-    lista.style.display = aberto ? 'none' : 'block';
-    e.currentTarget.innerHTML = aberto
-      ? '&#128203; Ver histórico externo (Comercial/PCP/Artes) — antes do fluxo interno'
-      : '&#128203; Ocultar histórico externo';
+  document.getElementById('toggle-historico-externo')?.addEventListener('click', ()=>{
+    openHistoricoExternoScreen(id);
   });
 
   document.getElementById('entrega-hist-btn')?.addEventListener('click', (e)=>{
@@ -2251,11 +2246,15 @@ function openModal(id){
       const raw = e.target.value.replace(/\./g,'').replace(',', '.').replace(/[^\d.]/g,'');
       p.valorClicheTotal = raw ? parseFloat(raw) : null;
       e.target.value = p.valorClicheTotal!=null ? fmtBRL(p.valorClicheTotal) : '';
+      const pedidoInput = document.getElementById('cliche-pedido-input');
       if(p.clicheBonificado){
         // bonificado: o valor não é cobrado no pedido, vira custo Rioplastic
         p.valorClichePedido = 0;
-        const pedidoInput = document.getElementById('cliche-pedido-input');
         if(pedidoInput) pedidoInput.value = fmtBRL(0);
+      } else if(p.clicheBonificado50){
+        // bonificado 50%: metade pro cliente, metade vira custo Rioplastic
+        p.valorClichePedido = p.valorClicheTotal!=null ? p.valorClicheTotal/2 : 0;
+        if(pedidoInput) pedidoInput.value = fmtBRL(p.valorClichePedido);
       }
       p.clicheRegistradoEm = new Date().toISOString();
       await saveState();
@@ -2271,8 +2270,19 @@ function openModal(id){
     });
     document.getElementById('cliche-bonificado-check')?.addEventListener('change', async (e)=>{
       p.clicheBonificado = e.target.checked;
+      if(p.clicheBonificado) p.clicheBonificado50 = false;
       // bonificado: nada é cobrado no pedido — o valor todo vira custo Rioplastic
       p.valorClichePedido = p.clicheBonificado ? 0 : null;
+      p.clicheRegistradoEm = new Date().toISOString();
+      await saveState();
+      renderAll();
+      openModal(id);
+    });
+    document.getElementById('cliche-bonificado50-check')?.addEventListener('change', async (e)=>{
+      p.clicheBonificado50 = e.target.checked;
+      if(p.clicheBonificado50) p.clicheBonificado = false;
+      // bonificado 50%: metade pro cliente, metade vira custo Rioplastic
+      p.valorClichePedido = p.clicheBonificado50 ? (p.valorClicheTotal!=null ? p.valorClicheTotal/2 : 0) : null;
       p.clicheRegistradoEm = new Date().toISOString();
       await saveState();
       renderAll();
@@ -2283,19 +2293,46 @@ function openModal(id){
       const totalRaw = document.getElementById('cliche-total-input').value.replace(/\./g,'').replace(',', '.').replace(/[^\d.]/g,'');
       const pedidoRaw = document.getElementById('cliche-pedido-input').value.replace(/\./g,'').replace(',', '.').replace(/[^\d.]/g,'');
       const bonificado = document.getElementById('cliche-bonificado-check').checked;
-      const valorClichePedido = bonificado ? 0 : (pedidoRaw ? parseFloat(pedidoRaw) : null);
-      if(!bonificado && valorClichePedido==null){
+      const bonificado50 = document.getElementById('cliche-bonificado50-check').checked;
+      const valorClicheTotal = totalRaw ? parseFloat(totalRaw) : null;
+      const valorClichePedido = bonificado ? 0 : (bonificado50 ? (valorClicheTotal!=null ? valorClicheTotal/2 : 0) : (pedidoRaw ? parseFloat(pedidoRaw) : null));
+      if(!bonificado && !bonificado50 && valorClichePedido==null){
         alert('Preencha o "Valor inserido no pedido" ou marque como Bonificado antes de finalizar.');
         return;
       }
       p.clicheBonificado = bonificado;
-      p.valorClicheTotal = totalRaw ? parseFloat(totalRaw) : null;
+      p.clicheBonificado50 = bonificado50;
+      p.valorClicheTotal = valorClicheTotal;
       p.valorClichePedido = valorClichePedido;
       p.clicheRegistradoEm = new Date().toISOString();
       await saveState();
       renderAll();
       closeModal();
     });
+}
+function openHistoricoExternoScreen(id){
+  const p = pedidos.find(x=>x.id===id) || historico.find(x=>x.id===id);
+  if(!p) return;
+  const modal = document.getElementById('modal');
+  const cards = (p.historicoExterno||[]).map(h=>`
+    <div class="alt-item">
+      <div class="alt-date">${fmtDateTime(h.dataISO)}</div>
+      <div class="alt-note"><b style="color:var(--text);">${h.seq} — ${h.setor}</b> · parado por <b style="color:var(--gold-dark); font-family:'IBM Plex Mono',monospace;">${h.tempo}</b>${h.usuarioInclusao ? ` · <span style="color:var(--text-faint);">${h.usuarioInclusao}</span>` : ''}</div>
+    </div>`).join('');
+  modal.innerHTML = `
+    <div class="modal-head" style="margin-bottom:10px;">
+      <div>
+        <button id="historico-externo-voltar" style="background:none; border:none; color:var(--blue-dark); font-weight:600; font-size:12.5px; cursor:pointer; padding:0 0 8px; display:flex; align-items:center; gap:5px;">&#8592; Voltar</button>
+        <h2 style="font-size:19px;">Histórico externo</h2>
+        <p>${p.pedido} · ${p.clienteNome}</p>
+      </div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <hr class="divider" style="margin:10px 0;">
+    <div class="alt-list" style="max-height:none;">${cards || `<div class="empty-alt">Sem histórico externo registrado para este pedido.</div>`}</div>
+  `;
+  document.getElementById('historico-externo-voltar').addEventListener('click', ()=> openModal(id));
+  document.getElementById('modal-close').addEventListener('click', closeModal);
 }
 function closeModal(){ document.getElementById('overlay').classList.remove('open'); document.getElementById('modal').classList.remove('modal-wide','modal-2xl'); }
 document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
@@ -3566,7 +3603,7 @@ function renderClicheHistory(){
       <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
       <td>${situacaoLabelPedido(p)}</td>
       <td class="val">${p.valorClicheTotal!=null ? fmtBRL(p.valorClicheTotal) : '—'}</td>
-      <td class="val">${p.clicheBonificado ? `<span class="tag tag-repeticao">BONIFICADO</span>` : (p.valorClichePedido!=null ? fmtBRL(p.valorClichePedido) : '—')}</td>
+      <td class="val">${p.clicheBonificado ? `<span class="tag tag-repeticao">BONIFICADO</span>` : (p.clicheBonificado50 ? `${fmtBRL(p.valorClichePedido)} <span class="tag tag-repeticao">50%</span>` : (p.valorClichePedido!=null ? fmtBRL(p.valorClichePedido) : '—'))}</td>
     </tr>`).join('') : `<tr><td colspan="5" class="hist-empty">Nenhum pedido com custo de clichê registrado ainda.</td></tr>`;
 
   tbody.querySelectorAll('.link-pedido-hist').forEach(btn=>{
