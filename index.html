@@ -150,6 +150,19 @@
   table.lista-pedidos td.lp-etapa{white-space:normal;}
   .lp-etapa-badge{display:inline-flex; align-items:center; gap:5px; background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:6px; padding:3px 8px; font-size:11px; font-weight:600;}
   .lp-actions{display:flex; gap:4px; justify-content:flex-end;}
+  .entrega-progress-wrap{display:flex; flex-direction:column; gap:4px; min-width:118px;}
+  .entrega-progress-label{font-size:11.5px; color:var(--text); font-weight:600; font-family:'IBM Plex Mono',monospace;}
+  .entrega-progress-bar{width:100%; height:6px; background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:4px; overflow:hidden;}
+  .entrega-progress-fill{height:100%; border-radius:4px; transition:width .7s ease;}
+  .entrega-progress-fill.ok{background:var(--green);}
+  .entrega-progress-fill.atencao{background:#C99A1E;}
+  .entrega-progress-fill.urgente{background:var(--red);}
+  .entrega-progress-fill.atrasado{background:var(--red); animation:entrega-pulse 1.6s ease-in-out infinite;}
+  .entrega-progress-text{font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.2px;}
+  .entrega-progress-text.ok{color:var(--green-dark);}
+  .entrega-progress-text.atencao{color:#8A6A14;}
+  .entrega-progress-text.urgente, .entrega-progress-text.atrasado{color:var(--red);}
+  @keyframes entrega-pulse{0%,100%{opacity:1;} 50%{opacity:.5;}}
   .lp-actions button{background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:6px; width:26px; height:26px; cursor:pointer; font-size:12px; color:var(--text-dim);}
   .lp-actions button:hover{border-color:var(--gold); color:var(--gold-dark);}
   .lp-actions button:disabled{opacity:.35; cursor:not-allowed;}
@@ -586,11 +599,8 @@
                 <th>Pedido</th>
                 <th>Cliente</th>
                 <th>Vendedor</th>
-                <th>Classificação</th>
                 <th>Etapa atual</th>
                 <th>Entrega</th>
-                <th style="text-align:right;">Peso</th>
-                <th style="text-align:right;">Valor</th>
                 <th></th>
               </tr>
             </thead>
@@ -1534,6 +1544,39 @@ function fmtTime(iso){
   if(!iso) return '--:--';
   return new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 }
+const ENTREGA_BARRA_JANELA_DIAS = 21;
+function entregaProgressoHTML(entregaStr){
+  const agora = new Date();
+  const prazo = parseDateBR(entregaStr);
+  prazo.setHours(23,59,59,999);
+  const diasRestantes = (prazo - agora) / 86400000;
+  const atrasado = diasRestantes < 0;
+  const diasInt = atrasado ? Math.ceil(Math.abs(diasRestantes)) : Math.ceil(diasRestantes);
+  const pct = Math.max(6, Math.min(100, ((ENTREGA_BARRA_JANELA_DIAS - diasRestantes) / ENTREGA_BARRA_JANELA_DIAS) * 100));
+  let classe, texto;
+  if(atrasado){
+    classe = 'atrasado';
+    texto = `Atrasado ${diasInt} dia${diasInt===1?'':'s'}`;
+  } else if(diasInt <= 0){
+    classe = 'urgente';
+    texto = 'Entrega hoje';
+  } else if(diasInt <= 3){
+    classe = 'urgente';
+    texto = `Falta ${diasInt} dia${diasInt===1?'':'s'}`;
+  } else if(diasInt <= 7){
+    classe = 'atencao';
+    texto = `Faltam ${diasInt} dias`;
+  } else {
+    classe = 'ok';
+    texto = `Faltam ${diasInt} dias`;
+  }
+  return `
+    <div class="entrega-progress-wrap">
+      <div class="entrega-progress-label">${entregaStr}</div>
+      <div class="entrega-progress-bar"><div class="entrega-progress-fill ${classe}" data-pct="${pct.toFixed(1)}" style="width:0%"></div></div>
+      <div class="entrega-progress-text ${classe}">${texto}</div>
+    </div>`;
+}
 const TAGS_CLASSIFICACAO = ['ARTE NOVA','ARTE ALTERADA','CONFIRMAÇÃO DE ARTE','ARTE REPETIÇÃO'];
 function tagClass(tag){
   if(tag === 'ARTE NOVA') return 'tag-nova';
@@ -1602,13 +1645,12 @@ function renderListaPedidos(){
     .sort((a,b)=>parseDateBR(a.entrega)-parseDateBR(b.entrega));
 
   if(items.length===0){
-    tbody.innerHTML = `<tr><td colspan="10" class="lp-empty">Nenhum pedido encontrado${filtroEtapaLista!==null ? ' nesta etapa' : ''}.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" class="lp-empty">Nenhum pedido encontrado${filtroEtapaLista!==null ? ' nesta etapa' : ''}.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = items.map(p=>{
     const stage = STAGES.find(s=>s.id===p.stage);
-    const tag = p.tag ? `<span class="tag ${tagClass(p.tag)}">${p.tag}</span>` : '<span style="color:var(--text-faint);">—</span>';
     const canFinalize = STAGES_FINALIZAVEIS.includes(p.stage);
     const emAprovacao = p.stage === STAGE_APROVACAO_ARTE;
     const cobrancaLiberada = precisaCobranca(p);
@@ -1619,11 +1661,8 @@ function renderListaPedidos(){
         <td class="lp-num">${p.pedido}</td>
         <td class="lp-cliente">${p.clienteNome}<small>Cód. ${p.clienteCod} · ${p.itens.length} item${p.itens.length>1?'s':''}</small></td>
         <td style="color:var(--text-dim); font-size:11.5px;">${p.vendedor || '—'}</td>
-        <td>${tag}</td>
         <td class="lp-etapa" onclick="event.stopPropagation()">${multiSelectMode ? `<span class="lp-etapa-badge">${stage.id} — ${stage.nome}</span>` : stageInlineSelectHTML(p)}</td>
-        <td>${p.entrega}</td>
-        <td style="text-align:right;">${fmtKg(p.pesoTotal)}</td>
-        <td style="text-align:right;">${fmtBRL(p.valorTotal)}</td>
+        <td>${entregaProgressoHTML(p.entrega)}</td>
         <td onclick="event.stopPropagation()">
           ${multiSelectMode ? '' : `
           <div class="lp-actions">
@@ -1633,6 +1672,12 @@ function renderListaPedidos(){
         </td>
       </tr>`;
   }).join('');
+
+  requestAnimationFrame(()=>{
+    tbody.querySelectorAll('.entrega-progress-fill').forEach(el=>{
+      el.style.width = el.dataset.pct + '%';
+    });
+  });
 
   tbody.querySelectorAll('tr[data-id]').forEach(tr=>{
     tr.addEventListener('click', ()=>{
