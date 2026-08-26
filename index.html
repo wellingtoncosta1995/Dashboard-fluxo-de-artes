@@ -610,6 +610,14 @@
               <option value="">Todos os representantes</option>
             </select>
           </div>
+          <div>
+            <label style="display:block; font-size:11px; color:var(--text-dim); font-weight:600; margin-bottom:5px;">Filtrar por situação</label>
+            <select id="cliche-situacao-filter" style="background:var(--panel-alt); border:1.5px solid var(--gold); color:var(--text); padding:9px 11px; border-radius:9px; font-size:13px; font-weight:600; font-family:'Plus Jakarta Sans',sans-serif; min-width:260px; cursor:pointer;">
+              <option value="">Todas as situações</option>
+              <option value="finalizados">Finalizados</option>
+              <option value="finalizados-faltando">Finalizados faltando informação do custo do clichê</option>
+            </select>
+          </div>
         </div>
       </div>
       <div class="hist-table-wrap">
@@ -3487,6 +3495,7 @@ document.getElementById('histcard-geral').addEventListener('click', openHistCard
    ======================================================================== */
 let clicheClienteFiltro = '';
 let clicheVendedorFiltro = '';
+let clicheSituacaoFiltro = '';
 function situacaoLabelPedido(p){
   if(p.tipo==='finalizado') return 'Finalizado';
   const st = STAGES.find(s=>s.id===p.stage);
@@ -3519,6 +3528,8 @@ function renderClicheHistory(){
     if(!matchesSearch(p, "")) return false;
     if(clicheClienteFiltro && p.clienteNome !== clicheClienteFiltro) return false;
     if(clicheVendedorFiltro && p.vendedor !== clicheVendedorFiltro) return false;
+    if(clicheSituacaoFiltro==='finalizados' && p.tipo!=='finalizado') return false;
+    if(clicheSituacaoFiltro==='finalizados-faltando' && !(p.tipo==='finalizado' && !p.clicheBonificado && p.valorClichePedido==null)) return false;
     return true;
   });
 
@@ -3541,6 +3552,10 @@ document.getElementById('cliche-cliente-filter').addEventListener('change', (e)=
 });
 document.getElementById('cliche-vendedor-filter').addEventListener('change', (e)=>{
   clicheVendedorFiltro = e.target.value;
+  renderClicheHistory();
+});
+document.getElementById('cliche-situacao-filter').addEventListener('change', (e)=>{
+  clicheSituacaoFiltro = e.target.value;
   renderClicheHistory();
 });
 
