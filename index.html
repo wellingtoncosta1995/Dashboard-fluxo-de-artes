@@ -2013,10 +2013,10 @@ function openModal(id){
 
     ${clicheAplicavel ? `
     <div class="cliche-block" style="margin-top:4px;">
-      <div class="k" style="font-size:12.5px; margin-bottom:6px;">Valor total do clichê</div>
       <div style="display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap;">
         ${clicheEditavel ? `
           <div>
+            <div class="k" style="font-size:11px; margin-bottom:5px;">Valor total do clichê</div>
             <input type="text" id="cliche-total-input" placeholder="R$ 0,00" value="${p.valorClicheTotal!=null?fmtBRL(p.valorClicheTotal):''}"
               style="width:140px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:8px; padding:7px 10px; font-size:12.5px; font-family:'IBM Plex Mono',monospace;">
           </div>
