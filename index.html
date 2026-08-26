@@ -182,6 +182,8 @@
     display:flex; align-items:center; gap:4px;
   }
   .fluxo-step-badge .dot{width:5px; height:5px; border-radius:50%; background:#C99A1E; animation:entrega-pulse 1.6s ease-in-out infinite;}
+  .cliche-prop-seg:hover{filter:brightness(1.08);}
+  .cliche-prop-legend:hover{background:var(--panel-alt);}
   .lp-actions button{background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:6px; width:26px; height:26px; cursor:pointer; font-size:12px; color:var(--text-dim);}
   .lp-actions button:hover{border-color:var(--gold); color:var(--gold-dark);}
   .lp-actions button:disabled{opacity:.35; cursor:not-allowed;}
@@ -4494,19 +4496,18 @@ function openClicheMesModal(){
     { key:'regravacoes', label:'Regravações', valor:totalRegrav, cor:'var(--blue)' },
     { key:'rioplastic', label:'Rioplastic', valor:totalRioplastic, cor:'var(--red)' },
   ];
-  const maiorValor = Math.max(...modalidades.map(m=>m.valor), 1);
-  const ALTURA_MAX = 120;
-  const colunasModalidade = modalidades.map(m=>{
-    const altura = Math.max(4, Math.round(m.valor/maiorValor*ALTURA_MAX));
+  const barSegmentosModalidade = modalidades.map(m=>{
+    const pct = total>0 ? Math.round(m.valor/total*100) : 0;
+    return `<div class="cliche-modalidade-col cliche-prop-seg" data-modalidade="${m.key}" style="flex-grow:${Math.max(2,pct)}; flex-basis:0; background:${m.cor}; display:flex; align-items:center; justify-content:center; color:#fff; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12px; cursor:pointer; min-width:0; overflow:hidden; white-space:nowrap; transition:filter .15s ease, opacity .15s ease;">${pct>=6?pct+'%':''}</div>`;
+  }).join('');
+  const legendaModalidade = modalidades.map(m=>{
     const pct = total>0 ? Math.round(m.valor/total*100) : 0;
     return `
-    <div class="cliche-modalidade-col" data-modalidade="${m.key}" style="display:flex; flex-direction:column; align-items:center; gap:8px; flex:1; cursor:pointer;">
-      <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13px; color:var(--text);">${fmtBRL(m.valor)}</span>
-      <div style="width:100%; max-width:72px; height:${ALTURA_MAX}px; display:flex; align-items:flex-end; background:var(--panel-alt); border-radius:8px; overflow:hidden;">
-        <div style="width:100%; height:${altura}px; background:${m.cor}; border-radius:8px 8px 0 0; transition:filter .15s ease;"></div>
-      </div>
-      <span style="font-size:12px; color:var(--text-dim); text-align:center; font-weight:600;">${m.label}</span>
-      <span style="font-size:10.5px; color:var(--text-faint);">${pct}%</span>
+    <div class="cliche-modalidade-col cliche-prop-legend" data-modalidade="${m.key}" style="display:flex; align-items:center; gap:7px; font-size:12px; color:var(--text-dim); cursor:pointer; padding:5px 9px; border-radius:7px; transition:background .12s ease, opacity .15s ease;">
+      <span style="width:10px; height:10px; border-radius:3px; background:${m.cor}; flex-shrink:0;"></span>
+      <span>${m.label}</span>
+      <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--text);">${fmtBRL(m.valor)}</span>
+      <span style="color:var(--text-faint);">(${pct}%)</span>
     </div>`;
   }).join('');
 
@@ -4540,8 +4541,9 @@ function openClicheMesModal(){
     </div>
 
     <hr class="divider">
-    <div class="k" style="font-size:12.5px; margin-bottom:14px;">Distribuição por modalidade — total ${fmtBRL(total)} · clique numa barra para filtrar</div>
-    <div style="display:flex; gap:24px; justify-content:center; margin-bottom:10px;">${colunasModalidade}</div>
+    <div class="k" style="font-size:12.5px; margin-bottom:14px;">Distribuição por modalidade — total ${fmtBRL(total)} · clique para filtrar</div>
+    <div style="display:flex; width:100%; height:38px; border-radius:10px; overflow:hidden; border:1px solid var(--border-soft);">${barSegmentosModalidade}</div>
+    <div style="display:flex; gap:14px; flex-wrap:wrap; margin-top:14px; margin-bottom:10px;">${legendaModalidade}</div>
 
     <div id="cliche-modalidade-resultado"></div>
   `;
