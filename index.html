@@ -506,6 +506,7 @@
       <button class="nav-item" data-view="codigos"><span class="icon">&#127991;</span> Tabela de Códigos</button>
       <button class="nav-item" data-view="leadtime"><span class="icon">&#128337;</span> Lead time por boca</button>
       <button class="nav-item" data-view="analise-entrega"><span class="icon">&#128202;</span> Análise data de entrega</button>
+      <button class="nav-item" id="nav-historico-acordada" style="padding-left:34px; font-size:12.5px;"><span class="icon">&#128203;</span> Histórico de datas acordadas</button>
       <button class="nav-item" data-view="history"><span class="icon">&#128220;</span> Histórico</button>
       <div id="history-submenu" style="display:none;">
         <button class="nav-item hist-submenu-item" data-histtab="finalizados" style="padding-left:34px; font-size:12.5px;"><span class="icon">&#9989;</span> Finalizados</button>
@@ -784,10 +785,7 @@
       <div class="topics-card">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin:0 0 16px; padding-bottom:16px; border-bottom:1px solid var(--border-soft);">
           <p class="topics-intro" style="margin:0; padding:0; border:none;"><span class="mono-label">ANÁLISE DATA DE ENTREGA</span> <span class="link-text">datas alteradas e atraso projetado em relação ao lead time</span></p>
-          <div style="display:flex; gap:8px; flex-shrink:0; flex-wrap:wrap; justify-content:flex-end;">
-            <button class="btn small ghost" id="btn-analise-historico-acordada" style="white-space:nowrap;">&#128203; Histórico de datas acordadas</button>
-            <button class="btn small ghost" id="btn-analise-importar-atualizar" style="white-space:nowrap;">&#128260; Importar relatório (atualizar datas)</button>
-          </div>
+          <button class="btn small ghost" id="btn-analise-importar-atualizar" style="flex-shrink:0; white-space:nowrap;">&#128260; Importar relatório (atualizar datas)</button>
         </div>
         <div class="home-cards-grid" style="grid-template-columns:repeat(2, 1fr); max-width:700px;">
           <div class="home-card home-card-live" id="home-card-datas-alteradas" title="Ver pedidos com data de entrega alterada">
@@ -4369,7 +4367,7 @@ document.getElementById('hist-search-input').addEventListener('input', (e)=>{
   historySearchTerm = e.target.value.trim();
   renderHistory();
 });
-document.getElementById('btn-analise-historico-acordada').addEventListener('click', openHistoricoDatasAcordadasModal);
+document.getElementById('nav-historico-acordada').addEventListener('click', openHistoricoDatasAcordadasModal);
 function openHistoricoDatasAcordadasModal(){
   const overlay = document.getElementById('overlay');
   const modal = document.getElementById('modal');
