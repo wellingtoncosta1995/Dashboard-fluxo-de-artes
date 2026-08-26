@@ -4538,6 +4538,9 @@ function pedidosAFinalizarEssaSemana(){
     return dataFin >= inicio && dataFin <= hoje;
   });
 }
+function pedidosAFinalizarEssaSemanaPendentes(){
+  return pedidosAFinalizarEssaSemana().filter(p=> !(p.entregaHistorico||[]).some(h=>h.origem==='acordada'));
+}
 function renderHomeCards(){
   const agora = new Date();
   const { totalPedidos, totalRegrav, totalRioplastic, total } = calcularClicheMesAtual();
@@ -4563,7 +4566,7 @@ function renderHomeCards(){
   document.getElementById('hcv-valor-vencidos').textContent = moderados.length;
   document.getElementById('hcv-valor-proximos').textContent = criticos.length;
 
-  const pedidosSemana = pedidosAFinalizarEssaSemana();
+  const pedidosSemana = pedidosAFinalizarEssaSemanaPendentes();
   document.getElementById('hcfs-valor-total').textContent = pedidosSemana.length;
   document.getElementById('hcfs-valor-peso').textContent = fmtKg(pedidosSemana.reduce((s,p)=>s+(p.pesoTotal||0),0));
   document.getElementById('hcfs-valor-money').textContent = fmtBRL(pedidosSemana.reduce((s,p)=>s+(p.valorTotal||0),0));
@@ -5016,9 +5019,7 @@ function openFinalizarSemanaModal(){
   const modal = document.getElementById('modal');
   modal.classList.add('modal-wide','modal-2xl');
 
-  const itens = pedidosAFinalizarEssaSemana()
-    .filter(p=> !(p.entregaHistorico||[]).some(h=>h.origem==='acordada'))
-    .sort((a,b)=> new Date(b.finalizadoEm) - new Date(a.finalizadoEm));
+  const itens = pedidosAFinalizarEssaSemanaPendentes().sort((a,b)=> new Date(b.finalizadoEm) - new Date(a.finalizadoEm));
   const comStatus = itens.map(p=>({p, st: statusLeadTimeProducao(p)}));
   const atrasados = comStatus.filter(x=>x.st && !x.st.noPrazo);
   const noPrazo = comStatus.filter(x=>x.st && x.st.noPrazo);
