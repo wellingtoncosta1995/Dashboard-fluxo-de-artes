@@ -1938,7 +1938,7 @@ function openModal(id){
   const isActive = p.tipo === 'ativo';
   const osEditavel = isActive && p.stage >= STAGE_DESENVOLVIMENTO;
   const clicheAplicavel = isActive ? (p.stage >= STAGE_APROVACAO_CLICHE) : (p.tipo === 'finalizado');
-  const clicheEditavel = isActive && p.stage >= STAGE_APROVACAO_CLICHE;
+  const clicheEditavel = clicheAplicavel;
 
   const itemRows = p.itens.map((it,idx)=>`
     <tr>
@@ -3537,12 +3537,16 @@ function renderClicheHistory(){
     .sort((a,b)=>(b.valorClicheTotal||0)-(a.valorClicheTotal||0))
     .map(p=>`
     <tr>
-      <td class="pedido">${p.pedido}</td>
+      <td class="pedido"><button class="link-pedido-hist" data-id="${p.id}">${p.pedido}</button></td>
       <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
       <td>${situacaoLabelPedido(p)}</td>
       <td class="val">${p.valorClicheTotal!=null ? fmtBRL(p.valorClicheTotal) : '—'}</td>
       <td class="val">${p.clicheBonificado ? `<span class="tag tag-repeticao">BONIFICADO</span>` : (p.valorClichePedido!=null ? fmtBRL(p.valorClichePedido) : '—')}</td>
     </tr>`).join('') : `<tr><td colspan="5" class="hist-empty">Nenhum pedido com custo de clichê registrado ainda.</td></tr>`;
+
+  tbody.querySelectorAll('.link-pedido-hist').forEach(btn=>{
+    btn.addEventListener('click', ()=> openModal(btn.dataset.id));
+  });
 
   renderClicheHistoricoPeriodos();
 }
