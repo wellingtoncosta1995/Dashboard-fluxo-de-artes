@@ -2004,7 +2004,8 @@ function openModal(id, opts={}){
   const isActive = p.tipo === 'ativo';
   const osEditavel = isActive && p.stage >= STAGE_DESENVOLVIMENTO;
   const clicheAplicavel = isActive ? (p.stage >= STAGE_APROVACAO_CLICHE) : (p.tipo === 'finalizado');
-  const clicheEditavel = clicheAplicavel;
+  const clicheResolvido = p.valorClichePedido!=null || p.clicheBonificado || p.clicheBonificado50;
+  const clicheEditavel = isActive ? clicheAplicavel : (clicheAplicavel && !clicheResolvido);
 
   const itemRows = p.itens.map((it,idx)=>`
     <tr>
@@ -2096,7 +2097,7 @@ function openModal(id, opts={}){
           ${!isActive ? `<button class="finalize-mini" id="btn-finalizar-cliche" style="padding:8px 14px;">&#10003; Finalizar tratativa</button>` : ''}
         ` : `
           <div class="modal-row" style="margin:0; width:100%;"><span class="k">Valor total do clichê</span><span class="v">${p.valorClicheTotal!=null ? fmtBRL(p.valorClicheTotal) : '—'}</span></div>
-          <div class="modal-row" style="margin:0; width:100%;"><span class="k">Valor inserido no pedido</span><span class="v">${p.clicheBonificado ? `<span class="tag tag-repeticao">BONIFICADO</span>` : (p.valorClichePedido!=null ? fmtBRL(p.valorClichePedido) : '—')}</span></div>
+          <div class="modal-row" style="margin:0; width:100%;"><span class="k">Valor inserido no pedido</span><span class="v">${p.clicheBonificado ? `<span class="tag tag-repeticao">BONIFICADO</span>` : (p.clicheBonificado50 ? `${fmtBRL(p.valorClichePedido)} <span class="tag tag-repeticao">50%</span>` : (p.valorClichePedido!=null ? fmtBRL(p.valorClichePedido) : '—'))}</span></div>
         `}
       </div>
     </div>
