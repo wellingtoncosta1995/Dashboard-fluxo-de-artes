@@ -515,12 +515,8 @@
             <button class="icon-circle" id="btn-settings-header" title="Configurações">&#9881;&#65039;</button>
             <div id="settings-menu" style="display:none; position:absolute; top:44px; right:0; z-index:50; background:var(--panel); border:1px solid var(--border-soft); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.12); min-width:210px; padding:6px; overflow:hidden;">
               <button id="menu-item-importar" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#8613; Importar relatório (CSV)</button>
-              <button id="menu-item-importar-atualizar" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#128260; Importar relatório (atualizar datas)</button>
-              <button id="menu-item-exportar" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#8681; Exportar relatório</button>
               <button id="menu-item-validar-repeticao" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#10003; Validar Arte Repetição</button>
               <button id="menu-item-historico-externo" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#128203; Importar histórico externo (RVEN304)</button>
-              <hr style="border:none; border-top:1px solid var(--border-soft); margin:4px 6px;">
-              <button id="menu-item-zerar" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--red); font-family:'Plus Jakarta Sans',sans-serif;">&#128465; Zerar pedidos</button>
               <hr style="border:none; border-top:1px solid var(--border-soft); margin:4px 6px;">
               <button id="menu-item-sair" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#128682; Sair</button>
             </div>
@@ -2458,10 +2454,6 @@ function openExportModal(){
   });
   overlay.classList.add('open');
 }
-document.getElementById('menu-item-exportar').addEventListener('click', ()=>{
-  document.getElementById('settings-menu').style.display = 'none';
-  openExportModal();
-});
 
 function csvNum(n){ return n.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2}); }
 function csvField(s){
@@ -2787,10 +2779,6 @@ function openImportAtualizarDatasModal(){
   });
   overlay.classList.add('open');
 }
-document.getElementById('menu-item-importar-atualizar').addEventListener('click', ()=>{
-  document.getElementById('settings-menu').style.display = 'none';
-  openImportAtualizarDatasModal();
-});
 document.getElementById('btn-analise-importar-atualizar').addEventListener('click', openImportAtualizarDatasModal);
 
 /* ========================================================================
@@ -3038,10 +3026,6 @@ function openZerarPedidosModal(){
   });
   overlay.classList.add('open');
 }
-document.getElementById('menu-item-zerar').addEventListener('click', ()=>{
-  document.getElementById('settings-menu').style.display = 'none';
-  openZerarPedidosModal();
-});
 document.getElementById('menu-item-sair').addEventListener('click', ()=>{
   document.getElementById('settings-menu').style.display = 'none';
   localStorage.removeItem('artes_pw_ok');
