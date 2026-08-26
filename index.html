@@ -1975,9 +1975,10 @@ document.getElementById('bulk-apply').addEventListener('click', async ()=>{
 /* ========================================================================
    MODAL — DETALHES DO PEDIDO
    ======================================================================== */
-function openModal(id){
+function openModal(id, opts={}){
   const p = pedidos.find(x=>x.id===id) || historico.find(x=>x.id===id);
   if(!p) return;
+  const resumido = !!opts.voltar;
   const overlay = document.getElementById('overlay');
   const modal = document.getElementById('modal');
   const isActive = p.tipo === 'ativo';
@@ -2088,6 +2089,9 @@ function openModal(id){
     <div class="k" style="font-size:12.5px; margin-bottom:2px;">Histórico de fluxo</div>
     <div class="alt-list">${fluxoHistorico}</div>
 
+    ${resumido ? `
+    <button id="modal-voltar" style="margin-top:16px; width:100%; padding:9px 0; border-radius:9px; border:1px solid var(--border-soft); background:var(--panel-alt); color:var(--text-dim); font-weight:700; font-size:13px; cursor:pointer;">&#8592; Voltar</button>
+    ` : `
     ${isActive && p.stage === STAGE_APROVACAO_ARTE ? `
     <hr class="divider" style="margin:10px 0;">
     <div class="k" style="font-size:12.5px; margin-bottom:8px;">Cobrança de aprovação</div>
@@ -2120,8 +2124,10 @@ function openModal(id){
       <button class="btn" id="cl-alteracao" style="width:100%; padding:11px; background:var(--red); border-color:var(--red); color:#fff;">&#9998; Precisa de alteração — enviar para "Alteração de arte"</button>
     </div>
     ` : ''}
+    `}
   `;
 
+  document.getElementById('modal-voltar')?.addEventListener('click', ()=> opts.voltar());
   document.getElementById('cl-repeticao')?.addEventListener('click', async ()=>{
     const idxNoQuadro = pedidos.findIndex(x=>x.id===p.id);
     if(idxNoQuadro>-1) pedidos.splice(idxNoQuadro,1);
@@ -2138,12 +2144,12 @@ function openModal(id){
     p.stage = STAGE_ALTERACAO;
     await saveState();
     renderAll();
-    openModal(id);
+    openModal(id, opts);
   });
 
   document.getElementById('modal-cobrar-btn')?.addEventListener('click', async ()=>{
     await registrarCobranca(id);
-    openModal(id);
+    openModal(id, opts);
   });
 
   document.getElementById('modal-cancelar')?.addEventListener('click', async ()=>{
@@ -2162,7 +2168,7 @@ function openModal(id){
   });
 
   document.getElementById('toggle-historico-externo')?.addEventListener('click', ()=>{
-    openHistoricoExternoScreen(id);
+    openHistoricoExternoScreen(id, opts);
   });
 
   document.getElementById('entrega-hist-btn')?.addEventListener('click', (e)=>{
@@ -2190,16 +2196,16 @@ function openModal(id){
       if(!val) return;
       const [y,m,d] = val.split('-');
       const novaData = `${d}/${m}/${y}`;
-      if(novaData === p.entrega){ openModal(id); return; }
+      if(novaData === p.entrega){ openModal(id, opts); return; }
       if(!p.entregaHistorico) p.entregaHistorico = [];
       p.entregaHistorico.push({de:p.entrega, para:novaData, em:new Date().toISOString()});
       p.entrega = novaData;
       atualizarLeadTimeAtualPeloPedido(p);
       await saveState();
       renderAll();
-      openModal(id);
+      openModal(id, opts);
     });
-    document.getElementById('entrega-cancel-btn').addEventListener('click', ()=> openModal(id));
+    document.getElementById('entrega-cancel-btn').addEventListener('click', ()=> openModal(id, opts));
   });
 
   document.getElementById('modal-close').addEventListener('click', closeModal);
@@ -2230,9 +2236,9 @@ function openModal(id){
         p.stageHistory[idx].entradaEm = novaData.toISOString();
         await saveState();
         renderAll();
-        openModal(id);
+        openModal(id, opts);
       });
-      row.querySelector('.alt-cancel-btn').addEventListener('click', ()=> openModal(id));
+      row.querySelector('.alt-cancel-btn').addEventListener('click', ()=> openModal(id, opts));
     });
   });
   modal.querySelectorAll('.alt-del-btn').forEach(btn=>{
@@ -2245,7 +2251,7 @@ function openModal(id){
       if(eraUltima) p.stage = p.stageHistory[p.stageHistory.length-1].stage;
       await saveState();
       renderAll();
-      openModal(id);
+      openModal(id, opts);
     });
   });
 
@@ -2270,7 +2276,7 @@ function openModal(id){
 
       await saveState();
       renderAll();
-      openModal(id);
+      openModal(id, opts);
     });
     if(osEditavel){
       modal.querySelectorAll('.os-input').forEach(inp=>{
@@ -2316,7 +2322,7 @@ function openModal(id){
       p.clicheRegistradoEm = new Date().toISOString();
       await saveState();
       renderAll();
-      openModal(id);
+      openModal(id, opts);
     });
     document.getElementById('cliche-bonificado50-check')?.addEventListener('change', async (e)=>{
       p.clicheBonificado50 = e.target.checked;
@@ -2326,7 +2332,7 @@ function openModal(id){
       p.clicheRegistradoEm = new Date().toISOString();
       await saveState();
       renderAll();
-      openModal(id);
+      openModal(id, opts);
     });
     document.getElementById('modal-finalize')?.addEventListener('click', ()=>finalizarPedido(id));
     document.getElementById('btn-finalizar-cliche')?.addEventListener('click', async ()=>{
@@ -2350,7 +2356,7 @@ function openModal(id){
       closeModal();
     });
 }
-function openHistoricoExternoScreen(id){
+function openHistoricoExternoScreen(id, opts={}){
   const p = pedidos.find(x=>x.id===id) || historico.find(x=>x.id===id);
   if(!p) return;
   const modal = document.getElementById('modal');
@@ -2371,7 +2377,7 @@ function openHistoricoExternoScreen(id){
     <hr class="divider" style="margin:10px 0;">
     <div class="alt-list" style="max-height:none;">${cards || `<div class="empty-alt">Sem histórico externo registrado para este pedido.</div>`}</div>
   `;
-  document.getElementById('historico-externo-voltar').addEventListener('click', ()=> openModal(id));
+  document.getElementById('historico-externo-voltar').addEventListener('click', ()=> openModal(id, opts));
   document.getElementById('modal-close').addEventListener('click', closeModal);
 }
 function closeModal(){ document.getElementById('overlay').classList.remove('open'); document.getElementById('modal').classList.remove('modal-wide','modal-2xl'); }
@@ -3452,11 +3458,11 @@ function tabelaSimplesPedidos(itens, colunaExtra){
       <td>${colunaExtra(p)}</td>
     </tr>`).join('');
 }
-function bindLinksPedidoModal(modal){
+function bindLinksPedidoModal(modal, voltarFn){
   modal.querySelectorAll('.link-pedido-venc').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      modal.classList.remove('modal-wide');
-      openModal(btn.dataset.id);
+      modal.classList.remove('modal-wide','modal-2xl');
+      openModal(btn.dataset.id, voltarFn ? {voltar: voltarFn} : {});
     });
   });
 }
@@ -4589,7 +4595,7 @@ function openClicheMesModal(){
     modal.querySelectorAll('.link-pedido-cliche').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         modal.classList.remove('modal-wide');
-        openModal(btn.dataset.id);
+        openModal(btn.dataset.id, {voltar: openClicheMesModal});
       });
     });
   }
@@ -4688,7 +4694,7 @@ function openFluxoModal(){
     modal.querySelectorAll('.link-pedido-cliche').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         modal.classList.remove('modal-wide');
-        openModal(btn.dataset.id);
+        openModal(btn.dataset.id, {voltar: openFluxoModal});
       });
     });
   }
@@ -4833,7 +4839,7 @@ function openVencimentoModal(){
     modal.querySelectorAll('.link-pedido-venc').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         modal.classList.remove('modal-wide');
-        openModal(btn.dataset.id);
+        openModal(btn.dataset.id, {voltar: openVencimentoModal});
       });
     });
   }
@@ -4921,7 +4927,7 @@ function openGargaloModal(){
     modal.querySelectorAll('.link-pedido-venc').forEach(btn=>{
       btn.addEventListener('click', ()=>{
         modal.classList.remove('modal-wide');
-        openModal(btn.dataset.id);
+        openModal(btn.dataset.id, {voltar: openGargaloModal});
       });
     });
   }
@@ -5080,7 +5086,7 @@ function openFinalizarSemanaModal(){
       corLinhas,
     });
   });
-  bindLinksPedidoModal(modal);
+  bindLinksPedidoModal(modal, openFinalizarSemanaModal);
   document.getElementById('modal-close').addEventListener('click', closeModal);
   overlay.classList.add('open');
 }
@@ -5144,7 +5150,7 @@ function openDatasAlteradasModal(){
           <tbody>${rows}</tbody>
         </table>
       </div>`;
-    bindLinksPedidoModal(modal);
+    bindLinksPedidoModal(modal, openDatasAlteradasModal);
   }
   modal.querySelectorAll('.fluxo-col').forEach(col=>col.addEventListener('click', ()=>renderResultado(col.dataset.grupo)));
   renderResultado('alteradas');
