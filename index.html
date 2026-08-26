@@ -126,9 +126,9 @@
   .stage-cards{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;}
   .stage-mini-card{
     flex:1 1 96px; min-width:96px; max-width:150px; background:var(--panel-alt); border:1.5px solid var(--border-soft);
-    border-radius:10px; padding:9px 10px; cursor:pointer; transition:border-color .15s, background .15s;
+    border-radius:10px; padding:9px 10px; cursor:pointer; transition:border-color .15s, background .15s, box-shadow .15s ease, transform .15s ease;
   }
-  .stage-mini-card:hover{border-color:var(--gold);}
+  .stage-mini-card:hover{border-color:var(--gold); box-shadow:0 4px 14px rgba(140,114,56,.18); transform:translateY(-2px);}
   .stage-mini-card.active{border-color:var(--gold); background:var(--gold-bg-light);}
   .stage-mini-card .smc-num{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--text-faint); font-weight:700;}
   .stage-mini-card .smc-nome{font-size:11px; font-weight:600; color:var(--text); line-height:1.25; margin:2px 0 6px; min-height:28px;}
@@ -563,10 +563,9 @@
 
         <div class="toolbar-row">
           <button class="btn-outline" id="btn-multiselect">&#9745; SELECIONAR VÁRIOS</button>
-          <button class="btn-outline" id="btn-toggle-view">&#9776; VER POR ETAPA</button>
           <div class="search-box">
             <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
-            <input type="text" id="search-input" placeholder="Buscar pedido ou cliente...">
+            <input type="text" id="search-input" placeholder="Buscar pedido, cliente ou item...">
           </div>
         </div>
 
@@ -791,7 +790,7 @@
 
         <div class="search-box" style="max-width:340px; margin-bottom:14px;">
           <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
-          <input type="text" id="hist-search-input" placeholder="Buscar pedido ou cliente...">
+          <input type="text" id="hist-search-input" placeholder="Buscar pedido, cliente ou item...">
         </div>
         <div class="hist-table-wrap">
           <table class="hist" id="hist-table">
@@ -1548,7 +1547,8 @@ function matchesSearch(p, term){
   const t = term.toLowerCase();
   return p.pedido.toLowerCase().includes(t) ||
          p.clienteNome.toLowerCase().includes(t) ||
-         p.clienteCod.toLowerCase().includes(t);
+         p.clienteCod.toLowerCase().includes(t) ||
+         (p.itens && p.itens.some(it=> it.nome && it.nome.toLowerCase().includes(t)));
 }
 
 /* ========================================================================
@@ -1889,12 +1889,6 @@ async function finalizarPedido(id){
 /* ========================================================================
    SELEÇÃO MÚLTIPLA
    ======================================================================== */
-document.getElementById('btn-toggle-view').addEventListener('click', (e)=>{
-  boardViewMode = boardViewMode === 'lista' ? 'etapas' : 'lista';
-  e.currentTarget.innerHTML = boardViewMode === 'lista' ? '&#9776; VER POR ETAPA' : '&#9776; VER COMO LISTA';
-  e.currentTarget.classList.toggle('on', boardViewMode === 'etapas');
-  renderBoard();
-});
 document.getElementById('btn-multiselect').addEventListener('click', ()=>{
   multiSelectMode = !multiSelectMode;
   selectedIds.clear();
@@ -3303,7 +3297,7 @@ function openHistMonthModal(label, itens){
       <hr class="divider">
       <div class="search-box" style="max-width:320px; margin-bottom:14px;">
         <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
-        <input type="text" id="hist-month-search-input" placeholder="Buscar pedido ou cliente..." value="${termoBusca}">
+        <input type="text" id="hist-month-search-input" placeholder="Buscar pedido, cliente ou item..." value="${termoBusca}">
       </div>
       <div class="k" style="font-size:12.5px; margin-bottom:10px;">${g.label} (${filtrados.length}${filtrados.length!==g.itens.length ? ' de '+g.itens.length : ''})</div>
       <div class="hist-table-wrap">
