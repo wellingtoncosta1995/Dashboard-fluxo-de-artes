@@ -5129,7 +5129,9 @@ function openFinalizarSemanaModal(){
         p.entrega = novaData;
         await saveState();
         renderAll();
-        openFinalizarSemanaModal();
+        closeModal();
+        analiseEntregaSubmenuOpen = true;
+        switchView('analise-entrega-historico');
       });
       cell.querySelector('.acordada-cancel-btn').addEventListener('click', ()=> openFinalizarSemanaModal());
     });
