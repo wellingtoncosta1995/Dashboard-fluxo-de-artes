@@ -773,7 +773,10 @@
 
     <div id="view-analise-entrega" style="display:none;">
       <div class="topics-card">
-        <p class="topics-intro"><span class="mono-label">ANÁLISE DATA DE ENTREGA</span> <span class="link-text">datas alteradas e atraso projetado em relação ao lead time</span></p>
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin:0 0 16px; padding-bottom:16px; border-bottom:1px solid var(--border-soft);">
+          <p class="topics-intro" style="margin:0; padding:0; border:none;"><span class="mono-label">ANÁLISE DATA DE ENTREGA</span> <span class="link-text">datas alteradas e atraso projetado em relação ao lead time</span></p>
+          <button class="btn small ghost" id="btn-analise-importar-atualizar" style="flex-shrink:0; white-space:nowrap;">&#128260; Importar relatório (atualizar datas)</button>
+        </div>
         <div class="home-cards-grid" style="grid-template-columns:repeat(2, 1fr); max-width:700px;">
           <div class="home-card home-card-live" id="home-card-datas-alteradas" title="Ver pedidos com data de entrega alterada">
             <div class="hcm-label">DATAS DE ENTREGA ALTERADAS</div>
@@ -2788,6 +2791,7 @@ document.getElementById('menu-item-importar-atualizar').addEventListener('click'
   document.getElementById('settings-menu').style.display = 'none';
   openImportAtualizarDatasModal();
 });
+document.getElementById('btn-analise-importar-atualizar').addEventListener('click', openImportAtualizarDatasModal);
 
 /* ========================================================================
    VALIDAR ARTE REPETIÇÃO (confronto com um novo export do relatório)
