@@ -805,6 +805,19 @@
             </div>
           </div>
         </div>
+
+        <hr class="divider">
+        <p class="topics-intro" style="margin-bottom:14px; padding-bottom:0; border-bottom:none;"><span class="mono-label">HISTÓRICO DE DATAS ACORDADAS</span> <span class="link-text">pedidos cuja data de entrega foi ajustada pra data acordada com o cliente</span></p>
+        <div class="search-box" style="max-width:340px; margin-bottom:14px;">
+          <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
+          <input type="text" id="hist-acordada-search-input" placeholder="Buscar pedido ou cliente...">
+        </div>
+        <div class="hist-table-wrap">
+          <table class="hist" id="hist-acordada-table">
+            <thead><tr><th>Pedido</th><th>Cliente</th><th>De</th><th>Para</th><th>Alterado em</th></tr></thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -1451,6 +1464,7 @@ let currentHistTab = 'finalizados';
 let currentView = 'board'; // board | leadtime | history
 let searchTerm = '';
 let historySearchTerm = '';
+let historicoAcordadaSearchTerm = '';
 let historyShowOnlyCards = true; // true = clicou em "Histórico" (só cards); false = clicou num sub-item específico
 let historySubmenuOpen = false; // controla se o submenu do Histórico está expandido no menu lateral
 let nomeRelatorioAtual = '';
@@ -4315,6 +4329,7 @@ function switchView(view){
   if(view==='catalogo') renderCatalogo();
   if(view==='codigos') renderCodigosInternos();
   if(view==='leadtime') renderLeadTime();
+  if(view==='analise-entrega') renderHistoricoDatasAcordadas();
 }
 const HIST_TAB_LABELS = {
   finalizados: 'Histórico de pedidos finalizados',
@@ -4365,6 +4380,32 @@ document.getElementById('hist-search-input').addEventListener('input', (e)=>{
   historySearchTerm = e.target.value.trim();
   renderHistory();
 });
+document.getElementById('hist-acordada-search-input').addEventListener('input', (e)=>{
+  historicoAcordadaSearchTerm = e.target.value.trim();
+  renderHistoricoDatasAcordadas();
+});
+function renderHistoricoDatasAcordadas(){
+  const tbody = document.querySelector('#hist-acordada-table tbody');
+  if(!tbody) return;
+  const eventos = [];
+  [...pedidos, ...historico].forEach(p=>{
+    (p.entregaHistorico||[]).forEach(h=>{
+      if(h.origem==='acordada' && matchesSearch(p, historicoAcordadaSearchTerm)) eventos.push({p, h});
+    });
+  });
+  eventos.sort((a,b)=> new Date(b.h.em) - new Date(a.h.em));
+  tbody.innerHTML = eventos.length ? eventos.map(({p,h})=>`
+    <tr>
+      <td class="pedido"><button class="link-pedido-hist" data-id="${p.id}">${p.pedido}</button></td>
+      <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
+      <td>${h.de}</td>
+      <td><b style="color:var(--green-dark);">${h.para}</b></td>
+      <td>${fmtDateTime(h.em)}</td>
+    </tr>`).join('') : `<tr><td colspan="5" class="hist-empty">Nenhuma data acordada registrada ainda.</td></tr>`;
+  tbody.querySelectorAll('.link-pedido-hist').forEach(btn=>{
+    btn.addEventListener('click', ()=> openModal(btn.dataset.id));
+  });
+}
 
 /* ========================================================================
    CARD HOME — custo de clichê do mês atual
@@ -5017,7 +5058,7 @@ function openFinalizarSemanaModal(){
       const novaData = btn.dataset.nova;
       if(novaData === p.entrega) return;
       if(!p.entregaHistorico) p.entregaHistorico = [];
-      p.entregaHistorico.push({de:p.entrega, para:novaData, em:new Date().toISOString()});
+      p.entregaHistorico.push({de:p.entrega, para:novaData, em:new Date().toISOString(), origem:'acordada'});
       p.entrega = novaData;
       await saveState();
       renderAll();
@@ -5156,6 +5197,7 @@ function renderAll(){
   renderHomeCards();
   if(currentView === 'history') renderHistory();
   if(currentView === 'cliche') renderClicheHistory();
+  if(currentView === 'analise-entrega') renderHistoricoDatasAcordadas();
 }
 
 /* ========================================================================
