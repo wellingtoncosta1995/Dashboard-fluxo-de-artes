@@ -557,15 +557,6 @@
             <span>Baseado no lead time por boca</span>
           </div>
         </div>
-        <div class="home-card home-card-live" id="home-card-gargalo" title="Ver detalhes por etapa do fluxo">
-          <div class="hcm-label">MAIS PEDIDOS PARADOS</div>
-          <div class="hcm-valor" id="hcg-valor-total">—</div>
-          <div class="hcm-breakdown">
-            <span id="hcg-etapa-nome">—</span>
-            <span>2ª colocada: <b id="hcg-segunda">—</b></span>
-            <span>3ª colocada: <b id="hcg-terceira">—</b></span>
-          </div>
-        </div>
         <div class="home-card home-card-live" id="home-card-cliche-mes" title="Ver detalhes em Custo de clichê">
           <div class="hcm-label" id="hcm-mes-nome">—</div>
           <div class="hcm-valor" id="hcm-valor-total">R$ 0,00</div>
@@ -4480,14 +4471,6 @@ function renderHomeCards(){
   document.getElementById('hcv-valor-vencidos').textContent = moderados.length;
   document.getElementById('hcv-valor-proximos').textContent = criticos.length;
 
-  const contagemPorEtapa = STAGES.map(st=>({st, count: pedidos.filter(p=>p.stage===st.id).length}))
-    .sort((a,b)=>b.count-a.count);
-  const [primeira, segunda, terceira] = contagemPorEtapa;
-  document.getElementById('hcg-valor-total').textContent = primeira ? primeira.count : 0;
-  document.getElementById('hcg-etapa-nome').textContent = primeira ? `${primeira.st.id} — ${primeira.st.nome}` : '—';
-  document.getElementById('hcg-segunda').textContent = segunda ? `${segunda.st.id} — ${segunda.st.nome} (${segunda.count})` : '—';
-  document.getElementById('hcg-terceira').textContent = terceira ? `${terceira.st.id} — ${terceira.st.nome} (${terceira.count})` : '—';
-
   const pedidosSemana = pedidosAFinalizarEssaSemana();
   document.getElementById('hcfs-valor-total').textContent = pedidosSemana.length;
   document.getElementById('hcfs-valor-peso').textContent = fmtKg(pedidosSemana.reduce((s,p)=>s+(p.pesoTotal||0),0));
@@ -4878,95 +4861,6 @@ function openVencimentoModal(){
 }
 document.getElementById('home-card-vencimento').addEventListener('click', ()=>{
   openVencimentoModal();
-});
-
-function openGargaloModal(){
-  const overlay = document.getElementById('overlay');
-  const modal = document.getElementById('modal');
-  modal.classList.add('modal-wide');
-
-  const grupos = {};
-  STAGES.forEach(st=>{
-    grupos[st.id] = { label: st.nome, itens: pedidos.filter(p=>p.stage===st.id) };
-  });
-  const maiorValor = Math.max(...Object.values(grupos).map(g=>g.itens.length), 1);
-  const ALTURA_MAX = 110;
-
-  const colunas = STAGES.map(st=>{
-    const g = grupos[st.id];
-    const altura = Math.max(4, Math.round(g.itens.length/maiorValor*ALTURA_MAX));
-    return `
-    <div class="fluxo-col" data-grupo="${st.id}" style="display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; flex:1; min-width:0;">
-      <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px; color:var(--text);">${g.itens.length}</span>
-      <div style="width:100%; max-width:40px; height:${ALTURA_MAX}px; display:flex; align-items:flex-end; background:var(--panel-alt); border-radius:6px; overflow:hidden;">
-        <div style="width:100%; height:${altura}px; background:var(--gold); border-radius:6px 6px 0 0; transition:filter .15s ease;"></div>
-      </div>
-      <span style="font-size:9.5px; color:var(--text-dim); text-align:center; line-height:1.2;">${st.id}</span>
-    </div>`;
-  }).join('');
-
-  modal.innerHTML = `
-    <div class="modal-head">
-      <div>
-        <h2 style="font-size:18px;">Pedidos por etapa do fluxo</h2>
-        <p>${pedidos.length} pedido${pedidos.length===1?'':'s'} ativo${pedidos.length===1?'':'s'} — distribuição por etapa atual</p>
-      </div>
-      <button class="close-x" id="modal-close">&times;</button>
-    </div>
-
-    <hr class="divider">
-    <div class="k" style="font-size:12.5px; margin-bottom:14px;">Clique numa barra para ver os pedidos daquela etapa</div>
-    <div style="display:flex; gap:8px; justify-content:center; margin-bottom:10px;">${colunas}</div>
-
-    <div id="gargalo-resultado"></div>
-  `;
-
-  function renderResultado(stageId){
-    const g = grupos[stageId];
-    modal.querySelectorAll('.fluxo-col').forEach(c=>{
-      c.style.opacity = parseInt(c.dataset.grupo,10) === stageId ? '1' : '.4';
-    });
-    const rows = g.itens.length ? g.itens
-      .slice()
-      .sort((a,b)=>parseDateBR(a.entrega)-parseDateBR(b.entrega))
-      .map(p=>`
-        <tr>
-          <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
-          <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
-          <td>${p.vendedor || '—'}</td>
-          <td>${p.entrega}</td>
-          <td style="text-align:right;">${fmtBRL(p.valorTotal)}</td>
-        </tr>`).join('') : `<tr><td colspan="5" class="hist-empty">Nenhum pedido nessa etapa.</td></tr>`;
-
-    document.getElementById('gargalo-resultado').innerHTML = `
-      <hr class="divider">
-      <div class="k" style="font-size:12.5px; margin-bottom:10px;">${stageId} — ${g.label} (${g.itens.length})</div>
-      <div class="hist-table-wrap">
-        <table class="hist">
-          <thead><tr><th>Pedido</th><th>Cliente</th><th>Vendedor</th><th>Entrega</th><th style="text-align:right;">Valor</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    `;
-    modal.querySelectorAll('.link-pedido-venc').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        modal.classList.remove('modal-wide');
-        openModal(btn.dataset.id, {voltar: openGargaloModal});
-      });
-    });
-  }
-
-  modal.querySelectorAll('.fluxo-col').forEach(col=>{
-    col.addEventListener('click', ()=>renderResultado(parseInt(col.dataset.grupo,10)));
-  });
-  const etapaMaisCheia = STAGES.reduce((max,st)=> grupos[st.id].itens.length > grupos[max.id].itens.length ? st : max, STAGES[0]);
-  renderResultado(etapaMaisCheia.id);
-
-  document.getElementById('modal-close').addEventListener('click', closeModal);
-  overlay.classList.add('open');
-}
-document.getElementById('home-card-gargalo').addEventListener('click', ()=>{
-  openGargaloModal();
 });
 
 function parseDuracaoParaDias(str){
