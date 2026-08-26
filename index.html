@@ -2239,6 +2239,7 @@ function openModal(id){
         });
       });
     }
+  }
     document.getElementById('cliche-total-input')?.addEventListener('change', async (e)=>{
       const raw = e.target.value.replace(/\./g,'').replace(',', '.').replace(/[^\d.]/g,'');
       p.valorClicheTotal = raw ? parseFloat(raw) : null;
@@ -2288,7 +2289,6 @@ function openModal(id){
       renderAll();
       closeModal();
     });
-  }
 }
 function closeModal(){ document.getElementById('overlay').classList.remove('open'); document.getElementById('modal').classList.remove('modal-wide','modal-2xl'); }
 document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
