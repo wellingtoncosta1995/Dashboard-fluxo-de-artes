@@ -163,6 +163,25 @@
   .entrega-progress-text.atencao{color:#8A6A14;}
   .entrega-progress-text.urgente, .entrega-progress-text.atrasado{color:var(--red);}
   @keyframes entrega-pulse{0%,100%{opacity:1;} 50%{opacity:.5;}}
+  .fluxo-funnel{display:flex; flex-direction:column; gap:5px;}
+  .fluxo-step{display:flex; align-items:center; gap:12px; cursor:pointer; transition:opacity .15s ease;}
+  .fluxo-step-label{width:180px; flex-shrink:0; font-size:11px; color:var(--text-dim); text-align:right; line-height:1.25;}
+  .fluxo-step-shape-wrap{flex:1; display:flex;}
+  .fluxo-step-shape{
+    height:28px; min-width:32px; border-radius:6px; display:flex; align-items:center; justify-content:center;
+    font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12px; position:relative;
+    transition:filter .15s ease, transform .15s ease; width:0%; animation:fluxo-grow .6s cubic-bezier(.2,.8,.2,1) forwards;
+  }
+  .fluxo-step:hover .fluxo-step-shape{filter:brightness(1.08); transform:scaleY(1.08);}
+  @keyframes fluxo-grow{from{width:0%;}}
+  .fluxo-step-pct{width:32px; flex-shrink:0; font-size:10px; color:var(--text-faint); font-family:'IBM Plex Mono',monospace;}
+  .fluxo-step-badge{
+    position:absolute; right:-8px; top:50%; transform:translate(100%,-50%);
+    background:#F7EFD9; color:#8A6A14; font-family:'Plus Jakarta Sans',sans-serif;
+    font-size:9.5px; font-weight:700; padding:2px 8px; border-radius:20px; white-space:nowrap;
+    display:flex; align-items:center; gap:4px;
+  }
+  .fluxo-step-badge .dot{width:5px; height:5px; border-radius:50%; background:#C99A1E; animation:entrega-pulse 1.6s ease-in-out infinite;}
   .lp-actions button{background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:6px; width:26px; height:26px; cursor:pointer; font-size:12px; color:var(--text-dim);}
   .lp-actions button:hover{border-color:var(--gold); color:var(--gold-dark);}
   .lp-actions button:disabled{opacity:.35; cursor:not-allowed;}
@@ -4630,20 +4649,25 @@ function openFluxoModal(){
   });
   const chaves = Object.keys(fases);
   const maiorValor = Math.max(...chaves.map(k=>fases[k].pedidos.length), 1);
-  const ALTURA_MAX = 110;
 
   const colunas = chaves.map(key=>{
     const f = fases[key];
-    const altura = Math.max(4, Math.round(f.pedidos.length/maiorValor*ALTURA_MAX));
-    const pct = total>0 ? Math.round(f.pedidos.length/total*100) : 0;
+    const count = f.pedidos.length;
+    const pct = total>0 ? Math.round(count/total*100) : 0;
+    const largura = Math.max(14, Math.round(count/maiorValor*100));
+    const cor = count>=15 ? '#0B6B2E' : count>=8 ? '#1F9C56' : count>=4 ? '#5FBA85' : count>=2 ? '#9FD6B4' : '#CFEBD9';
+    const corTexto = count>=4 ? '#fff' : 'var(--text)';
+    const ehMaior = count === maiorValor;
     return `
-    <div class="fluxo-col" data-fase="${key}" style="display:flex; flex-direction:column; align-items:center; gap:6px; cursor:pointer; flex:1; min-width:0;">
-      <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:12.5px; color:var(--text);">${f.pedidos.length}</span>
-      <div style="width:100%; max-width:44px; height:${ALTURA_MAX}px; display:flex; align-items:flex-end; background:var(--panel-alt); border-radius:8px; overflow:hidden;">
-        <div class="fluxo-bar" data-fase="${key}" style="width:100%; height:${altura}px; background:var(--gold); border-radius:8px 8px 0 0; transition:filter .15s ease;"></div>
+    <div class="fluxo-col fluxo-step" data-fase="${key}" title="${f.label} — ${count} pedido${count===1?'':'s'} (${pct}%)">
+      <span class="fluxo-step-label">${f.label}</span>
+      <div class="fluxo-step-shape-wrap">
+        <div class="fluxo-step-shape" style="width:${largura}%; background:${cor}; color:${corTexto};">
+          ${count}
+          ${ehMaior ? `<span class="fluxo-step-badge"><span class="dot"></span>maior gargalo</span>` : ''}
+        </div>
       </div>
-      <span style="font-size:10px; color:var(--text-dim); text-align:center; line-height:1.2;">${f.label}</span>
-      <span style="font-size:10px; color:var(--text-faint); font-weight:600;">${pct}%</span>
+      <span class="fluxo-step-pct">${pct}%</span>
     </div>`;
   }).join('');
 
@@ -4657,8 +4681,8 @@ function openFluxoModal(){
     </div>
 
     <hr class="divider">
-    <div class="k" style="font-size:12.5px; margin-bottom:14px;">Distribuição por etapa — clique numa barra para ver os pedidos</div>
-    <div style="display:flex; gap:10px; justify-content:center; margin-bottom:10px; flex-wrap:wrap;">${colunas}</div>
+    <div class="k" style="font-size:12.5px; margin-bottom:14px;">Etapas em ordem de fluxo — clique numa etapa para ver os pedidos</div>
+    <div class="fluxo-funnel">${colunas}</div>
 
     <div id="fluxo-resultado"></div>
   `;
