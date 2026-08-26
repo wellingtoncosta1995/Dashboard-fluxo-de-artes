@@ -399,7 +399,7 @@
 
   @media print{
     .sidebar, .header-icons, .toolbar-row, #codigos-ultima-atualizacao-wrap,
-    #view-home, #view-board, #view-cliche, #view-regravacao, #view-catalogo, #view-leadtime, #view-history{
+    #view-home, #view-board, #view-cliche, #view-regravacao, #view-catalogo, #view-leadtime, #view-analise-entrega, #view-history{
       display:none !important;
     }
     body, .app-shell, .main-content{background:#fff !important; padding:0 !important; margin:0 !important;}
@@ -492,6 +492,7 @@
       <button class="nav-item" data-view="catalogo"><span class="icon">&#128218;</span> Catálogo de itens</button>
       <button class="nav-item" data-view="codigos"><span class="icon">&#127991;</span> Tabela de Códigos</button>
       <button class="nav-item" data-view="leadtime"><span class="icon">&#128337;</span> Lead time por boca</button>
+      <button class="nav-item" data-view="analise-entrega"><span class="icon">&#128202;</span> Análise data de entrega</button>
       <button class="nav-item" data-view="history"><span class="icon">&#128220;</span> Histórico</button>
       <div id="history-submenu" style="display:none;">
         <button class="nav-item hist-submenu-item" data-histtab="finalizados" style="padding-left:34px; font-size:12.5px;"><span class="icon">&#9989;</span> Finalizados</button>
@@ -538,23 +539,6 @@
             <span>pedidos parados</span>
             <span>Peso total: <b id="hcf-valor-peso">0 kg</b></span>
             <span>Valor total: <b id="hcf-valor-money">R$ 0,00</b></span>
-          </div>
-        </div>
-        <div class="home-card home-card-live" id="home-card-datas-alteradas" title="Ver pedidos com data de entrega alterada">
-          <div class="hcm-label">DATAS DE ENTREGA ALTERADAS</div>
-          <div class="hcm-valor" id="hcda-valor-total">0</div>
-          <div class="hcm-breakdown">
-            <span>Alteradas: <b id="hcda-valor-alteradas">0</b></span>
-            <span>Não alteradas: <b id="hcda-valor-naoalteradas">0</b></span>
-          </div>
-        </div>
-        <div class="home-card home-card-live" id="home-card-vencimento" title="Ver detalhes em Lead time por pedidos">
-          <div class="hcm-label">LEAD TIME POR PEDIDOS</div>
-          <div class="hcm-valor" id="hcv-valor-total">0</div>
-          <div class="hcm-breakdown">
-            <span>Atraso de 1-7 dias: <b id="hcv-valor-vencidos">0</b></span>
-            <span>Atraso de 8+ dias: <b id="hcv-valor-proximos" style="color:var(--red);">0</b></span>
-            <span>Baseado no lead time por boca</span>
           </div>
         </div>
         <div class="home-card home-card-live" id="home-card-cliche-mes" title="Ver detalhes em Custo de clichê">
@@ -783,6 +767,31 @@
           <label style="font-size:11.5px; color:var(--text-dim); font-weight:600; margin-right:8px;">Adicionar diâmetro:</label>
           <select id="leadtime-add-select"></select>
           <button id="leadtime-add-btn">+ Adicionar</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-analise-entrega" style="display:none;">
+      <div class="topics-card">
+        <p class="topics-intro"><span class="mono-label">ANÁLISE DATA DE ENTREGA</span> <span class="link-text">datas alteradas e atraso projetado em relação ao lead time</span></p>
+        <div class="home-cards-grid" style="grid-template-columns:repeat(2, 1fr); max-width:700px;">
+          <div class="home-card home-card-live" id="home-card-datas-alteradas" title="Ver pedidos com data de entrega alterada">
+            <div class="hcm-label">DATAS DE ENTREGA ALTERADAS</div>
+            <div class="hcm-valor" id="hcda-valor-total">0</div>
+            <div class="hcm-breakdown">
+              <span>Alteradas: <b id="hcda-valor-alteradas">0</b></span>
+              <span>Não alteradas: <b id="hcda-valor-naoalteradas">0</b></span>
+            </div>
+          </div>
+          <div class="home-card home-card-live" id="home-card-vencimento" title="Ver detalhes em Lead time por pedidos">
+            <div class="hcm-label">LEAD TIME POR PEDIDOS</div>
+            <div class="hcm-valor" id="hcv-valor-total">0</div>
+            <div class="hcm-breakdown">
+              <span>Atraso de 1-7 dias: <b id="hcv-valor-vencidos">0</b></span>
+              <span>Atraso de 8+ dias: <b id="hcv-valor-proximos" style="color:var(--red);">0</b></span>
+              <span>Baseado no lead time por boca</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -4274,6 +4283,7 @@ const VIEW_TITULOS = {
   catalogo: "Catálogo de itens",
   codigos: "Tabela de Códigos",
   leadtime: "Lead time por boca",
+  'analise-entrega': "Análise data de entrega",
   history: "Histórico",
 };
 const VIEWS_COM_STATUS_LINE = new Set(['home','board']);
@@ -4290,6 +4300,7 @@ function switchView(view){
   document.getElementById('view-catalogo').style.display = view==='catalogo' ? 'block' : 'none';
   document.getElementById('view-codigos').style.display = view==='codigos' ? 'block' : 'none';
   document.getElementById('view-leadtime').style.display = view==='leadtime' ? 'block' : 'none';
+  document.getElementById('view-analise-entrega').style.display = view==='analise-entrega' ? 'block' : 'none';
   document.getElementById('view-history').style.display = view==='history' ? 'block' : 'none';
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll(`[data-view="${view}"]`).forEach(n=>{ if(!n.classList.contains('disabled')) n.classList.add('active'); });
