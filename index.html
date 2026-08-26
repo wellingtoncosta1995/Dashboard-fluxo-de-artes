@@ -297,6 +297,12 @@
   .modal-row{display:flex; justify-content:space-between; gap:14px; margin-bottom:10px; font-size:12.5px;}
   .modal-row .k{color:var(--text-dim); flex-shrink:0;}
   .modal-row .v{color:var(--text); font-weight:600; text-align:right; font-family:'IBM Plex Mono',monospace;}
+  .entrega-badge{display:inline-flex; align-items:center; gap:6px; background:var(--gold-bg-light); color:var(--gold-dark); font-weight:700; font-size:13px; padding:5px 11px; border-radius:8px; font-family:'IBM Plex Mono',monospace; white-space:nowrap;}
+  .entrega-badge .entrega-label{font-family:'Plus Jakarta Sans',sans-serif; text-transform:uppercase; font-size:9px; font-weight:700; letter-spacing:.4px; opacity:.75;}
+  .entrega-badge button{background:none; border:none; color:inherit; opacity:.7; cursor:pointer; font-size:12px; padding:0;}
+  .entrega-badge button:hover{opacity:1;}
+  .pedido-info-grid{display:grid; grid-template-columns:1fr 1fr; gap:4px 18px; margin-bottom:10px;}
+  .pedido-info-grid .modal-row{margin-bottom:2px;}
   .divider{border:none; border-top:1px solid var(--border-soft); margin:14px 0;}
   table.items{width:100%; border-collapse:collapse; font-size:11.5px;}
   table.items th{text-align:left; color:var(--text-faint); font-weight:600; padding:5px 6px; border-bottom:1px solid var(--border-soft); text-transform:uppercase; font-size:9.5px; letter-spacing:.3px;}
@@ -1971,30 +1977,31 @@ function openModal(id){
   }).join('') : `<div class="empty-alt">Sem histórico de fluxo registrado para este pedido.</div>`;
 
   modal.innerHTML = `
-    <div class="modal-head">
+    <div class="modal-head" style="margin-bottom:10px;">
       <div>
-        <h2>${p.pedido}</h2>
-        <p>${p.clienteNome} · Cód. ${p.clienteCod}</p>
+        <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
+          <h2 style="font-size:21px;">${p.pedido}</h2>
+          <span class="entrega-badge" id="entrega-view">
+            <span class="entrega-label">Entrega</span> ${p.entrega}
+            ${isActive ? `<button id="entrega-edit-btn" title="Corrigir data de entrega">&#9998;</button>` : ''}
+            ${p.entregaHistorico && p.entregaHistorico.length ? `<button id="entrega-hist-btn" title="Ver histórico de alterações" style="text-decoration:underline;">(${p.entregaHistorico.length})</button>` : ''}
+          </span>
+        </div>
+        <p style="margin-top:6px;">${p.clienteNome} · Cód. ${p.clienteCod}</p>
         ${p.vendedor ? `<p style="margin-top:2px; color:var(--text-dim); font-size:12.5px;">Vendedor: ${p.vendedor}</p>` : ''}
       </div>
       <button class="close-x" id="modal-close">&times;</button>
     </div>
+    <div id="entrega-hist-lista" style="display:none; margin:0 0 10px; font-size:11.5px; color:var(--text-dim);"></div>
 
-    <div class="modal-row" id="entrega-row">
-      <span class="k">Data de entrega</span>
-      <span class="v" id="entrega-view">
-        ${p.entrega}
-        ${isActive ? `<button id="entrega-edit-btn" title="Corrigir data de entrega" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:12px; padding:0 0 0 6px;">&#9998;</button>` : ''}
-        ${p.entregaHistorico && p.entregaHistorico.length ? `<button id="entrega-hist-btn" title="Ver histórico de alterações" style="background:none; border:none; color:var(--blue-dark); cursor:pointer; font-size:11px; padding:0 0 0 6px; text-decoration:underline;">histórico (${p.entregaHistorico.length})</button>` : ''}
-      </span>
+    <div class="pedido-info-grid">
+      <div class="modal-row"><span class="k">Classificação da arte</span><span class="v">${p.tag ? `<span class="tag ${tagClass(p.tag)}">${p.tag}</span>` : (isActive ? `<select class="stage-select" id="modal-tag-select" style="margin-top:0; width:auto; display:inline-block; padding:5px 8px; font-size:12px;"><option value="">— selecionar —</option>${TAGS_CLASSIFICACAO.map(t=>`<option value="${t}">${t}</option>`).join('')}</select>` : '—')}</span></div>
+      <div class="modal-row"><span class="k">Peso total</span><span class="v">${fmtKg(p.pesoTotal)}</span></div>
+      <div class="modal-row"><span class="k">Valor total</span><span class="v">${fmtBRL(p.valorTotal)}</span></div>
+      ${p.finalizadoEm ? `<div class="modal-row"><span class="k">Finalizado em</span><span class="v" style="font-size:11px;">${fmtDateTime(p.finalizadoEm)}</span></div>` : ''}
     </div>
-    <div id="entrega-hist-lista" style="display:none; margin:-4px 0 10px; font-size:11.5px; color:var(--text-dim);"></div>
-    <div class="modal-row"><span class="k">Classificação da arte</span><span class="v">${p.tag ? `<span class="tag ${tagClass(p.tag)}">${p.tag}</span>` : (isActive ? `<select class="stage-select" id="modal-tag-select" style="margin-top:0; width:auto; display:inline-block; padding:5px 8px; font-size:12px;"><option value="">— selecionar —</option>${TAGS_CLASSIFICACAO.map(t=>`<option value="${t}">${t}</option>`).join('')}</select>` : '—')}</span></div>
-    <div class="modal-row"><span class="k">Peso total do pedido</span><span class="v">${fmtKg(p.pesoTotal)}</span></div>
-    <div class="modal-row"><span class="k">Valor total do pedido</span><span class="v">${fmtBRL(p.valorTotal)}</span></div>
-    ${p.finalizadoEm ? `<div class="modal-row"><span class="k">Finalizado em</span><span class="v">${fmtDateTime(p.finalizadoEm)}</span></div>` : ''}
 
-    <hr class="divider">
+    <hr class="divider" style="margin:10px 0;">
     <table class="items">
       <thead><tr><th>OS</th><th>Código</th><th>Item</th><th style="text-align:right;">Peso</th></tr></thead>
       <tbody>${itemRows}</tbody>
@@ -2002,7 +2009,7 @@ function openModal(id){
     </table>
 
     ${clicheAplicavel ? `
-    <div class="cliche-block" style="margin-top:14px;">
+    <div class="cliche-block" style="margin-top:4px;">
       <div class="k" style="font-size:12.5px; margin-bottom:6px;">Valor total do clichê</div>
       <div style="display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap;">
         ${clicheEditavel ? `
@@ -2027,7 +2034,7 @@ function openModal(id){
     </div>
     ` : ''}
 
-    <hr class="divider">
+    <hr class="divider" style="margin:10px 0;">
     ${p.historicoExterno && p.historicoExterno.length ? `
     <button id="toggle-historico-externo" style="background:none; border:none; color:var(--blue-dark); font-weight:600; font-size:12.5px; cursor:pointer; padding:0 0 10px; display:flex; align-items:center; gap:5px;">&#128203; Ver histórico externo (Comercial/PCP/Artes) — antes do fluxo interno</button>
     <div id="historico-externo-lista" style="display:none; margin-bottom:14px;">
@@ -2042,7 +2049,7 @@ function openModal(id){
     <div class="alt-list">${fluxoHistorico}</div>
 
     ${isActive && p.stage === STAGE_APROVACAO_ARTE ? `
-    <hr class="divider">
+    <hr class="divider" style="margin:10px 0;">
     <div class="k" style="font-size:12.5px; margin-bottom:8px;">Cobrança de aprovação</div>
     <div style="font-size:12.5px; color:var(--text-dim); margin-bottom:10px;">
       Arte enviada há <b style="color:var(--text);">${diasEmAprovacao(p) ?? '—'} dia${diasEmAprovacao(p)===1?'':'s'}</b>
@@ -2055,7 +2062,7 @@ function openModal(id){
       ${p.cobrancas.slice().reverse().map(dt=>`<div style="padding:3px 0; border-bottom:1px solid var(--border-soft);">Cobrado em ${fmtDateTime(dt)}</div>`).join('')}
     </div>` : ''}
     ` : (p.cobrancas && p.cobrancas.length ? `
-    <hr class="divider">
+    <hr class="divider" style="margin:10px 0;">
     <div class="k" style="font-size:12.5px; margin-bottom:8px;">Cobrança de aprovação — histórico</div>
     <div style="font-size:11.5px; color:var(--text-dim);">
       ${p.cobrancas.slice().reverse().map(dt=>`<div style="padding:3px 0; border-bottom:1px solid var(--border-soft);">Cobrado em ${fmtDateTime(dt)}</div>`).join('')}
@@ -2066,7 +2073,7 @@ function openModal(id){
     ${isActive ? `<button id="modal-cancelar" style="margin-top:10px; width:100%; padding:9px 0; border-radius:9px; border:1px solid var(--red); background:var(--red-bg); color:var(--red); font-weight:700; font-size:13px; cursor:pointer;">&#10005; Cancelar pedido</button>` : ''}
 
     ${isActive && p.stage === STAGE_CONFERENCIA_LAYOUT ? `
-    <hr class="divider">
+    <hr class="divider" style="margin:10px 0;">
     <div class="k" style="font-size:12.5px; margin-bottom:8px;">Conferência de layout — pra onde esse pedido vai?</div>
     <div style="display:flex; flex-direction:column; gap:8px;">
       <button class="btn gold" id="cl-repeticao" style="width:100%; padding:11px;">&#10003; Layout confere — liberar para Arte Repetição</button>
