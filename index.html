@@ -5016,7 +5016,9 @@ function openFinalizarSemanaModal(){
   const modal = document.getElementById('modal');
   modal.classList.add('modal-wide','modal-2xl');
 
-  const itens = pedidosAFinalizarEssaSemana().sort((a,b)=> new Date(b.finalizadoEm) - new Date(a.finalizadoEm));
+  const itens = pedidosAFinalizarEssaSemana()
+    .filter(p=> !(p.entregaHistorico||[]).some(h=>h.origem==='acordada'))
+    .sort((a,b)=> new Date(b.finalizadoEm) - new Date(a.finalizadoEm));
   const comStatus = itens.map(p=>({p, st: statusLeadTimeProducao(p)}));
   const atrasados = comStatus.filter(x=>x.st && !x.st.noPrazo);
   const noPrazo = comStatus.filter(x=>x.st && x.st.noPrazo);
