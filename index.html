@@ -1473,6 +1473,8 @@ let historySearchTerm = '';
 let historicoAcordadaSearchTerm = '';
 let historyShowOnlyCards = true; // true = clicou em "Histórico" (só cards); false = clicou num sub-item específico
 let historySubmenuOpen = false; // controla se o submenu do Histórico está expandido no menu lateral
+let clicheSubmenuOpen = false; // controla se o submenu de Custo de clichê está expandido no menu lateral
+let analiseEntregaSubmenuOpen = false; // controla se o submenu de Análise data de entrega está expandido no menu lateral
 let nomeRelatorioAtual = '';
 let multiSelectMode = false;
 let selectedIds = new Set();
@@ -4312,12 +4314,14 @@ const VIEW_TITULOS = {
 const VIEWS_COM_STATUS_LINE = new Set(['home','board']);
 function switchView(view){
   currentView = view;
+  if(view!=='cliche' && view!=='custo-mensal' && view!=='custo-anual') clicheSubmenuOpen = false;
+  if(view!=='analise-entrega' && view!=='analise-entrega-historico') analiseEntregaSubmenuOpen = false;
   document.getElementById('view-home').style.display = view==='home' ? 'block' : 'none';
   document.getElementById('view-board').style.display = view==='board' ? 'block' : 'none';
   document.getElementById('view-cliche').style.display = view==='cliche' ? 'block' : 'none';
   document.getElementById('view-custo-mensal').style.display = view==='custo-mensal' ? 'block' : 'none';
   document.getElementById('view-custo-anual').style.display = view==='custo-anual' ? 'block' : 'none';
-  document.getElementById('cliche-submenu').style.display = (view==='cliche' || view==='custo-mensal' || view==='custo-anual') ? 'block' : 'none';
+  document.getElementById('cliche-submenu').style.display = clicheSubmenuOpen ? 'block' : 'none';
   document.getElementById('history-submenu').style.display = (view==='history' && historySubmenuOpen) ? 'block' : 'none';
   document.getElementById('view-regravacao').style.display = view==='regravacao' ? 'block' : 'none';
   document.getElementById('view-catalogo').style.display = view==='catalogo' ? 'block' : 'none';
@@ -4325,7 +4329,7 @@ function switchView(view){
   document.getElementById('view-leadtime').style.display = view==='leadtime' ? 'block' : 'none';
   document.getElementById('view-analise-entrega').style.display = view==='analise-entrega' ? 'block' : 'none';
   document.getElementById('view-analise-entrega-historico').style.display = view==='analise-entrega-historico' ? 'block' : 'none';
-  document.getElementById('analise-entrega-submenu').style.display = (view==='analise-entrega' || view==='analise-entrega-historico') ? 'block' : 'none';
+  document.getElementById('analise-entrega-submenu').style.display = analiseEntregaSubmenuOpen ? 'block' : 'none';
   document.getElementById('view-history').style.display = view==='history' ? 'block' : 'none';
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll(`[data-view="${view}"]`).forEach(n=>{ if(!n.classList.contains('disabled')) n.classList.add('active'); });
@@ -4358,6 +4362,24 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
       // estava fora do histórico, ou vendo uma aba detalhada: volta pra tela de cards
       historyShowOnlyCards = true;
       historySubmenuOpen = true;
+    }
+    if(btn.dataset.view === 'cliche'){
+      if(currentView === 'cliche'){
+        // já está na tela de Custo de clichê: apenas abre/fecha o submenu
+        clicheSubmenuOpen = !clicheSubmenuOpen;
+        document.getElementById('cliche-submenu').style.display = clicheSubmenuOpen ? 'block' : 'none';
+        return;
+      }
+      clicheSubmenuOpen = true;
+    }
+    if(btn.dataset.view === 'analise-entrega'){
+      if(currentView === 'analise-entrega'){
+        // já está na tela de Análise data de entrega: apenas abre/fecha o submenu
+        analiseEntregaSubmenuOpen = !analiseEntregaSubmenuOpen;
+        document.getElementById('analise-entrega-submenu').style.display = analiseEntregaSubmenuOpen ? 'block' : 'none';
+        return;
+      }
+      analiseEntregaSubmenuOpen = true;
     }
     switchView(btn.dataset.view);
     document.getElementById('hist-detail-section').style.display = historyShowOnlyCards ? 'none' : 'block';
