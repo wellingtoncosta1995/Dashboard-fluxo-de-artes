@@ -784,7 +784,10 @@
       <div class="topics-card">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin:0 0 16px; padding-bottom:16px; border-bottom:1px solid var(--border-soft);">
           <p class="topics-intro" style="margin:0; padding:0; border:none;"><span class="mono-label">ANÁLISE DATA DE ENTREGA</span> <span class="link-text">datas alteradas e atraso projetado em relação ao lead time</span></p>
-          <button class="btn small ghost" id="btn-analise-importar-atualizar" style="flex-shrink:0; white-space:nowrap;">&#128260; Importar relatório (atualizar datas)</button>
+          <div style="display:flex; gap:8px; flex-shrink:0; flex-wrap:wrap; justify-content:flex-end;">
+            <button class="btn small ghost" id="btn-analise-historico-acordada" style="white-space:nowrap;">&#128203; Histórico de datas acordadas</button>
+            <button class="btn small ghost" id="btn-analise-importar-atualizar" style="white-space:nowrap;">&#128260; Importar relatório (atualizar datas)</button>
+          </div>
         </div>
         <div class="home-cards-grid" style="grid-template-columns:repeat(2, 1fr); max-width:700px;">
           <div class="home-card home-card-live" id="home-card-datas-alteradas" title="Ver pedidos com data de entrega alterada">
@@ -804,19 +807,6 @@
               <span>Baseado no lead time por boca</span>
             </div>
           </div>
-        </div>
-
-        <hr class="divider">
-        <p class="topics-intro" style="margin-bottom:14px; padding-bottom:0; border-bottom:none;"><span class="mono-label">HISTÓRICO DE DATAS ACORDADAS</span> <span class="link-text">pedidos cuja data de entrega foi ajustada pra data acordada com o cliente</span></p>
-        <div class="search-box" style="max-width:340px; margin-bottom:14px;">
-          <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
-          <input type="text" id="hist-acordada-search-input" placeholder="Buscar pedido ou cliente...">
-        </div>
-        <div class="hist-table-wrap">
-          <table class="hist" id="hist-acordada-table">
-            <thead><tr><th>Pedido</th><th>Cliente</th><th>De</th><th>Para</th><th>Alterado em</th></tr></thead>
-            <tbody></tbody>
-          </table>
         </div>
       </div>
     </div>
@@ -4329,7 +4319,6 @@ function switchView(view){
   if(view==='catalogo') renderCatalogo();
   if(view==='codigos') renderCodigosInternos();
   if(view==='leadtime') renderLeadTime();
-  if(view==='analise-entrega') renderHistoricoDatasAcordadas();
 }
 const HIST_TAB_LABELS = {
   finalizados: 'Histórico de pedidos finalizados',
@@ -4380,31 +4369,64 @@ document.getElementById('hist-search-input').addEventListener('input', (e)=>{
   historySearchTerm = e.target.value.trim();
   renderHistory();
 });
-document.getElementById('hist-acordada-search-input').addEventListener('input', (e)=>{
-  historicoAcordadaSearchTerm = e.target.value.trim();
-  renderHistoricoDatasAcordadas();
-});
-function renderHistoricoDatasAcordadas(){
-  const tbody = document.querySelector('#hist-acordada-table tbody');
-  if(!tbody) return;
-  const eventos = [];
-  [...pedidos, ...historico].forEach(p=>{
-    (p.entregaHistorico||[]).forEach(h=>{
-      if(h.origem==='acordada' && matchesSearch(p, historicoAcordadaSearchTerm)) eventos.push({p, h});
+document.getElementById('btn-analise-historico-acordada').addEventListener('click', openHistoricoDatasAcordadasModal);
+function openHistoricoDatasAcordadasModal(){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  modal.classList.add('modal-wide');
+
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div><h2 style="font-size:18px;">Histórico de datas acordadas</h2><p>Pedidos cuja data de entrega foi ajustada pra data acordada com o cliente</p></div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <hr class="divider">
+    <div class="search-box" style="max-width:340px; margin-bottom:14px;">
+      <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
+      <input type="text" id="hist-acordada-search-input" placeholder="Buscar pedido ou cliente...">
+    </div>
+    <div class="hist-table-wrap">
+      <table class="hist" id="hist-acordada-table">
+        <thead><tr><th>Pedido</th><th>Cliente</th><th>De</th><th>Para</th><th>Alterado em</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  `;
+
+  function renderTabela(){
+    const tbody = document.querySelector('#hist-acordada-table tbody');
+    const eventos = [];
+    [...pedidos, ...historico].forEach(p=>{
+      (p.entregaHistorico||[]).forEach(h=>{
+        if(h.origem==='acordada' && matchesSearch(p, historicoAcordadaSearchTerm)) eventos.push({p, h});
+      });
     });
+    eventos.sort((a,b)=> new Date(b.h.em) - new Date(a.h.em));
+    tbody.innerHTML = eventos.length ? eventos.map(({p,h})=>`
+      <tr>
+        <td class="pedido"><button class="link-pedido-hist" data-id="${p.id}">${p.pedido}</button></td>
+        <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
+        <td>${h.de}</td>
+        <td><b style="color:var(--green-dark);">${h.para}</b></td>
+        <td>${fmtDateTime(h.em)}</td>
+      </tr>`).join('') : `<tr><td colspan="5" class="hist-empty">Nenhuma data acordada registrada ainda.</td></tr>`;
+    tbody.querySelectorAll('.link-pedido-hist').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        modal.classList.remove('modal-wide');
+        openModal(btn.dataset.id, {voltar: openHistoricoDatasAcordadasModal});
+      });
+    });
+  }
+
+  document.getElementById('hist-acordada-search-input').value = historicoAcordadaSearchTerm;
+  document.getElementById('hist-acordada-search-input').addEventListener('input', (e)=>{
+    historicoAcordadaSearchTerm = e.target.value.trim();
+    renderTabela();
   });
-  eventos.sort((a,b)=> new Date(b.h.em) - new Date(a.h.em));
-  tbody.innerHTML = eventos.length ? eventos.map(({p,h})=>`
-    <tr>
-      <td class="pedido"><button class="link-pedido-hist" data-id="${p.id}">${p.pedido}</button></td>
-      <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
-      <td>${h.de}</td>
-      <td><b style="color:var(--green-dark);">${h.para}</b></td>
-      <td>${fmtDateTime(h.em)}</td>
-    </tr>`).join('') : `<tr><td colspan="5" class="hist-empty">Nenhuma data acordada registrada ainda.</td></tr>`;
-  tbody.querySelectorAll('.link-pedido-hist').forEach(btn=>{
-    btn.addEventListener('click', ()=> openModal(btn.dataset.id));
-  });
+  renderTabela();
+
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  overlay.classList.add('open');
 }
 
 /* ========================================================================
@@ -5197,7 +5219,6 @@ function renderAll(){
   renderHomeCards();
   if(currentView === 'history') renderHistory();
   if(currentView === 'cliche') renderClicheHistory();
-  if(currentView === 'analise-entrega') renderHistoricoDatasAcordadas();
 }
 
 /* ========================================================================
