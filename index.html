@@ -429,6 +429,8 @@
     #print-area table{width:100%; border-collapse:collapse; font-size:11px;}
     #print-area th{text-align:left; padding:6px 8px; border-bottom:2px solid #333; font-size:10px; text-transform:uppercase;}
     #print-area td{padding:6px 8px; border-bottom:1px solid #ddd;}
+    #print-area h2{font-family:'Parkinsans',sans-serif; font-size:13px; margin:18px 0 8px; padding-left:8px; border-left:3px solid #333;}
+    #print-area h2:first-of-type{margin-top:10px;}
   }
   #print-area{display:none;}
 
@@ -4802,20 +4804,27 @@ document.getElementById('home-card-fluxo').addEventListener('click', ()=>{
   openFluxoModal();
 });
 
-function exportarTabelaPDF({titulo, subtitulo, colunas, linhas, corLinhas}){
+function exportarTabelaPDF({titulo, subtitulo, colunas, linhas, corLinhas, grupos}){
   const printArea = document.getElementById('print-area');
-  const rows = linhas.map((l,i)=>{
-    const cor = corLinhas && corLinhas[i];
-    const style = cor ? ` style="background:${cor};"` : '';
-    return `<tr${style}>${l.map(v=>`<td>${v}</td>`).join('')}</tr>`;
-  }).join('');
+  function tabelaHTML(linhas, corLinhas){
+    const rows = linhas.map((l,i)=>{
+      const cor = corLinhas && corLinhas[i];
+      const style = cor ? ` style="background:${cor};"` : '';
+      return `<tr${style}>${l.map(v=>`<td>${v}</td>`).join('')}</tr>`;
+    }).join('');
+    return `
+      <table>
+        <thead><tr>${colunas.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
+        <tbody>${linhas.length ? rows : `<tr><td colspan="${colunas.length}">Nenhum registro.</td></tr>`}</tbody>
+      </table>`;
+  }
+  const corpo = (grupos && grupos.length)
+    ? grupos.map(g=>`<h2>${g.titulo} (${g.linhas.length})</h2>${tabelaHTML(g.linhas, g.corLinhas)}`).join('')
+    : tabelaHTML(linhas, corLinhas);
   printArea.innerHTML = `
     <h1>${titulo}</h1>
     <p>${subtitulo}</p>
-    <table>
-      <thead><tr>${colunas.map(c=>`<th>${c}</th>`).join('')}</tr></thead>
-      <tbody>${linhas.length ? rows : `<tr><td colspan="${colunas.length}">Nenhum registro.</td></tr>`}</tbody>
-    </table>
+    ${corpo}
   `;
   document.body.classList.add('printing');
   const limpar = ()=>{ document.body.classList.remove('printing'); window.removeEventListener('afterprint', limpar); };
@@ -5063,22 +5072,26 @@ function openFinalizarSemanaModal(){
   `;
 
   document.getElementById('btn-exportar-finalizados-pdf').addEventListener('click', ()=>{
-    const ordenados = [...atrasados, ...noPrazo, ...semCalculo];
-    const corLinhas = ordenados.map(({st})=> st ? (st.noPrazo ? '#E3F3E9' : '#F7E9E7') : null);
+    function linhaPDF({p,st}){
+      let leadTexto = '—', sugestaoTexto = '—';
+      if(st){
+        const dias = Math.abs(st.diasDiferenca);
+        leadTexto = st.noPrazo ? `Faltam ${dias} dia${dias===1?'':'s'}` : `Atrasado ${dias} dia${dias===1?'':'s'}`;
+        sugestaoTexto = st.novaData.toLocaleDateString('pt-BR');
+      }
+      return [p.pedido, p.clienteNome, p.vendedor || '—', p.entrega, fmtDate(p.finalizadoEm), leadTexto, sugestaoTexto];
+    }
+    const colunas = ['Pedido','Cliente','Vendedor','Entrega','Clichê em fábrica','Lead time','Sugestão de nova data'];
+    const grupos = [
+      { titulo:'Atrasados', linhas: atrasados.map(linhaPDF), corLinhas: atrasados.map(()=>'#F7E9E7') },
+      { titulo:'No prazo', linhas: noPrazo.map(linhaPDF), corLinhas: noPrazo.map(()=>'#E3F3E9') },
+      { titulo:'Sem cálculo de lead time', linhas: semCalculo.map(linhaPDF), corLinhas: semCalculo.map(()=>null) },
+    ].filter(g=>g.linhas.length);
     exportarTabelaPDF({
       titulo: 'Clichê finalizado — últimos 7 dias',
       subtitulo: `${itens.length} pedido${itens.length===1?'':'s'} · gerado em ${new Date().toLocaleString('pt-BR')}`,
-      colunas: ['Pedido','Cliente','Vendedor','Entrega','Clichê em fábrica','Lead time','Sugestão de nova data'],
-      linhas: ordenados.map(({p,st})=>{
-        let leadTexto = '—', sugestaoTexto = '—';
-        if(st){
-          const dias = Math.abs(st.diasDiferenca);
-          leadTexto = st.noPrazo ? `Faltam ${dias} dia${dias===1?'':'s'}` : `Atrasado ${dias} dia${dias===1?'':'s'}`;
-          sugestaoTexto = st.novaData.toLocaleDateString('pt-BR');
-        }
-        return [p.pedido, p.clienteNome, p.vendedor || '—', p.entrega, fmtDate(p.finalizadoEm), leadTexto, sugestaoTexto];
-      }),
-      corLinhas,
+      colunas,
+      grupos,
     });
   });
   modal.querySelectorAll('.btn-aplicar-data').forEach(btn=>{
