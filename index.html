@@ -184,6 +184,17 @@
   .fluxo-step-badge .dot{width:5px; height:5px; border-radius:50%; background:#C99A1E; animation:entrega-pulse 1.6s ease-in-out infinite;}
   .cliche-prop-seg:hover{filter:brightness(1.08);}
   .cliche-prop-legend:hover{background:var(--panel-alt);}
+  .fin-grupo{margin-bottom:20px;}
+  .fin-grupo:last-child{margin-bottom:0;}
+  .fin-grupo-head{display:flex; align-items:center; gap:9px; margin-bottom:10px;}
+  .fin-grupo-head .stripe{width:4px; height:16px; border-radius:2px; flex-shrink:0;}
+  .fin-grupo-head.atraso .stripe{background:var(--red);}
+  .fin-grupo-head.ok .stripe{background:var(--green);}
+  .fin-grupo-head.neutro .stripe{background:var(--text-faint);}
+  .fin-grupo-head h3{font-family:'Parkinsans',sans-serif; font-size:14px; font-weight:700; margin:0; color:var(--text);}
+  .fin-grupo-head .count{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-faint); font-weight:600;}
+  .btn-aplicar-data{display:inline-flex; align-items:center; gap:5px; background:var(--green-bg); color:var(--green-dark); border:1px solid var(--green); border-radius:7px; padding:6px 10px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; font-family:'Plus Jakarta Sans',sans-serif; transition:background .12s ease, color .12s ease;}
+  .btn-aplicar-data:hover{background:var(--green); color:#fff;}
   .lp-actions button{background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:6px; width:26px; height:26px; cursor:pointer; font-size:12px; color:var(--text-dim);}
   .lp-actions button:hover{border-color:var(--gold); color:var(--gold-dark);}
   .lp-actions button:disabled{opacity:.35; cursor:not-allowed;}
@@ -4920,46 +4931,48 @@ function openFinalizarSemanaModal(){
   modal.classList.add('modal-wide','modal-2xl');
 
   const itens = pedidosAFinalizarEssaSemana().sort((a,b)=> new Date(b.finalizadoEm) - new Date(a.finalizadoEm));
-  const pesoTotal = itens.reduce((s,p)=>s+(p.pesoTotal||0),0);
-  const valorTotal = itens.reduce((s,p)=>s+(p.valorTotal||0),0);
+  const comStatus = itens.map(p=>({p, st: statusLeadTimeProducao(p)}));
+  const atrasados = comStatus.filter(x=>x.st && !x.st.noPrazo);
+  const noPrazo = comStatus.filter(x=>x.st && x.st.noPrazo);
+  const semCalculo = comStatus.filter(x=>!x.st);
 
-  const rows = itens.length ? itens.map(p=>{
-    const st = statusLeadTimeProducao(p);
-    let leadCell = '<span style="color:var(--text-faint);">—</span>';
-    let sugestaoCell = '<span style="color:var(--text-faint);">—</span>';
-    let corLinha = '';
-    if(st){
-      const cor = st.noPrazo ? 'var(--green-dark)' : 'var(--red)';
-      const bg = st.noPrazo ? 'var(--green-bg)' : 'var(--red-bg)';
-      const dias = Math.abs(st.diasDiferenca);
-      const texto = st.noPrazo ? `Faltam ${dias} dia${dias===1?'':'s'}` : `Atrasado ${dias} dia${dias===1?'':'s'}`;
-      leadCell = `<span style="display:inline-block; background:${bg}; color:${cor}; padding:4px 9px; border-radius:6px; font-weight:700; font-size:11px; white-space:nowrap;">${texto}</span>`;
-      sugestaoCell = `<b style="color:${cor};">${st.novaData.toLocaleDateString('pt-BR')}</b>`;
-      corLinha = `background:${bg};`;
-    }
-    const motivo = motivoMaiorAtraso(p);
-    const motivoCell = motivo ? `${motivo.label}<br><small style="color:var(--text-faint);">${Math.round(motivo.dias)} dia${Math.round(motivo.dias)===1?'':'s'} parado</small>` : '<span style="color:var(--text-faint);">—</span>';
+  function leadPill(st){
+    const cor = st.noPrazo ? 'var(--green-dark)' : 'var(--red)';
+    const bg = st.noPrazo ? 'var(--green-bg)' : 'var(--red-bg)';
+    const dias = Math.abs(st.diasDiferenca);
+    const texto = st.noPrazo ? `Faltam ${dias} dia${dias===1?'':'s'}` : `Atrasado ${dias} dia${dias===1?'':'s'}`;
+    return `<span style="display:inline-block; background:${bg}; color:${cor}; padding:4px 9px; border-radius:6px; font-weight:700; font-size:11px; white-space:nowrap;">${texto}</span>`;
+  }
+
+  function tabelaGrupo(lista, comAcao){
+    const linhas = lista.map(({p,st})=>`
+      <tr>
+        <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
+        <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
+        <td>${p.vendedor || '—'}</td>
+        <td>${entregaComHistoricoHTML(p)}</td>
+        <td>${fmtDate(p.finalizadoEm)}</td>
+        <td>${st ? leadPill(st) : '<span style="color:var(--text-faint);">—</span>'}</td>
+        <td>${st ? `<b style="color:${st.noPrazo?'var(--green-dark)':'var(--red)'};">${st.novaData.toLocaleDateString('pt-BR')}</b>` : '<span style="color:var(--text-faint);">—</span>'}</td>
+        ${comAcao ? `<td><button class="btn-aplicar-data" data-id="${p.id}" data-nova="${st.novaData.toLocaleDateString('pt-BR')}">&#10003; Aplicar data sugerida</button></td>` : ''}
+      </tr>`).join('');
     return `
-    <tr style="${corLinha}">
-      <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
-      <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
-      <td>${p.vendedor || '—'}</td>
-      <td>${entregaComHistoricoHTML(p)}</td>
-      <td>${fmtDateTime(p.finalizadoEm)}</td>
-      <td>${leadCell}</td>
-      <td style="font-size:12px;">${motivoCell}</td>
-      <td>${sugestaoCell}</td>
-      <td style="text-align:right;">${fmtKg(p.pesoTotal)}</td>
-      <td style="text-align:right;">${fmtBRL(p.valorTotal)}</td>
-    </tr>`;
-  }).join('') : `<tr><td colspan="10" class="hist-empty">Nenhum clichê finalizado nos últimos 7 dias.</td></tr>`;
+      <div class="hist-table-wrap">
+        <table class="hist">
+          <thead><tr><th>Pedido</th><th>Cliente</th><th>Vendedor</th><th>Entrega</th><th>Clichê em fábrica</th><th>Lead time</th><th>Sugestão de nova data</th>${comAcao?'<th></th>':''}</tr></thead>
+          <tbody>${linhas}</tbody>
+        </table>
+      </div>`;
+  }
 
-  const totalRow = itens.length ? `
-    <tr style="font-weight:700; border-top:2px solid var(--border);">
-      <td colspan="8" style="text-align:right;">Total</td>
-      <td style="text-align:right;">${fmtKg(pesoTotal)}</td>
-      <td style="text-align:right;">${fmtBRL(valorTotal)}</td>
-    </tr>` : '';
+  function grupoHTML(classe, titulo, lista, comAcao){
+    if(!lista.length) return '';
+    return `
+      <div class="fin-grupo">
+        <div class="fin-grupo-head ${classe}"><span class="stripe"></span><h3>${titulo}</h3><span class="count">${lista.length} pedido${lista.length===1?'':'s'}</span></div>
+        ${tabelaGrupo(lista, comAcao)}
+      </div>`;
+  }
 
   modal.innerHTML = `
     <div class="modal-head">
@@ -4967,43 +4980,48 @@ function openFinalizarSemanaModal(){
       <button class="close-x" id="modal-close">&times;</button>
     </div>
     <hr class="divider">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
       <div class="k" style="font-size:12.5px;">Lead time = folga ou atraso em relação à entrega, considerando o tempo de produção do diâmetro</div>
       <button class="btn small ghost" id="btn-exportar-finalizados-pdf">&#8681; Exportar PDF</button>
     </div>
-    <div class="hist-table-wrap">
-      <table class="hist">
-        <thead><tr><th>Pedido</th><th>Cliente</th><th>Vendedor</th><th>Entrega</th><th>Clichê em fábrica</th><th>Lead time</th><th>Motivo do maior atraso</th><th>Sugestão de nova data</th><th style="text-align:right;">Peso</th><th style="text-align:right;">Valor</th></tr></thead>
-        <tbody>${rows}${totalRow}</tbody>
-      </table>
-    </div>
+    ${itens.length ? `
+      ${grupoHTML('atraso', 'Atrasados', atrasados, true)}
+      ${grupoHTML('ok', 'No prazo', noPrazo, false)}
+      ${grupoHTML('neutro', 'Sem cálculo de lead time', semCalculo, false)}
+    ` : `<div class="hist-empty">Nenhum clichê finalizado nos últimos 7 dias.</div>`}
   `;
+
   document.getElementById('btn-exportar-finalizados-pdf').addEventListener('click', ()=>{
-    const corLinhas = itens.map(p=>{
-      const st = statusLeadTimeProducao(p);
-      if(!st) return null;
-      return st.noPrazo ? '#E3F3E9' : '#F7E9E7';
-    });
+    const ordenados = [...atrasados, ...noPrazo, ...semCalculo];
+    const corLinhas = ordenados.map(({st})=> st ? (st.noPrazo ? '#E3F3E9' : '#F7E9E7') : null);
     exportarTabelaPDF({
       titulo: 'Clichê finalizado — últimos 7 dias',
-      subtitulo: `${itens.length} pedido${itens.length===1?'':'s'} · Peso total: ${fmtKg(pesoTotal)} · Valor total: ${fmtBRL(valorTotal)} · gerado em ${new Date().toLocaleString('pt-BR')}`,
-      colunas: ['Pedido','Cliente','Vendedor','Entrega','Clichê em fábrica','Lead time','Motivo do maior atraso','Sugestão de nova data','Peso','Valor'],
-      linhas: itens.map(p=>{
-        const st = statusLeadTimeProducao(p);
+      subtitulo: `${itens.length} pedido${itens.length===1?'':'s'} · gerado em ${new Date().toLocaleString('pt-BR')}`,
+      colunas: ['Pedido','Cliente','Vendedor','Entrega','Clichê em fábrica','Lead time','Sugestão de nova data'],
+      linhas: ordenados.map(({p,st})=>{
         let leadTexto = '—', sugestaoTexto = '—';
         if(st){
           const dias = Math.abs(st.diasDiferenca);
           leadTexto = st.noPrazo ? `Faltam ${dias} dia${dias===1?'':'s'}` : `Atrasado ${dias} dia${dias===1?'':'s'}`;
           sugestaoTexto = st.novaData.toLocaleDateString('pt-BR');
         }
-        const motivo = motivoMaiorAtraso(p);
-        const motivoTexto = motivo ? `${motivo.label} (${Math.round(motivo.dias)}d)` : '—';
-        return [
-          p.pedido, p.clienteNome, p.vendedor || '—', p.entrega, fmtDateTime(p.finalizadoEm),
-          leadTexto, motivoTexto, sugestaoTexto, fmtKg(p.pesoTotal), fmtBRL(p.valorTotal)
-        ];
+        return [p.pedido, p.clienteNome, p.vendedor || '—', p.entrega, fmtDate(p.finalizadoEm), leadTexto, sugestaoTexto];
       }),
       corLinhas,
+    });
+  });
+  modal.querySelectorAll('.btn-aplicar-data').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const p = itens.find(x=>x.id===btn.dataset.id);
+      if(!p) return;
+      const novaData = btn.dataset.nova;
+      if(novaData === p.entrega) return;
+      if(!p.entregaHistorico) p.entregaHistorico = [];
+      p.entregaHistorico.push({de:p.entrega, para:novaData, em:new Date().toISOString()});
+      p.entrega = novaData;
+      await saveState();
+      renderAll();
+      openFinalizarSemanaModal();
     });
   });
   bindLinksPedidoModal(modal, openFinalizarSemanaModal);
