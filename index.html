@@ -2009,7 +2009,6 @@ function openModal(id){
     <table class="items">
       <thead><tr><th>OS</th><th>Código</th><th>Item</th><th style="text-align:right;">Peso</th></tr></thead>
       <tbody>${itemRows}</tbody>
-      <tfoot><tr><td colspan="3">Total do pedido</td><td class="peso">${fmtKg(p.pesoTotal)}</td></tr></tfoot>
     </table>
 
     ${clicheAplicavel ? `
@@ -2026,12 +2025,14 @@ function openModal(id){
             <input type="text" id="cliche-pedido-input" placeholder="R$ 0,00" value="${p.valorClichePedido!=null?fmtBRL(p.valorClichePedido):''}" ${(p.clicheBonificado||p.clicheBonificado50)?'disabled':''}
               style="width:140px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:8px; padding:7px 10px; font-size:12.5px; font-family:'IBM Plex Mono',monospace;">
           </div>
-          <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim); cursor:pointer; padding-bottom:9px;">
-            <input type="checkbox" id="cliche-bonificado-check" ${p.clicheBonificado?'checked':''} style="width:15px; height:15px; accent-color:var(--teal); cursor:pointer;"> Bonificado
-          </label>
-          <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim); cursor:pointer; padding-bottom:9px;">
-            <input type="checkbox" id="cliche-bonificado50-check" ${p.clicheBonificado50?'checked':''} style="width:15px; height:15px; accent-color:var(--teal); cursor:pointer;"> Bonificado 50%
-          </label>
+          <div style="display:flex; align-items:center; gap:14px; flex-wrap:nowrap; padding-bottom:9px;">
+            <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim); cursor:pointer; white-space:nowrap;">
+              <input type="checkbox" id="cliche-bonificado-check" ${p.clicheBonificado?'checked':''} style="width:15px; height:15px; accent-color:var(--teal); cursor:pointer;"> Bonificado
+            </label>
+            <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim); cursor:pointer; white-space:nowrap;">
+              <input type="checkbox" id="cliche-bonificado50-check" ${p.clicheBonificado50?'checked':''} style="width:15px; height:15px; accent-color:var(--teal); cursor:pointer;"> Bonificado 50%
+            </label>
+          </div>
           ${!isActive ? `<button class="finalize-mini" id="btn-finalizar-cliche" style="padding:8px 14px;">&#10003; Finalizar tratativa</button>` : ''}
         ` : `
           <div class="modal-row" style="margin:0; width:100%;"><span class="k">Valor total do clichê</span><span class="v">${p.valorClicheTotal!=null ? fmtBRL(p.valorClicheTotal) : '—'}</span></div>
