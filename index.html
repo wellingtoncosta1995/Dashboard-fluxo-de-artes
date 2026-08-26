@@ -2018,6 +2018,7 @@ function openModal(id){
           <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim); cursor:pointer; padding-bottom:9px;">
             <input type="checkbox" id="cliche-bonificado-check" ${p.clicheBonificado?'checked':''} style="width:15px; height:15px; accent-color:var(--teal); cursor:pointer;"> Bonificado
           </label>
+          ${!isActive ? `<button class="finalize-mini" id="btn-finalizar-cliche" style="padding:8px 14px;">&#10003; Finalizar tratativa</button>` : ''}
         ` : `
           <div class="modal-row" style="margin:0; width:100%;"><span class="k">Valor total do clichê</span><span class="v">${p.valorClicheTotal!=null ? fmtBRL(p.valorClicheTotal) : '—'}</span></div>
           <div class="modal-row" style="margin:0; width:100%;"><span class="k">Valor inserido no pedido</span><span class="v">${p.clicheBonificado ? `<span class="tag tag-repeticao">BONIFICADO</span>` : (p.valorClichePedido!=null ? fmtBRL(p.valorClichePedido) : '—')}</span></div>
@@ -2270,6 +2271,23 @@ function openModal(id){
       openModal(id);
     });
     document.getElementById('modal-finalize')?.addEventListener('click', ()=>finalizarPedido(id));
+    document.getElementById('btn-finalizar-cliche')?.addEventListener('click', async ()=>{
+      const totalRaw = document.getElementById('cliche-total-input').value.replace(/\./g,'').replace(',', '.').replace(/[^\d.]/g,'');
+      const pedidoRaw = document.getElementById('cliche-pedido-input').value.replace(/\./g,'').replace(',', '.').replace(/[^\d.]/g,'');
+      const bonificado = document.getElementById('cliche-bonificado-check').checked;
+      const valorClichePedido = bonificado ? 0 : (pedidoRaw ? parseFloat(pedidoRaw) : null);
+      if(!bonificado && valorClichePedido==null){
+        alert('Preencha o "Valor inserido no pedido" ou marque como Bonificado antes de finalizar.');
+        return;
+      }
+      p.clicheBonificado = bonificado;
+      p.valorClicheTotal = totalRaw ? parseFloat(totalRaw) : null;
+      p.valorClichePedido = valorClichePedido;
+      p.clicheRegistradoEm = new Date().toISOString();
+      await saveState();
+      renderAll();
+      closeModal();
+    });
   }
 }
 function closeModal(){ document.getElementById('overlay').classList.remove('open'); document.getElementById('modal').classList.remove('modal-wide','modal-2xl'); }
