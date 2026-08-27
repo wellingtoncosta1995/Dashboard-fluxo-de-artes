@@ -4123,12 +4123,27 @@ function buscarChapaParaItem(cod, nome){
   const dims = extrairDimensoesItem(nome);
   const diametro = dims ? dims.largura : diametroDoItem(cod, nome).diametro;
   if(diametro==null) return null;
+
+  // tampa/sobretampa não usa a chapa do produto (dimensões de pote/copo) —
+  // usa as chapas de tampa (códigos "TP <diâmetro>" / "STP <diâmetro>"), que
+  // na planilha não têm "dimensões produto" preenchidas
+  const nomeUpper = String(nome||'').toUpperCase();
+  const ehSobretampa = /SOBRETAMPA|\bSTP\b/.test(nomeUpper);
+  const ehTampa = ehSobretampa || /\bTAMPA\b/.test(nomeUpper);
+  if(ehTampa){
+    const codigoPreferido = (ehSobretampa ? 'STP ' : 'TP ') + diametro;
+    const row = valoresChapa.find(r => String(r[3]).trim().toUpperCase() === codigoPreferido)
+      || valoresChapa.find(r => String(r[3]).trim().toUpperCase() === 'TP ' + diametro)
+      || null;
+    return row ? { row, diametro } : null;
+  }
+
   const candidatos = valoresChapa.filter(r=>{
     const dimA = parseFloat(String(r[1]).replace(',','.'));
     return !isNaN(dimA) && Math.round(dimA) === diametro;
   });
   if(!candidatos.length) return null;
-  if(candidatos.length===1 || !dims) return candidatos[0];
+  if(candidatos.length===1 || !dims) return { row: candidatos[0], diametro };
   // várias chapas usam o mesmo diâmetro de boca — desempata pela altura (2º número do "(LxA)")
   let melhor = null, menorDiff = Infinity;
   candidatos.forEach(r=>{
@@ -4137,22 +4152,22 @@ function buscarChapaParaItem(cod, nome){
     const diff = Math.abs(dimB - dims.altura);
     if(diff < menorDiff){ menorDiff = diff; melhor = r; }
   });
-  return melhor || candidatos[0];
+  return { row: melhor || candidatos[0], diametro };
 }
 
 function dadosRequisicaoDoPedido(p){
   const itensOrcamento = p.itens.map(it=>{
     const cod = fmtCodigo(it.codigo);
     const info = clicheItensInfo[cod];
-    const chapaRow = buscarChapaParaItem(cod, it.nome);
+    const chapa = buscarChapaParaItem(cod, it.nome);
     return {
       codigo: cod,
       nome: it.nome,
       os: it.os || '',
       qtdCoresInicial: (info && info.qtdCores!=null) ? info.qtdCores : '',
-      diametro: chapaRow ? chapaRow[1] : null,
-      modeloChapa: chapaRow ? chapaRow[0] : null,
-      valorChapa: chapaRow ? parseValorBRL(chapaRow[10]) : null,
+      diametro: chapa ? chapa.diametro : null,
+      modeloChapa: chapa ? chapa.row[0] : null,
+      valorChapa: chapa ? parseValorBRL(chapa.row[10]) : null,
     };
   });
   return { itensOrcamento };
