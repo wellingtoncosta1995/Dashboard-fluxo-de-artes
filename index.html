@@ -997,7 +997,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.40';
+const APP_VERSION = 'v8.41';
 const APP_VERSION_DATE = '27/08/2026';
 
 /* ========================================================================
@@ -4272,6 +4272,12 @@ function renderRequisicaoClicheResultados(){
 document.getElementById('requisicao-cliche-search-input').addEventListener('input', (e)=>{
   requisicaoClicheSearchTerm = e.target.value;
   renderRequisicaoClicheResultados();
+  // se a busca foi apagada, some com o pedido que estava exibido por causa
+  // dela — o formulário só deve ficar visível enquanto há uma busca ativa
+  if(!requisicaoClicheSearchTerm.trim()){
+    requisicaoClicheSelecionadoId = null;
+    renderRequisicaoClicheForm();
+  }
 });
 
 function parseValorBRL(str){
