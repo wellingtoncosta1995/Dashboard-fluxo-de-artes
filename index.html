@@ -740,6 +740,8 @@
     <div id="view-requisicao-cliche" style="display:none;">
       <div class="topics-card">
         <p class="topics-intro"><span class="mono-label">REQUISIÇÃO DE CLICHÊ</span> <span class="link-text">gere e imprima a requisição de liberação de clichê de um pedido</span></p>
+        <div id="requisicao-cliche-pendentes"></div>
+        <hr class="divider" style="margin:14px 0;">
         <div class="search-box" style="max-width:340px;">
           <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
           <input type="text" id="requisicao-cliche-search-input" placeholder="Buscar pedido ou cliente...">
@@ -4048,6 +4050,33 @@ document.getElementById('valores-chapa-save-btn').addEventListener('click', asyn
 let requisicaoClicheSearchTerm = '';
 let requisicaoClicheSelecionadoId = null;
 
+function renderRequisicaoClichePendentes(){
+  const wrap = document.getElementById('requisicao-cliche-pendentes');
+  if(!wrap) return;
+  const pendentes = pedidos.filter(p=>p.stage===STAGE_APROVACAO_CLICHE);
+  if(!pendentes.length){
+    wrap.innerHTML = `<div class="empty-alt">Nenhum pedido aguardando aprovação de custo de clichê no momento.</div>`;
+    return;
+  }
+  wrap.innerHTML = `
+    <div class="k" style="font-size:12.5px; margin-bottom:8px;">Aguardando aprovação de custo de clichê (${pendentes.length})</div>
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      ${pendentes.map(p=>`
+        <button class="requisicao-cliche-pendente-btn" data-id="${p.id}" style="text-align:left; background:var(--panel-alt); border:1px solid var(--gold); border-radius:8px; padding:9px 12px; cursor:pointer; font-size:12.5px; color:var(--text); display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <span><b style="font-family:'IBM Plex Mono',monospace; color:var(--gold-dark);">${p.pedido}</b> · ${p.clienteNome}</span>
+          <span style="color:var(--text-faint); font-size:11px; white-space:nowrap;">Entrega ${p.entrega}</span>
+        </button>
+      `).join('')}
+    </div>
+  `;
+  wrap.querySelectorAll('.requisicao-cliche-pendente-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      requisicaoClicheSelecionadoId = btn.dataset.id;
+      renderRequisicaoClicheForm();
+    });
+  });
+}
+
 function renderRequisicaoClicheResultados(){
   const wrap = document.getElementById('requisicao-cliche-resultados');
   const termo = requisicaoClicheSearchTerm.trim();
@@ -4894,7 +4923,7 @@ function switchView(view){
   if(view==='cliche') renderClicheHistory();
   if(view==='custo-mensal' || view==='custo-anual') renderClicheHistoricoPeriodos();
   if(view==='valores-chapa') renderValoresChapaTable();
-  if(view==='requisicao-cliche') renderRequisicaoClicheResultados();
+  if(view==='requisicao-cliche'){ renderRequisicaoClichePendentes(); renderRequisicaoClicheResultados(); }
   if(view==='regravacao') renderRegravacao();
   if(view==='catalogo') renderCatalogo();
   if(view==='codigos') renderCodigosInternos();
@@ -5821,6 +5850,7 @@ function renderAll(){
   if(currentView === 'history') renderHistory();
   if(currentView === 'cliche') renderClicheHistory();
   if(currentView === 'analise-entrega-historico') renderHistoricoDatasAcordadasView();
+  if(currentView === 'requisicao-cliche') renderRequisicaoClichePendentes();
 }
 
 /* ========================================================================
