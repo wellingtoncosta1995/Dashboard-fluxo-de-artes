@@ -997,7 +997,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.37';
+const APP_VERSION = 'v8.38';
 const APP_VERSION_DATE = '27/08/2026';
 
 /* ========================================================================
@@ -2197,6 +2197,33 @@ function openModal(id, opts={}){
       <thead><tr><th>OS</th><th>Código</th><th>Item</th><th style="text-align:right;">Peso</th></tr></thead>
       <tbody>${itemRows}</tbody>
     </table>
+    ${isActive ? `
+    <button id="add-item-toggle-btn" style="background:none; border:none; color:var(--blue-dark); font-weight:600; font-size:12px; cursor:pointer; padding:8px 0 0; display:flex; align-items:center; gap:5px;">&#10011; Adicionar item</button>
+    <div id="add-item-form" style="display:none; margin-top:8px; padding:12px; background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:9px;">
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+        <div>
+          <div class="k" style="font-size:10.5px; margin-bottom:4px;">Código</div>
+          <input type="text" id="add-item-codigo" placeholder="Código" style="width:110px; background:var(--panel); border:1px solid var(--border-soft); color:var(--text); border-radius:7px; padding:6px 9px; font-size:12px; font-family:'IBM Plex Mono',monospace;">
+        </div>
+        <div style="flex:1; min-width:180px;">
+          <div class="k" style="font-size:10.5px; margin-bottom:4px;">Nome do item</div>
+          <input type="text" id="add-item-nome" placeholder="Nome do item" style="width:100%; background:var(--panel); border:1px solid var(--border-soft); color:var(--text); border-radius:7px; padding:6px 9px; font-size:12px; box-sizing:border-box;">
+        </div>
+        <div>
+          <div class="k" style="font-size:10.5px; margin-bottom:4px;">Peso (kg)</div>
+          <input type="text" id="add-item-peso" placeholder="0,00" style="width:90px; background:var(--panel); border:1px solid var(--border-soft); color:var(--text); border-radius:7px; padding:6px 9px; font-size:12px; font-family:'IBM Plex Mono',monospace;">
+        </div>
+        <div>
+          <div class="k" style="font-size:10.5px; margin-bottom:4px;">Somar ao valor do pedido</div>
+          <input type="text" id="add-item-valor" placeholder="R$ 0,00 (opcional)" style="width:130px; background:var(--panel); border:1px solid var(--border-soft); color:var(--text); border-radius:7px; padding:6px 9px; font-size:12px; font-family:'IBM Plex Mono',monospace;">
+        </div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button id="add-item-confirm-btn" class="finalize-mini" style="padding:7px 12px;">&#10003; Adicionar</button>
+        <button id="add-item-cancel-btn" style="background:none; border:none; color:var(--text-faint); font-weight:600; font-size:12px; cursor:pointer;">Cancelar</button>
+      </div>
+    </div>
+    ` : ''}
 
     ${clicheAplicavel ? `
     <div class="cliche-block" style="margin-top:4px;">
@@ -2399,6 +2426,29 @@ function openModal(id, opts={}){
       });
     }
   }
+    document.getElementById('add-item-toggle-btn')?.addEventListener('click', ()=>{
+      document.getElementById('add-item-form').style.display = 'block';
+      document.getElementById('add-item-toggle-btn').style.display = 'none';
+    });
+    document.getElementById('add-item-cancel-btn')?.addEventListener('click', ()=>{
+      document.getElementById('add-item-form').style.display = 'none';
+      document.getElementById('add-item-toggle-btn').style.display = 'flex';
+    });
+    document.getElementById('add-item-confirm-btn')?.addEventListener('click', async ()=>{
+      const codigo = document.getElementById('add-item-codigo').value.trim();
+      const nome = document.getElementById('add-item-nome').value.trim();
+      const pesoRaw = document.getElementById('add-item-peso').value.replace(/\./g,'').replace(',', '.').replace(/[^\d.]/g,'');
+      const valorRaw = document.getElementById('add-item-valor').value.replace(/\./g,'').replace(',', '.').replace(/[^\d.]/g,'');
+      if(!nome){ alert('Preencha o nome do item.'); return; }
+      const peso = pesoRaw ? parseFloat(pesoRaw) : 0;
+      const valor = valorRaw ? parseFloat(valorRaw) : 0;
+      p.itens.push(I(codigo || '—', nome, peso));
+      p.pesoTotal = (p.pesoTotal || 0) + peso;
+      if(valor) p.valorTotal = (p.valorTotal || 0) + valor;
+      await saveState();
+      renderAll();
+      openModal(id, opts);
+    });
     document.getElementById('cliche-total-input')?.addEventListener('change', async (e)=>{
       const raw = e.target.value.replace(/\./g,'').replace(',', '.').replace(/[^\d.]/g,'');
       p.valorClicheTotal = raw ? parseFloat(raw) : null;
