@@ -474,6 +474,9 @@
   .link-pedido-hist{background:none; border:none; padding:0; font-family:'IBM Plex Mono',monospace; color:var(--gold-dark); font-weight:700; font-size:inherit; cursor:pointer; text-decoration:underline;}
   .link-pedido-hist:hover{color:var(--gold);}
   table.hist td.val{font-family:'IBM Plex Mono',monospace; color:var(--text); text-align:right;}
+  #valores-chapa-table th{text-align:center; color:var(--gold-dark); font-weight:800; font-size:11px;}
+  #valores-chapa-table td{text-align:center;}
+  #valores-chapa-table td.val{text-align:center;}
   .validado-check{display:flex; align-items:center; gap:6px; cursor:pointer;}
   .validado-check input{width:15px; height:15px; accent-color:var(--teal); cursor:pointer;}
   .hist-empty{padding:40px; text-align:center; color:var(--text-faint); font-size:13px;}
@@ -720,7 +723,7 @@
               <th>Produto</th>
               <th>Ex.</th>
               <th>Dimensões chapa (alt. × larg.)</th>
-              <th style="text-align:right;">Valor unitário</th>
+              <th>Valor unitário</th>
             </tr>
           </thead>
           <tbody></tbody>
@@ -3971,7 +3974,7 @@ function renderValoresChapaTable(){
       <tr>
         <td><input class="vc-input" data-idx="${idx}" data-field="0" value="${modelo}" style="${vcInputStyle('font-family:\'Plus Jakarta Sans\',sans-serif; font-weight:700;')}"></td>
         <td>
-          <div style="display:flex; align-items:center; gap:4px;">
+          <div style="display:flex; align-items:center; justify-content:center; gap:4px;">
             <input class="vc-input" data-idx="${idx}" data-field="1" value="${dimA}" style="${vcInputStyle('width:52px;')}">
             <span style="color:var(--text-faint);">×</span>
             <input class="vc-input" data-idx="${idx}" data-field="2" value="${dimB}" style="${vcInputStyle('width:52px;')}">
@@ -3981,7 +3984,7 @@ function renderValoresChapaTable(){
         <td><input class="vc-input" data-idx="${idx}" data-field="4" value="${produto}" style="${vcInputStyle('')}"></td>
         <td><input class="vc-input" data-idx="${idx}" data-field="5" value="${ex}" style="${vcInputStyle('')}"></td>
         <td>
-          <div style="display:flex; align-items:center; gap:4px;">
+          <div style="display:flex; align-items:center; justify-content:center; gap:4px;">
             <input class="vc-input" data-idx="${idx}" data-field="8" value="${chapaAlt}" style="${vcInputStyle('width:52px;')}">
             <span style="color:var(--text-faint);">×</span>
             <input class="vc-input" data-idx="${idx}" data-field="9" value="${chapaLarg}" style="${vcInputStyle('width:52px;')}">
