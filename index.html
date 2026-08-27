@@ -512,6 +512,7 @@
       <div id="cliche-submenu" style="display:none;">
         <button class="nav-item" data-view="custo-mensal" style="padding-left:34px; font-size:12.5px;"><span class="icon">&#128197;</span> Custo mensal</button>
         <button class="nav-item" data-view="custo-anual" style="padding-left:34px; font-size:12.5px;"><span class="icon">&#128202;</span> Custo anual</button>
+        <button class="nav-item" data-view="valores-chapa" style="padding-left:34px; font-size:12.5px;"><span class="icon">&#128203;</span> Valores por chapa</button>
       </div>
       <button class="nav-item" data-view="regravacao"><span class="icon">&#128260;</span> Regravação de clichê</button>
       <button class="nav-item" data-view="catalogo"><span class="icon">&#128218;</span> Catálogo de itens</button>
@@ -684,6 +685,33 @@
         <table class="hist" id="cliche-anual-table">
           <thead>
             <tr><th>Ano</th><th style="text-align:right;">Cliente</th><th style="text-align:right;">Rioplastic</th><th style="text-align:right;">Regravações</th><th style="text-align:right;">Total</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="view-valores-chapa" style="display:none;">
+      <div class="topics-card">
+        <p class="topics-intro"><span class="mono-label">VALORES POR CHAPA</span> <span class="link-text">tabela de fechamento de artes — código de clicheria, dimensões e valor unitário da chapa (valor do clichê de referência: R$ 0,42)</span></p>
+        <div class="search-box" style="max-width:320px;">
+          <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
+          <input type="text" id="valores-chapa-search-input" placeholder="Buscar por modelo ou código...">
+        </div>
+      </div>
+      <div class="hist-table-wrap" style="margin-top:12px;">
+        <table class="hist" id="valores-chapa-table">
+          <thead>
+            <tr>
+              <th>Modelo</th>
+              <th>Dimensões produto</th>
+              <th>Código clicheria</th>
+              <th>Produto</th>
+              <th>Ex.</th>
+              <th>Área impressão (alt. × larg.)</th>
+              <th>Dimensões chapa (alt. × larg.)</th>
+              <th style="text-align:right;">Valor unitário</th>
+            </tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -3786,6 +3814,113 @@ function renderClicheHistoricoPeriodos(){
 }
 
 /* ========================================================================
+   VALORES POR CHAPA — tabela de referência importada de Controle_de_artes.xlsx
+   (aba "Valores por Chapa"). Cada linha: [modelo, dimA, dimB, codigo, produto,
+   ex, areaImpressaoAlt, areaImpressaoLarg, chapaAlt, chapaLarg, valorUnitario]
+   ======================================================================== */
+const TABELA_VALORES_CHAPA = [
+  ['POTE 120 ML','75','49,5','PT 120','120 ML','LELECA','27','202','9','34','R$ 128,52'],
+  ['POTE 130 ML','75','58,5','PT 130','130 ML','ACRILEX','34','194','9','34','R$ 128,52'],
+  ['POTE 140 ML','75','60','PT 140','140 ML','BATALHA','42','194','9,51','34','R$ 135,80'],
+  ['POTE 180 ML','101','44,5','PT 180','180 ML','CARIRI','30','279','9','35,6','R$ 134,57'],
+  ['POTE 200 ML','101','50','PT 200','200 ML','SCALA','34','273','9','35','R$ 132,30'],
+  ['POTE 250 FUNDO RETO','101','60','PT 250 RETO','250 ML','LONDRES','42','259','9,5','34','R$ 135,66'],
+  ['POTE 250 TAÇA','101','58,5','PT 250 TAÇA','250 ML','ITALIANO','30','271','9','34,4','R$ 130,03'],
+  ['POTE 600ML','150','44','PT 600 D','600ML','SANTA HELENA','28','427','9','50,5','R$ 190,89'],
+  ['POTE 320 ML','101','80','PT 320','320 ML','KIVH','55','247','10,8','34','R$ 154,22'],
+  ['POTE 380 ML','101','82,5','PT 380','380 ML','EMBELLEZE','65','260','11,8','34','R$ 168,50'],
+  ['POTE 300 GOIABADA','120','38','PT 250 GM','250ML','ALVORADA','15','337','9','41,6','R$ 157,25'],
+  ['POTE 250 GOIABADA','120','32','PT 300 G','300 ML','PUREA','20','337','9','41,5','R$ 156,87'],
+  ['POTE 400 ML','101','98','PT 400','400 ML','COPETTO','78','248','13','34','R$ 185,64'],
+  ['POTE 450 ML','101','111','PT 450','450 ML','JUNDIA','93','244','14,5','34','R$ 207,06'],
+  ['POTE 500','150','50','PT 500','500ML','DA PRAIA','85','264','14','34','R$ 199,92'],
+  ['POTE 500 DOCE','120','78','PT 500 DOCE','500 ML','PRO AMENDOIM','33','*423','9','50,5','R$ 190,89'],
+  ['POTE 530 KIT','120','44','PT 530 KIT','530 ML','DIA','58','320','10,992','39,7','R$ 183,28'],
+  ['POTE 600ML','150','44','PT 600 D','600ML','SANTA HELENA','','','','',''],
+  ['POTE 600 GOIBADA','150','42','PT 600 G','600ML','PUREA','26','427','9','50,5','R$ 190,89'],
+  ['POTE 630 URCA','','','PT 630 URCA','630 ML','FAZENDA','56','320','10,8','39,8','R$ 180,53'],
+  ['POTE 700  DOCE','120','111','PT 700  DOCE','700 ML','','58','*422','','',''],
+  ['POTE 750 TEMPERO','','','PT 750 TEMPERO','750 ML','ARIANE','75','317','13','40,8','R$ 222,77'],
+  ['POTE 900 ML','','','PT 900 ml','900 ml','ALISPEC','112','316','16,5','46','R$ 318,78'],
+  ['POTE 1000ML TAÇA','','','PT 1000ML TAÇA','1000ML','PAVILOCHE','40','425','','',''],
+  ['POTE 1000','150','92','PT 1000','1000 ML','BONA FRUTA','75','414','12','50','R$ 252,00'],
+  ['POTE 1000','150','115','PT 1000 RETO','1000 ML','','75','414','12,5','50','R$ 262,50'],
+  ['POTE 1000 BIBA','150','129','PT 1000 BIBA','1000 ML','','115','*322','','',''],
+  ['POTE 1450','150','148','PT 1450','1450 ML','DELICIAS','86','422','14','50','R$ 294,00'],
+  ['POTE 1500 ML','185','83','PT 1500','1500 ML','CONFIRMA','97','422','15','49,3','R$ 310,59'],
+  ['POTE 1800 ML','','','PT 1800','1800 ML','BIBA','114','425','17','48,5','R$ 346,29'],
+  ['POTE 1700','','','PT 1700','1700 ML','POP','53','537','10,5','61,5','R$ 271,22'],
+  ['POTE 2000 ML','150','168','PT 2000','2000 ML','KIGAROT','134','394','18,8','47,5','R$ 375,06'],
+  ['POTE 500 ML','150','38','PT 500 P','500ML','PREDILECTA','22','427','7,5','50,5','R$ 159,08'],
+  ['POTE 1650','150','137,5','PT 1650','1650ML','BALSAMO','107','417','16','49,5','R$ 332,64'],
+  ['POTE 220 ML','120','49','PT 220','220 ML','SANTA HELENA','24','350','9','42,8','R$ 161,78'],
+  ['POTE 950ML','150','86','PT 950','950ML','BALSAMO','54','428','10,5','50,5','R$ 222,71'],
+  ['POTE 2000 ML','','','PT 2000','2000ML','','134','407','20','48,5','R$ 407,40'],
+  ['COPO 175 S','','','CP 175 S','SUNDAE','CENTER MIX','54','170','10,5','34','R$ 149,94'],
+  ['COPO 190 ML','75','79,5','CP 180','180','MARVI','60','190','12','35','R$ 176,40'],
+  ['COPO 200 ML IOGURTE','75','91,5','CP 200','200 ML','BIOLEVE','61','190','12','34','R$ 171,36'],
+  ['COPO CRISTAL','75','117','PS  CRISTAL','250 ml','RIOPLASTIC','38','213','','',''],
+  ['COPO 220 R','75','120','CP 220 R','REQUEIJÃO','ARGENZIO','60','194','','',''],
+  ['COPO AVIAÇÃO','68','89','CP 250 A','AVIAÇÃO','GOL','22','218','9','34','R$ 128,52'],
+  ['COPO 290 ML','','','CP 290','290 ML','CHUI','85','191','14,3','34','R$ 204,20'],
+  ['COPO 300 ML','','','CP 300','300 ML','DAFLORA','90','191','14,3','34','R$ 204,20'],
+  ['COPO 300ML','75','122','CP 300 RETO','300ML','BIOLEVE','85','194','14,3','34','R$ 204,20'],
+  ['COPO 170 ML','','','CP 170','170 ML','FAZENDA','65','168','12','34','R$ 171,36'],
+  ['COPO 190 ML','','','CP 190','190 ML','','60','190','','',''],
+  ['COPO 200 ML','','','CP 200 i','200 ML','BOM LEITE','66','176','11,5','34','R$ 164,22'],
+  ['COPO 150ml','68','70','CP 150 i','150ml','MATILAT','53','166','10,5','34','R$ 149,94'],
+  ['COPO 180ML','60','190','CP 180','180 ML','CLAN','56','154','12','34','R$ 171,36'],
+  ['COPO 200 ML (GRANDE)','61','190','CP 200','200 ML','BIOLEVE','','','10,5','59,8','R$ 263,72'],
+  ['COPO 130 i','68','72','CP 130 i','130 ML','FRUTAP','56','154','10,8','34','R$ 154,22'],
+  ['POTE 600D','','','','','','','','','',''],
+  ['PT 1K','120','123','PT 1K','750ml','AJINOMOTO','','','','','R$ 234,98'],
+  ['FASTFOOD 250 ML','','','FT 250','250 ML','TERRA MILHO','74','188','13','34','R$ 185,64'],
+  ['FASTFOOD 300 ML','79X111,5','','FT 300','300 ML','MR MIX','86','194','14','34','R$ 199,92'],
+  ['FASTFOOD 400 ML','93X117','','FT 400','400 ML','MR MIX','87','217','14','34','R$ 199,92'],
+  ['FASTFOOD 500 ML','','','FT 500','500 ML','MR MIX','105','224','16','34','R$ 228,48'],
+  ['FASTFOOD 700 ML','','','FT 700','700 ML','CORAÇÃO','115','244','16,8','34','R$ 239,90'],
+  ['TP 28','','','TP 28','','','','','14','49,8','R$ 292,82'],
+  ['TP 101','','','TP 101','250 ml','DA PRAIA','','','14','32','R$ 188,16'],
+  ['STP 101','','','STP 101','500 ml','TRÊS GIGANTES','','','14','32','R$ 188,16'],
+  ['TP/STP 120','','','TP 120','500 ml','FAZENDA','','','14','32','R$ 188,16'],
+  ['TP/STP 150','','','TP 150','1000 ML','MINDY','','','14','32','R$ 188,16'],
+  ['TP/STP 185','','','TP 185','1788 ML','POP','','','18,5','32','R$ 248,64'],
+  ['TP PISTA DUPLA','','','TP PISTA DUPLA','','','','','25,2','32','R$ 338,69'],
+  ['PRINTS SANTA HELENA','','','','','','','','','','R$ 50,00'],
+  ['IMAGEM MANTEIGA','','','','','','','','','','R$ 140,00'],
+];
+let valoresChapaSearchTerm = '';
+function renderValoresChapaTable(){
+  const termo = valoresChapaSearchTerm.toLowerCase();
+  const linhas = TABELA_VALORES_CHAPA.filter(r=>{
+    if(!termo) return true;
+    return r[0].toLowerCase().includes(termo) || r[3].toLowerCase().includes(termo);
+  });
+  const tbody = document.querySelector('#valores-chapa-table tbody');
+  tbody.innerHTML = linhas.length ? linhas.map(r=>{
+    const [modelo,dimA,dimB,codigo,produto,ex,areaAlt,areaLarg,chapaAlt,chapaLarg,valor] = r;
+    const dim = (dimA || dimB) ? `${dimA||'—'} × ${dimB||'—'}` : '—';
+    const area = (areaAlt || areaLarg) ? `${areaAlt||'—'} × ${areaLarg||'—'}` : '—';
+    const chapa = (chapaAlt || chapaLarg) ? `${chapaAlt||'—'} × ${chapaLarg||'—'}` : '—';
+    return `
+    <tr>
+      <td style="font-weight:700; color:var(--text);">${modelo}</td>
+      <td>${dim}</td>
+      <td class="pedido">${codigo || '—'}</td>
+      <td>${produto || '—'}</td>
+      <td>${ex || '—'}</td>
+      <td>${area}</td>
+      <td>${chapa}</td>
+      <td class="val">${valor || '—'}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="8" class="hist-empty">Nenhum item encontrado.</td></tr>`;
+}
+document.getElementById('valores-chapa-search-input').addEventListener('input', (e)=>{
+  valoresChapaSearchTerm = e.target.value.trim();
+  renderValoresChapaTable();
+});
+
+/* ========================================================================
    REGRAVAÇÃO DE CLICHÊ — registros manuais
    ======================================================================== */
 function fmtDataISO(iso){
@@ -4297,6 +4432,7 @@ const VIEW_TITULOS = {
   cliche: "Custo de clichê",
   'custo-mensal': "Custo mensal",
   'custo-anual': "Custo anual",
+  'valores-chapa': "Valores por chapa",
   regravacao: "Regravação de clichê",
   catalogo: "Catálogo de itens",
   codigos: "Tabela de Códigos",
@@ -4307,13 +4443,14 @@ const VIEW_TITULOS = {
 };
 function switchView(view){
   currentView = view;
-  if(view!=='cliche' && view!=='custo-mensal' && view!=='custo-anual') clicheSubmenuOpen = false;
+  if(view!=='cliche' && view!=='custo-mensal' && view!=='custo-anual' && view!=='valores-chapa') clicheSubmenuOpen = false;
   if(view!=='analise-entrega' && view!=='analise-entrega-historico') analiseEntregaSubmenuOpen = false;
   document.getElementById('view-home').style.display = view==='home' ? 'block' : 'none';
   document.getElementById('view-board').style.display = view==='board' ? 'block' : 'none';
   document.getElementById('view-cliche').style.display = view==='cliche' ? 'block' : 'none';
   document.getElementById('view-custo-mensal').style.display = view==='custo-mensal' ? 'block' : 'none';
   document.getElementById('view-custo-anual').style.display = view==='custo-anual' ? 'block' : 'none';
+  document.getElementById('view-valores-chapa').style.display = view==='valores-chapa' ? 'block' : 'none';
   document.getElementById('cliche-submenu').style.display = clicheSubmenuOpen ? 'block' : 'none';
   document.getElementById('history-submenu').style.display = (view==='history' && historySubmenuOpen) ? 'block' : 'none';
   document.getElementById('view-regravacao').style.display = view==='regravacao' ? 'block' : 'none';
@@ -4330,6 +4467,7 @@ function switchView(view){
   if(view==='history') renderHistory();
   if(view==='cliche') renderClicheHistory();
   if(view==='custo-mensal' || view==='custo-anual') renderClicheHistoricoPeriodos();
+  if(view==='valores-chapa') renderValoresChapaTable();
   if(view==='regravacao') renderRegravacao();
   if(view==='catalogo') renderCatalogo();
   if(view==='codigos') renderCodigosInternos();
