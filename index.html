@@ -693,10 +693,21 @@
 
     <div id="view-valores-chapa" style="display:none;">
       <div class="topics-card">
-        <p class="topics-intro"><span class="mono-label">VALORES POR CHAPA</span> <span class="link-text">tabela de fechamento de artes — código de clicheria, dimensões e valor unitário da chapa (valor do clichê de referência: R$ 0,42)</span></p>
-        <div class="search-box" style="max-width:320px;">
-          <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
-          <input type="text" id="valores-chapa-search-input" placeholder="Buscar por modelo ou código...">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+          <p class="topics-intro" style="margin:0; padding:0; border:none;"><span class="mono-label">VALORES POR CHAPA</span> <span class="link-text">tabela de referência para fechamento de artes, com códigos de clicheria, dimensões e valores unitários de cada chapa</span></p>
+          <div style="display:flex; gap:8px; flex-shrink:0;">
+            <button id="valores-chapa-edit-btn" class="btn small ghost" style="display:inline-flex; align-items:center; gap:6px;">&#9998; Editar tabela</button>
+            <button id="valores-chapa-save-btn" class="btn small gold" style="display:none; align-items:center; gap:6px;">&#10003; Salvar</button>
+            <button id="valores-chapa-cancel-btn" class="btn small ghost" style="display:none; align-items:center; gap:6px;">&#10005; Cancelar</button>
+          </div>
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; margin-top:14px;">
+          <div id="valores-chapa-cliche-box" style="display:flex; align-items:center; gap:10px; background:var(--panel-alt); border:1.5px solid var(--gold); border-radius:10px; padding:8px 16px;"></div>
+          <p style="margin:0; font-size:11.5px; color:var(--text-faint); max-width:420px;">O valor do clichê é multiplicado pelas dimensões da chapa (altura × largura) para chegar ao valor unitário de cada item.</p>
+          <div class="search-box" style="max-width:320px;">
+            <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
+            <input type="text" id="valores-chapa-search-input" placeholder="Buscar por modelo ou código...">
+          </div>
         </div>
       </div>
       <div class="hist-table-wrap" style="margin-top:12px;">
@@ -708,7 +719,6 @@
               <th>Código clicheria</th>
               <th>Produto</th>
               <th>Ex.</th>
-              <th>Área impressão (alt. × larg.)</th>
               <th>Dimensões chapa (alt. × larg.)</th>
               <th style="text-align:right;">Valor unitário</th>
             </tr>
@@ -1537,6 +1547,7 @@ async function loadState(){
     historico = JSON.parse(JSON.stringify(HISTORICO_REPETICAO_INICIAL));
     regravacoes = [];
     lastImportTime = new Date().toISOString();
+    valoresChapa = JSON.parse(JSON.stringify(VALORES_CHAPA_SEED));
   }else{
     pedidos = saved.pedidos || [];
     historico = saved.historico || [];
@@ -1549,6 +1560,8 @@ async function loadState(){
     if(saved.diametrosManual) diametrosManual = saved.diametrosManual;
     if(saved.clicheItensInfo) clicheItensInfo = saved.clicheItensInfo;
     if(saved.leadTimePorBoca) leadTimePorBoca = saved.leadTimePorBoca;
+    valoresChapa = saved.valoresChapa || JSON.parse(JSON.stringify(VALORES_CHAPA_SEED));
+    if(saved.valorClicheReferencia!=null) valorClicheReferencia = saved.valorClicheReferencia;
     const known = new Set([...pedidos, ...historico].map(p=>p.pedido));
     const origemPadrao = nomeRelatorioAtual || ('Importação ' + new Date().toLocaleDateString('pt-BR'));
     let novosEntraram = false;
@@ -1615,7 +1628,7 @@ function buildCatalogoItens(){
 }
 async function saveState(){
   try{
-    await window.storage.set('artes-pedidos-v3', JSON.stringify({pedidos, historico, regravacoes, nomeRelatorioAtual, lastImportTime, seedDescartada, tabelaCodigosInternos: TABELA_CODIGOS_INTERNOS, codigosUltimaAtualizacao, diametrosManual, clicheItensInfo, leadTimePorBoca, stageOrderV2:true}), false);
+    await window.storage.set('artes-pedidos-v3', JSON.stringify({pedidos, historico, regravacoes, nomeRelatorioAtual, lastImportTime, seedDescartada, tabelaCodigosInternos: TABELA_CODIGOS_INTERNOS, codigosUltimaAtualizacao, diametrosManual, clicheItensInfo, leadTimePorBoca, valoresChapa, valorClicheReferencia, stageOrderV2:true}), false);
   }catch(e){ console.error('Falha ao salvar', e); }
 }
 
@@ -3818,7 +3831,7 @@ function renderClicheHistoricoPeriodos(){
    (aba "Valores por Chapa"). Cada linha: [modelo, dimA, dimB, codigo, produto,
    ex, areaImpressaoAlt, areaImpressaoLarg, chapaAlt, chapaLarg, valorUnitario]
    ======================================================================== */
-const TABELA_VALORES_CHAPA = [
+const VALORES_CHAPA_SEED = [
   ['POTE 120 ML','75','49,5','PT 120','120 ML','LELECA','27','202','9','34','R$ 128,52'],
   ['POTE 130 ML','75','58,5','PT 130','130 ML','ACRILEX','34','194','9','34','R$ 128,52'],
   ['POTE 140 ML','75','60','PT 140','140 ML','BATALHA','42','194','9,51','34','R$ 135,80'],
@@ -3889,34 +3902,121 @@ const TABELA_VALORES_CHAPA = [
   ['PRINTS SANTA HELENA','','','','','','','','','','R$ 50,00'],
   ['IMAGEM MANTEIGA','','','','','','','','','','R$ 140,00'],
 ];
+let valoresChapa = []; // cópia mutável — inicializada em loadState() a partir de VALORES_CHAPA_SEED ou do estado salvo
+let valorClicheReferencia = 0.42; // valor do clichê por cm² — chapaAlt × chapaLarg × este valor = valor unitário
 let valoresChapaSearchTerm = '';
+let valoresChapaEditMode = false;
+
+function vcInputStyle(extra){
+  return `width:100%; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:6px; padding:5px 7px; font-size:12px; font-family:'IBM Plex Mono',monospace; ${extra||''}`;
+}
+
+function renderValoresChapaClicheBox(){
+  const box = document.getElementById('valores-chapa-cliche-box');
+  if(!valoresChapaEditMode){
+    box.innerHTML = `
+      <span style="font-size:11px; color:var(--text-dim); font-weight:600; text-transform:uppercase; letter-spacing:.4px;">Valor do clichê (por cm² de chapa)</span>
+      <span style="font-family:'IBM Plex Mono',monospace; font-size:24px; font-weight:800; color:var(--gold-dark);">${fmtBRL(valorClicheReferencia)}</span>
+    `;
+  } else {
+    box.innerHTML = `
+      <span style="font-size:11px; color:var(--text-dim); font-weight:600; text-transform:uppercase; letter-spacing:.4px;">Valor do clichê (por cm² de chapa)</span>
+      <input id="valores-chapa-cliche-input" type="text" value="${String(valorClicheReferencia).replace('.',',')}" style="width:90px; background:var(--panel); border:1.5px solid var(--gold); color:var(--gold-dark); border-radius:6px; padding:5px 8px; font-size:16px; font-weight:800; font-family:'IBM Plex Mono',monospace;">
+    `;
+  }
+}
+
 function renderValoresChapaTable(){
+  document.getElementById('valores-chapa-edit-btn').style.display = valoresChapaEditMode ? 'none' : 'inline-flex';
+  document.getElementById('valores-chapa-save-btn').style.display = valoresChapaEditMode ? 'inline-flex' : 'none';
+  document.getElementById('valores-chapa-cancel-btn').style.display = valoresChapaEditMode ? 'inline-flex' : 'none';
+  document.getElementById('valores-chapa-search-input').closest('.search-box').style.display = valoresChapaEditMode ? 'none' : 'flex';
+  renderValoresChapaClicheBox();
+
   const termo = valoresChapaSearchTerm.toLowerCase();
-  const linhas = TABELA_VALORES_CHAPA.filter(r=>{
-    if(!termo) return true;
-    return r[0].toLowerCase().includes(termo) || r[3].toLowerCase().includes(termo);
-  });
+  const linhas = valoresChapa
+    .map((r, idx)=>({r, idx}))
+    .filter(({r})=>{
+      if(valoresChapaEditMode) return true;
+      if(!termo) return true;
+      return r[0].toLowerCase().includes(termo) || r[3].toLowerCase().includes(termo);
+    });
+
   const tbody = document.querySelector('#valores-chapa-table tbody');
-  tbody.innerHTML = linhas.length ? linhas.map(r=>{
-    const [modelo,dimA,dimB,codigo,produto,ex,areaAlt,areaLarg,chapaAlt,chapaLarg,valor] = r;
-    const dim = (dimA || dimB) ? `${dimA||'—'} × ${dimB||'—'}` : '—';
-    const area = (areaAlt || areaLarg) ? `${areaAlt||'—'} × ${areaLarg||'—'}` : '—';
-    const chapa = (chapaAlt || chapaLarg) ? `${chapaAlt||'—'} × ${chapaLarg||'—'}` : '—';
-    return `
-    <tr>
-      <td style="font-weight:700; color:var(--text);">${modelo}</td>
-      <td>${dim}</td>
-      <td class="pedido">${codigo || '—'}</td>
-      <td>${produto || '—'}</td>
-      <td>${ex || '—'}</td>
-      <td>${area}</td>
-      <td>${chapa}</td>
-      <td class="val">${valor || '—'}</td>
-    </tr>`;
-  }).join('') : `<tr><td colspan="8" class="hist-empty">Nenhum item encontrado.</td></tr>`;
+  if(!linhas.length){
+    tbody.innerHTML = `<tr><td colspan="7" class="hist-empty">Nenhum item encontrado.</td></tr>`;
+    return;
+  }
+
+  if(!valoresChapaEditMode){
+    tbody.innerHTML = linhas.map(({r})=>{
+      const [modelo,dimA,dimB,codigo,produto,ex,,,chapaAlt,chapaLarg,valor] = r;
+      const dim = (dimA || dimB) ? `${dimA||'—'} × ${dimB||'—'}` : '—';
+      const chapa = (chapaAlt || chapaLarg) ? `${chapaAlt||'—'} × ${chapaLarg||'—'}` : '—';
+      return `
+      <tr>
+        <td style="font-weight:700; color:var(--text);">${modelo}</td>
+        <td>${dim}</td>
+        <td class="pedido">${codigo || '—'}</td>
+        <td>${produto || '—'}</td>
+        <td>${ex || '—'}</td>
+        <td>${chapa}</td>
+        <td class="val">${valor || '—'}</td>
+      </tr>`;
+    }).join('');
+  } else {
+    tbody.innerHTML = linhas.map(({r, idx})=>{
+      const [modelo,dimA,dimB,codigo,produto,ex,,,chapaAlt,chapaLarg,valor] = r;
+      return `
+      <tr>
+        <td><input class="vc-input" data-idx="${idx}" data-field="0" value="${modelo}" style="${vcInputStyle('font-family:\'Plus Jakarta Sans\',sans-serif; font-weight:700;')}"></td>
+        <td>
+          <div style="display:flex; align-items:center; gap:4px;">
+            <input class="vc-input" data-idx="${idx}" data-field="1" value="${dimA}" style="${vcInputStyle('width:52px;')}">
+            <span style="color:var(--text-faint);">×</span>
+            <input class="vc-input" data-idx="${idx}" data-field="2" value="${dimB}" style="${vcInputStyle('width:52px;')}">
+          </div>
+        </td>
+        <td><input class="vc-input" data-idx="${idx}" data-field="3" value="${codigo}" style="${vcInputStyle('')}"></td>
+        <td><input class="vc-input" data-idx="${idx}" data-field="4" value="${produto}" style="${vcInputStyle('')}"></td>
+        <td><input class="vc-input" data-idx="${idx}" data-field="5" value="${ex}" style="${vcInputStyle('')}"></td>
+        <td>
+          <div style="display:flex; align-items:center; gap:4px;">
+            <input class="vc-input" data-idx="${idx}" data-field="8" value="${chapaAlt}" style="${vcInputStyle('width:52px;')}">
+            <span style="color:var(--text-faint);">×</span>
+            <input class="vc-input" data-idx="${idx}" data-field="9" value="${chapaLarg}" style="${vcInputStyle('width:52px;')}">
+          </div>
+        </td>
+        <td><input class="vc-input" data-idx="${idx}" data-field="10" value="${valor}" style="${vcInputStyle('text-align:right;')}"></td>
+      </tr>`;
+    }).join('');
+  }
 }
 document.getElementById('valores-chapa-search-input').addEventListener('input', (e)=>{
   valoresChapaSearchTerm = e.target.value.trim();
+  renderValoresChapaTable();
+});
+document.getElementById('valores-chapa-edit-btn').addEventListener('click', ()=>{
+  valoresChapaEditMode = true;
+  renderValoresChapaTable();
+});
+document.getElementById('valores-chapa-cancel-btn').addEventListener('click', ()=>{
+  valoresChapaEditMode = false;
+  renderValoresChapaTable();
+});
+document.getElementById('valores-chapa-save-btn').addEventListener('click', async ()=>{
+  document.querySelectorAll('.vc-input').forEach(inp=>{
+    const idx = parseInt(inp.dataset.idx, 10);
+    const field = parseInt(inp.dataset.field, 10);
+    if(valoresChapa[idx]) valoresChapa[idx][field] = inp.value.trim();
+  });
+  const refInput = document.getElementById('valores-chapa-cliche-input');
+  if(refInput){
+    const raw = refInput.value.replace(',', '.').replace(/[^\d.]/g,'');
+    if(raw) valorClicheReferencia = parseFloat(raw);
+  }
+  await saveState();
+  valoresChapaEditMode = false;
   renderValoresChapaTable();
 });
 
