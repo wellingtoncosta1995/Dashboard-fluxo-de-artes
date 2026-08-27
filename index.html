@@ -483,6 +483,7 @@
   #valores-chapa-table th{text-align:center; color:var(--gold-dark); font-weight:800; font-size:11px;}
   #valores-chapa-table td{text-align:center;}
   #valores-chapa-table td.val{text-align:center;}
+  #requisicao-itens-table th, #requisicao-itens-table td{text-align:center;}
   .validado-check{display:flex; align-items:center; gap:6px; cursor:pointer;}
   .validado-check input{width:15px; height:15px; accent-color:var(--teal); cursor:pointer;}
   .hist-empty{padding:40px; text-align:center; color:var(--text-faint); font-size:13px;}
@@ -4146,6 +4147,12 @@ function renderRequisicaoClicheForm(){
     }, 0);
   }
   function atualizarTotal(){
+    d.itensOrcamento.forEach((it,idx)=>{
+      const inp = document.querySelector(`.req-qtd-cores-input[data-idx="${idx}"]`);
+      const qtd = inp ? parseFloat((inp.value||'').replace(',','.')) : NaN;
+      const itemEl = document.getElementById(`req-item-total-${idx}`);
+      if(itemEl) itemEl.textContent = (!isNaN(qtd) && it.valorChapa!=null) ? fmtBRL(qtd * it.valorChapa) : '—';
+    });
     const total = calcularTotal();
     const totalEl = document.getElementById('req-total-cliche-valor');
     if(totalEl) totalEl.textContent = fmtBRL(total);
@@ -4173,10 +4180,9 @@ function renderRequisicaoClicheForm(){
         <div class="modal-row"><span class="k">% Clichê em relação ao pedido</span><span class="v" id="req-percentual-cliche">—</span></div>
       </div>
 
-      <hr class="divider" style="margin:14px 0;">
-      <div class="k" style="font-size:12.5px; margin-bottom:8px;">Itens (orçamento) — cada cor usada = 1 chapa; o valor da chapa é buscado em Valores por chapa pelo diâmetro do item</div>
-      <table class="items" style="margin-bottom:14px;">
-        <thead><tr><th>Código clicheria</th><th>Item</th><th>Valor da chapa</th><th>Qtd. cores</th><th>Qtd. artes</th></tr></thead>
+      <hr class="divider" style="margin:14px 0 12px;">
+      <table class="items" id="requisicao-itens-table" style="margin-bottom:14px;">
+        <thead><tr><th>Código clicheria</th><th>Item</th><th>Valor da chapa</th><th>Qtd. cores</th><th>Valor total</th></tr></thead>
         <tbody>
           ${d.itensOrcamento.map((it,idx)=>`
             <tr>
@@ -4184,7 +4190,7 @@ function renderRequisicaoClicheForm(){
               <td>${it.nome}</td>
               <td>${it.valorChapa!=null ? `${fmtBRL(it.valorChapa)} <span style="color:var(--text-faint); font-size:10.5px;">(Ø${it.diametro} · ${it.modeloChapa})</span>` : `<span style="color:var(--text-faint);">não encontrado em Valores por chapa</span>`}</td>
               <td><input type="text" class="req-qtd-cores-input" data-idx="${idx}" value="${it.qtdCoresInicial}" placeholder="—" style="width:56px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:6px; padding:4px 6px; font-size:12px; font-family:'IBM Plex Mono',monospace;"></td>
-              <td><input type="text" class="req-qtd-artes-input" data-idx="${idx}" placeholder="—" style="width:56px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:6px; padding:4px 6px; font-size:12px; font-family:'IBM Plex Mono',monospace;"></td>
+              <td><span id="req-item-total-${idx}" style="font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--text);">—</span></td>
             </tr>
           `).join('')}
         </tbody>
@@ -4202,13 +4208,15 @@ function renderRequisicaoClicheForm(){
 }
 
 function imprimirRequisicaoCliche(p, d, valorTotalCliche){
-  const qtdArtesPorIdx = {};
   const qtdCoresPorIdx = {};
-  document.querySelectorAll('.req-qtd-artes-input').forEach(inp=>{
-    qtdArtesPorIdx[inp.dataset.idx] = inp.value.trim() || '—';
-  });
+  const valorItemPorIdx = {};
   document.querySelectorAll('.req-qtd-cores-input').forEach(inp=>{
-    qtdCoresPorIdx[inp.dataset.idx] = inp.value.trim() || '—';
+    const idx = inp.dataset.idx;
+    const raw = inp.value.trim();
+    qtdCoresPorIdx[idx] = raw || '—';
+    const qtd = parseFloat(raw.replace(',','.'));
+    const it = d.itensOrcamento[idx];
+    valorItemPorIdx[idx] = (!isNaN(qtd) && it && it.valorChapa!=null) ? fmtBRL(qtd * it.valorChapa) : '—';
   });
   const agora = fmtDateTime(new Date().toISOString());
   const percentual = p.valorTotal ? (valorTotalCliche / p.valorTotal * 100).toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2})+'%' : '—';
@@ -4226,9 +4234,9 @@ function imprimirRequisicaoCliche(p, d, valorTotalCliche){
           <tr><td>% Clichê em relação ao pedido:</td><td colspan="3">${percentual}</td></tr>
         </table>
         <table>
-          <thead><tr><th>Item</th><th>Código</th><th>Qtd. cores</th><th>Qtd. artes</th></tr></thead>
+          <thead><tr><th>Item</th><th>Código</th><th>Qtd. cores</th><th>Valor total</th></tr></thead>
           <tbody>
-            ${d.itensOrcamento.map((it,idx)=>`<tr><td>${it.nome}</td><td>${it.codigo || '—'}</td><td>${qtdCoresPorIdx[idx] || '—'}</td><td>${qtdArtesPorIdx[idx] || '—'}</td></tr>`).join('')}
+            ${d.itensOrcamento.map((it,idx)=>`<tr><td>${it.nome}</td><td>${it.codigo || '—'}</td><td>${qtdCoresPorIdx[idx] || '—'}</td><td>${valorItemPorIdx[idx] || '—'}</td></tr>`).join('')}
           </tbody>
         </table>
         <table class="requisicao-campos" style="margin-top:10px;">
