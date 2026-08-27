@@ -441,9 +441,6 @@
     #print-area td{padding:6px 8px; border-bottom:1px solid #ddd;}
     #print-area h2{font-family:'Parkinsans',sans-serif; font-size:13px; margin:18px 0 8px; padding-left:8px; border-left:3px solid #333;}
     #print-area h2:first-of-type{margin-top:10px;}
-    #print-area .requisicao-via{margin-bottom:22px; padding-bottom:18px; border-bottom:2px dashed #999;}
-    #print-area .requisicao-via:last-child{border-bottom:none; margin-bottom:0; padding-bottom:0;}
-    #print-area .requisicao-via-titulo{font-size:10px; font-weight:800; letter-spacing:.5px; color:#777; margin-bottom:2px;}
     #print-area table.requisicao-campos{margin-bottom:12px;}
     #print-area table.requisicao-campos td{border-bottom:none; padding:3px 8px;}
     #print-area table.requisicao-campos td:nth-child(odd){color:#555; font-weight:700; white-space:nowrap; width:1%;}
@@ -4169,7 +4166,10 @@ function renderRequisicaoClicheForm(){
           <div style="font-size:16px; font-weight:800; font-family:'IBM Plex Mono',monospace; color:var(--gold-dark);">${p.pedido}</div>
           <div style="font-size:12.5px; color:var(--text-dim); margin-top:2px;">${p.clienteNome}</div>
         </div>
-        <button id="requisicao-cliche-imprimir-btn" class="btn gold" style="display:inline-flex; align-items:center; gap:6px;">&#128424; Imprimir requisição</button>
+        <div style="display:flex; gap:8px; flex-shrink:0;">
+          <button id="requisicao-cliche-email-btn" class="btn small ghost" style="display:inline-flex; align-items:center; gap:6px;">&#128231; Enviar por e-mail</button>
+          <button id="requisicao-cliche-imprimir-btn" class="btn gold" style="display:inline-flex; align-items:center; gap:6px;">&#128424; Imprimir requisição</button>
+        </div>
       </div>
 
       <div class="pedido-info-grid">
@@ -4205,9 +4205,10 @@ function renderRequisicaoClicheForm(){
   wrap.querySelectorAll('.req-qtd-cores-input').forEach(inp=> inp.addEventListener('input', atualizarTotal));
   atualizarTotal();
   document.getElementById('requisicao-cliche-imprimir-btn').addEventListener('click', ()=> imprimirRequisicaoCliche(p, d, calcularTotal()));
+  document.getElementById('requisicao-cliche-email-btn').addEventListener('click', ()=> enviarRequisicaoClichePorEmail(p, d, calcularTotal()));
 }
 
-function imprimirRequisicaoCliche(p, d, valorTotalCliche){
+function coletarDadosImpressaoRequisicao(p, d, valorTotalCliche){
   const qtdCoresPorIdx = {};
   const valorItemPorIdx = {};
   document.querySelectorAll('.req-qtd-cores-input').forEach(inp=>{
@@ -4220,39 +4221,66 @@ function imprimirRequisicaoCliche(p, d, valorTotalCliche){
   });
   const agora = fmtDateTime(new Date().toISOString());
   const percentual = p.valorTotal ? (valorTotalCliche / p.valorTotal * 100).toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2})+'%' : '—';
+  return { qtdCoresPorIdx, valorItemPorIdx, agora, percentual };
+}
 
-  function viaHTML(via){
-    return `
-      <div class="requisicao-via">
-        <div class="requisicao-via-titulo">${via}ª VIA</div>
-        <h1>Requisição de liberação de clichês</h1>
-        <table class="requisicao-campos">
-          <tr><td>Nome fantasia:</td><td>${d.nomeFantasia || '—'}</td><td>O.S.:</td><td>${d.osJunto || '—'}</td></tr>
-          <tr><td>Data:</td><td>${agora}</td><td>Pedido:</td><td>${p.pedido}</td></tr>
-          <tr><td>Representante:</td><td colspan="3">${p.vendedor || '—'}</td></tr>
-          <tr><td>Valor do pedido:</td><td colspan="3">${fmtBRL(p.valorTotal)}</td></tr>
-          <tr><td>% Clichê em relação ao pedido:</td><td colspan="3">${percentual}</td></tr>
-        </table>
-        <table>
-          <thead><tr><th>Item</th><th>Código</th><th>Qtd. cores</th><th>Valor total</th></tr></thead>
-          <tbody>
-            ${d.itensOrcamento.map((it,idx)=>`<tr><td>${it.nome}</td><td>${it.codigo || '—'}</td><td>${qtdCoresPorIdx[idx] || '—'}</td><td>${valorItemPorIdx[idx] || '—'}</td></tr>`).join('')}
-          </tbody>
-        </table>
-        <table class="requisicao-campos" style="margin-top:10px;">
-          <tr><td style="font-size:13px;">Valor total do clichê:</td><td colspan="3" style="font-size:15px; font-weight:800;">${fmtBRL(valorTotalCliche)}</td></tr>
-          <tr><td>Autorizado por:</td><td colspan="3">_______________________________</td></tr>
-        </table>
-      </div>
-    `;
-  }
+function imprimirRequisicaoCliche(p, d, valorTotalCliche){
+  const { qtdCoresPorIdx, valorItemPorIdx, agora, percentual } = coletarDadosImpressaoRequisicao(p, d, valorTotalCliche);
+
+  const via = `
+    <div class="requisicao-via">
+      <h1>Requisição de liberação de clichês</h1>
+      <table class="requisicao-campos">
+        <tr><td>Nome fantasia:</td><td>${d.nomeFantasia || '—'}</td><td>O.S.:</td><td>${d.osJunto || '—'}</td></tr>
+        <tr><td>Data:</td><td>${agora}</td><td>Pedido:</td><td>${p.pedido}</td></tr>
+        <tr><td>Representante:</td><td colspan="3">${p.vendedor || '—'}</td></tr>
+        <tr><td>Valor do pedido:</td><td colspan="3">${fmtBRL(p.valorTotal)}</td></tr>
+        <tr><td>% Clichê em relação ao pedido:</td><td colspan="3">${percentual}</td></tr>
+      </table>
+      <table>
+        <thead><tr><th>Item</th><th>Código</th><th>Qtd. cores</th><th>Valor total</th></tr></thead>
+        <tbody>
+          ${d.itensOrcamento.map((it,idx)=>`<tr><td>${it.nome}</td><td>${it.codigo || '—'}</td><td>${qtdCoresPorIdx[idx] || '—'}</td><td>${valorItemPorIdx[idx] || '—'}</td></tr>`).join('')}
+        </tbody>
+      </table>
+      <table class="requisicao-campos" style="margin-top:10px;">
+        <tr><td style="font-size:13px;">Valor total do clichê:</td><td colspan="3" style="font-size:15px; font-weight:800;">${fmtBRL(valorTotalCliche)}</td></tr>
+        <tr><td>Autorizado por:</td><td colspan="3">_______________________________</td></tr>
+      </table>
+    </div>
+  `;
 
   const printArea = document.getElementById('print-area');
-  printArea.innerHTML = viaHTML(1) + viaHTML(2);
+  printArea.innerHTML = via;
   document.body.classList.add('printing');
   const limpar = ()=>{ document.body.classList.remove('printing'); window.removeEventListener('afterprint', limpar); };
   window.addEventListener('afterprint', limpar);
   window.print();
+}
+
+function enviarRequisicaoClichePorEmail(p, d, valorTotalCliche){
+  const { qtdCoresPorIdx, valorItemPorIdx, agora, percentual } = coletarDadosImpressaoRequisicao(p, d, valorTotalCliche);
+  const linhasItens = d.itensOrcamento.map((it,idx)=>
+    `- ${it.nome} | Código: ${it.codigo || '—'} | Qtd. cores: ${qtdCoresPorIdx[idx] || '—'} | Valor total: ${valorItemPorIdx[idx] || '—'}`
+  ).join('\n');
+  const corpo = [
+    'Requisição de liberação de clichês',
+    '',
+    `Nome fantasia: ${d.nomeFantasia || '—'}`,
+    `O.S.: ${d.osJunto || '—'}`,
+    `Data: ${agora}`,
+    `Pedido: ${p.pedido}`,
+    `Representante: ${p.vendedor || '—'}`,
+    `Valor do pedido: ${fmtBRL(p.valorTotal)}`,
+    `% Clichê em relação ao pedido: ${percentual}`,
+    '',
+    'Itens:',
+    linhasItens,
+    '',
+    `Valor total do clichê: ${fmtBRL(valorTotalCliche)}`,
+  ].join('\n');
+  const assunto = `Requisição de liberação de clichê — Pedido ${p.pedido}`;
+  window.location.href = `mailto:?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
 }
 
 /* ========================================================================
