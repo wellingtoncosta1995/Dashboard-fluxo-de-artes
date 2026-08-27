@@ -893,7 +893,7 @@
       <div class="topics-card">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin:0 0 16px; padding-bottom:16px; border-bottom:1px solid var(--border-soft);">
           <p class="topics-intro" style="margin:0; padding:0; border:none;"><span class="mono-label">ANÁLISE DATA DE ENTREGA</span> <span class="link-text">datas alteradas e atraso projetado em relação ao lead time</span></p>
-          <button class="btn small ghost" id="btn-analise-importar-atualizar" style="flex-shrink:0; white-space:nowrap;">&#128260; Importar relatório (atualizar datas e valores)</button>
+          <button class="btn small ghost" id="btn-analise-importar-atualizar" style="flex-shrink:0; white-space:nowrap;">&#128260; Importar relatório (atualizar datas)</button>
         </div>
         <div class="home-cards-grid" style="grid-template-columns:repeat(2, 1fr); max-width:700px;">
           <div class="home-card home-card-live" id="home-card-datas-alteradas" title="Ver pedidos com data de entrega alterada">
@@ -997,7 +997,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.39';
+const APP_VERSION = 'v8.40';
 const APP_VERSION_DATE = '27/08/2026';
 
 /* ========================================================================
@@ -2876,7 +2876,7 @@ function mergePedidosAtualizarDatas(parsed, nomeRelatorio){
   const porPedidoHistorico = {};
   historico.forEach(p=>{ porPedidoHistorico[p.pedido] = p; });
 
-  let novos = 0, novosRepeticao = 0, atualizados = 0, valoresCorrigidos = 0, semMudanca = 0;
+  let novos = 0, novosRepeticao = 0, atualizados = 0, semMudanca = 0;
 
   parsed.pedidos.forEach(pp=>{
     const ativo = porPedidoAtivo[pp.pedido];
@@ -2884,26 +2884,15 @@ function mergePedidosAtualizarDatas(parsed, nomeRelatorio){
     const existente = ativo || doHistorico;
 
     if(existente){
-      let algumaMudanca = false;
       if(existente.entrega !== pp.entrega){
         if(!existente.entregaHistorico) existente.entregaHistorico = [];
         existente.entregaHistorico.push({de: existente.entrega, para: pp.entrega, em: new Date().toISOString()});
         existente.entrega = pp.entrega;
         if(ativo) atualizarLeadTimeAtualPeloPedido(ativo); // só recalcula lead time pra pedidos ainda ativos
         atualizados++;
-        algumaMudanca = true;
+      }else{
+        semMudanca++;
       }
-      // corrige peso/valor total também, caso o relatório original tenha
-      // vindo com esses campos errados na primeira importação
-      const pesoMudou = Math.abs((existente.pesoTotal||0) - pp.pesoTotal) > 0.001;
-      const valorMudou = Math.abs((existente.valorTotal||0) - pp.valorTotal) > 0.005;
-      if(pesoMudou || valorMudou){
-        existente.pesoTotal = pp.pesoTotal;
-        existente.valorTotal = pp.valorTotal;
-        valoresCorrigidos++;
-        algumaMudanca = true;
-      }
-      if(!algumaMudanca) semMudanca++;
       return;
     }
 
@@ -2923,11 +2912,11 @@ function mergePedidosAtualizarDatas(parsed, nomeRelatorio){
     }
   });
 
-  if(novos>0 || novosRepeticao>0 || atualizados>0 || valoresCorrigidos>0){
+  if(novos>0 || novosRepeticao>0 || atualizados>0){
     lastImportTime = new Date().toISOString();
     buildCatalogoItens();
   }
-  return {novos, novosRepeticao, atualizados, valoresCorrigidos, semMudanca, erros: parsed.erros, avisos: parsed.avisos};
+  return {novos, novosRepeticao, atualizados, semMudanca, erros: parsed.erros, avisos: parsed.avisos};
 }
 
 function openImportPdfModal(){
@@ -2998,7 +2987,7 @@ function openImportAtualizarDatasModal(){
 
   modal.innerHTML = `
     <div class="modal-head">
-      <div><h2 style="font-size:16px;">Importar relatório (atualizar datas e valores)</h2><p>Envie o mesmo relatório atualizado. Pedidos já existentes têm a data de entrega, o peso total e o valor total corrigidos (se tiverem mudado ou vindo errados), sem duplicar. Pedidos novos são adicionados normalmente.</p></div>
+      <div><h2 style="font-size:16px;">Importar relatório (atualizar datas)</h2><p>Envie o mesmo relatório atualizado. Pedidos já existentes têm a data de entrega corrigida (se tiver mudado), sem duplicar. Pedidos novos são adicionados normalmente.</p></div>
       <button class="close-x" id="modal-close">&times;</button>
     </div>
     <div class="export-row">
@@ -3033,19 +3022,18 @@ function openImportAtualizarDatasModal(){
       resultDiv.innerHTML = '<span style="color:var(--red);">Nenhum pedido reconhecido nesse arquivo. Confira se é o CSV exportado do relatório RVEN002.</span>';
       return;
     }
-    const {novos, novosRepeticao, atualizados, valoresCorrigidos, semMudanca, erros, avisos} = mergePedidosAtualizarDatas(parsed, nome);
+    const {novos, novosRepeticao, atualizados, semMudanca, erros, avisos} = mergePedidosAtualizarDatas(parsed, nome);
     nomeRelatorioAtual = nome;
     await saveState();
     resultDiv.innerHTML = `
       <b style="color:var(--gold-dark);">${atualizados} pedido(s) com data de entrega atualizada.</b>
-      ${valoresCorrigidos ? `<br><span style="color:var(--teal);">${valoresCorrigidos} pedido(s) com peso total e/ou valor total corrigido.</span>` : ''}
       ${novos ? `<br><span style="color:var(--green-dark);">${novos} pedido(s) novo(s) importado(s) para "Sem tratativa".</span>` : ''}
       ${novosRepeticao ? `<br><span style="color:var(--teal);">${novosRepeticao} pedido(s) de Arte Repetição importado(s) direto para Histórico.</span>` : ''}
-      ${semMudanca ? `<br><span style="color:var(--text-dim);">${semMudanca} pedido(s) já existiam sem nenhuma mudança.</span>` : ''}
+      ${semMudanca ? `<br><span style="color:var(--text-dim);">${semMudanca} pedido(s) já existiam com a mesma data — nada mudou.</span>` : ''}
       ${erros.length ? `<br><span style="color:var(--red);">${erros.length} pedido(s) não puderam ser lidos: ${erros.slice(0,5).join('; ')}</span>` : ''}
       ${avisos.length ? `<br><span style="color:var(--red);">${avisos.length} linha(s) pareciam item mas não foram reconhecidas — confira o CSV: ${avisos.slice(0,5).join('; ')}</span>` : ''}
     `;
-    if(novos>0 || novosRepeticao>0 || atualizados>0 || valoresCorrigidos>0) renderAll();
+    if(novos>0 || novosRepeticao>0 || atualizados>0) renderAll();
   });
   overlay.classList.add('open');
 }
