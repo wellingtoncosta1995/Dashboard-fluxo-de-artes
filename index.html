@@ -4078,17 +4078,57 @@ document.getElementById('requisicao-cliche-search-input').addEventListener('inpu
   renderRequisicaoClicheResultados();
 });
 
+function parseValorBRL(str){
+  if(!str) return null;
+  const limpo = String(str).replace(/[^\d,]/g,'');
+  if(!limpo) return null;
+  const v = parseFloat(limpo.replace(',', '.'));
+  return isNaN(v) ? null : v;
+}
+function extrairDimensoesItem(nome){
+  const n = String(nome||'');
+  const m = n.match(/\((\d{2,3})\s*[xX]\s*(\d{2,3}(?:[.,]\d+)?)/);
+  if(!m) return null;
+  return { largura: parseInt(m[1],10), altura: parseFloat(m[2].replace(',','.')) };
+}
+function buscarChapaParaItem(cod, nome){
+  const dims = extrairDimensoesItem(nome);
+  const diametro = dims ? dims.largura : diametroDoItem(cod, nome).diametro;
+  if(diametro==null) return null;
+  const candidatos = valoresChapa.filter(r=>{
+    const dimA = parseFloat(String(r[1]).replace(',','.'));
+    return !isNaN(dimA) && Math.round(dimA) === diametro;
+  });
+  if(!candidatos.length) return null;
+  if(candidatos.length===1 || !dims) return candidatos[0];
+  // várias chapas usam o mesmo diâmetro de boca — desempata pela altura (2º número do "(LxA)")
+  let melhor = null, menorDiff = Infinity;
+  candidatos.forEach(r=>{
+    const dimB = parseFloat(String(r[2]).replace(',','.'));
+    if(isNaN(dimB)) return;
+    const diff = Math.abs(dimB - dims.altura);
+    if(diff < menorDiff){ menorDiff = diff; melhor = r; }
+  });
+  return melhor || candidatos[0];
+}
+
 function dadosRequisicaoDoPedido(p){
   const nomeFantasia = p.itens.map(it=>it.nome).filter(Boolean).join(' / ');
   const osJunto = p.itens.map(it=>it.os).filter(Boolean).join(', ');
-  const valorClicheTotal = p.valorClicheTotal!=null ? p.valorClicheTotal : (p.valorClichePedido!=null ? p.valorClichePedido : null);
-  const percentual = (valorClicheTotal!=null && p.valorTotal) ? (valorClicheTotal / p.valorTotal * 100) : null;
   const itensOrcamento = p.itens.map(it=>{
     const cod = fmtCodigo(it.codigo);
     const info = clicheItensInfo[cod];
-    return { codigo: cod, nome: it.nome, qtdCores: (info && info.qtdCores!=null) ? info.qtdCores : '' };
+    const chapaRow = buscarChapaParaItem(cod, it.nome);
+    return {
+      codigo: cod,
+      nome: it.nome,
+      qtdCoresInicial: (info && info.qtdCores!=null) ? info.qtdCores : '',
+      diametro: chapaRow ? chapaRow[1] : null,
+      modeloChapa: chapaRow ? chapaRow[0] : null,
+      valorChapa: chapaRow ? parseValorBRL(chapaRow[10]) : null,
+    };
   });
-  return { nomeFantasia, osJunto, valorClicheTotal, percentual, itensOrcamento };
+  return { nomeFantasia, osJunto, itensOrcamento };
 }
 
 function renderRequisicaoClicheForm(){
@@ -4096,6 +4136,23 @@ function renderRequisicaoClicheForm(){
   const p = pedidos.find(x=>x.id===requisicaoClicheSelecionadoId) || historico.find(x=>x.id===requisicaoClicheSelecionadoId);
   if(!p){ wrap.innerHTML = ''; return; }
   const d = dadosRequisicaoDoPedido(p);
+
+  function calcularTotal(){
+    return d.itensOrcamento.reduce((soma, it, idx)=>{
+      const inp = document.querySelector(`.req-qtd-cores-input[data-idx="${idx}"]`);
+      const qtd = inp ? parseFloat((inp.value||'').replace(',','.')) : NaN;
+      if(isNaN(qtd) || it.valorChapa==null) return soma;
+      return soma + qtd * it.valorChapa;
+    }, 0);
+  }
+  function atualizarTotal(){
+    const total = calcularTotal();
+    const totalEl = document.getElementById('req-total-cliche-valor');
+    if(totalEl) totalEl.textContent = fmtBRL(total);
+    const pctEl = document.getElementById('req-percentual-cliche');
+    if(pctEl) pctEl.textContent = p.valorTotal ? (total / p.valorTotal * 100).toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2})+'%' : '—';
+  }
+
   wrap.innerHTML = `
     <hr class="divider" style="margin:0 0 14px;">
     <div class="topics-card">
@@ -4113,49 +4170,48 @@ function renderRequisicaoClicheForm(){
         <div class="modal-row"><span class="k">O.S.</span><span class="v">${d.osJunto || '—'}</span></div>
         <div class="modal-row"><span class="k">Representante</span><span class="v">${p.vendedor || '—'}</span></div>
         <div class="modal-row"><span class="k">Valor do pedido</span><span class="v">${fmtBRL(p.valorTotal)}</span></div>
-        <div class="modal-row"><span class="k">Valor do clichê</span><span class="v">${d.valorClicheTotal!=null ? fmtBRL(d.valorClicheTotal) : '—'}</span></div>
-        <div class="modal-row"><span class="k">% Clichê em relação ao pedido</span><span class="v">${d.percentual!=null ? d.percentual.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2})+'%' : '—'}</span></div>
+        <div class="modal-row"><span class="k">% Clichê em relação ao pedido</span><span class="v" id="req-percentual-cliche">—</span></div>
       </div>
 
       <hr class="divider" style="margin:14px 0;">
-      <div class="k" style="font-size:12.5px; margin-bottom:8px;">Itens (orçamento)</div>
+      <div class="k" style="font-size:12.5px; margin-bottom:8px;">Itens (orçamento) — cada cor usada = 1 chapa; o valor da chapa é buscado em Valores por chapa pelo diâmetro do item</div>
       <table class="items" style="margin-bottom:14px;">
-        <thead><tr><th>Código clicheria</th><th>Item</th><th>Qtd. cores</th><th>Qtd. artes</th></tr></thead>
+        <thead><tr><th>Código clicheria</th><th>Item</th><th>Valor da chapa</th><th>Qtd. cores</th><th>Qtd. artes</th></tr></thead>
         <tbody>
           ${d.itensOrcamento.map((it,idx)=>`
             <tr>
               <td class="code">${it.codigo || '—'}</td>
               <td>${it.nome}</td>
-              <td>${it.qtdCores!==''? it.qtdCores : '—'}</td>
-              <td><input type="text" class="req-qtd-artes-input" data-idx="${idx}" placeholder="—" style="width:60px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:6px; padding:4px 6px; font-size:12px; font-family:'IBM Plex Mono',monospace;"></td>
+              <td>${it.valorChapa!=null ? `${fmtBRL(it.valorChapa)} <span style="color:var(--text-faint); font-size:10.5px;">(Ø${it.diametro} · ${it.modeloChapa})</span>` : `<span style="color:var(--text-faint);">não encontrado em Valores por chapa</span>`}</td>
+              <td><input type="text" class="req-qtd-cores-input" data-idx="${idx}" value="${it.qtdCoresInicial}" placeholder="—" style="width:56px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:6px; padding:4px 6px; font-size:12px; font-family:'IBM Plex Mono',monospace;"></td>
+              <td><input type="text" class="req-qtd-artes-input" data-idx="${idx}" placeholder="—" style="width:56px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:6px; padding:4px 6px; font-size:12px; font-family:'IBM Plex Mono',monospace;"></td>
             </tr>
           `).join('')}
         </tbody>
       </table>
 
-      <div style="display:flex; gap:16px; flex-wrap:wrap;">
-        <div>
-          <div class="k" style="font-size:11px; margin-bottom:5px;">Situação</div>
-          <input type="text" id="req-situacao-input" value="${p.tag || ''}" placeholder="Ex: alteração de artes" style="width:220px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:8px; padding:7px 10px; font-size:12.5px;">
-        </div>
-        <div>
-          <div class="k" style="font-size:11px; margin-bottom:5px;">Quant. de impressão</div>
-          <input type="text" id="req-qtdimpressao-input" placeholder="—" style="width:140px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:8px; padding:7px 10px; font-size:12.5px; font-family:'IBM Plex Mono',monospace;">
-        </div>
+      <div style="display:flex; align-items:center; gap:10px; background:var(--panel-alt); border:1.5px solid var(--gold); border-radius:10px; padding:10px 18px; width:fit-content;">
+        <span style="font-size:11px; color:var(--text-dim); font-weight:600; text-transform:uppercase; letter-spacing:.4px;">Valor total do clichê</span>
+        <span id="req-total-cliche-valor" style="font-family:'IBM Plex Mono',monospace; font-size:24px; font-weight:800; color:var(--gold-dark);">R$ 0,00</span>
       </div>
     </div>
   `;
-  document.getElementById('requisicao-cliche-imprimir-btn').addEventListener('click', ()=> imprimirRequisicaoCliche(p, d));
+  wrap.querySelectorAll('.req-qtd-cores-input').forEach(inp=> inp.addEventListener('input', atualizarTotal));
+  atualizarTotal();
+  document.getElementById('requisicao-cliche-imprimir-btn').addEventListener('click', ()=> imprimirRequisicaoCliche(p, d, calcularTotal()));
 }
 
-function imprimirRequisicaoCliche(p, d){
-  const situacao = document.getElementById('req-situacao-input').value.trim() || '—';
-  const qtdImpressao = document.getElementById('req-qtdimpressao-input').value.trim() || '—';
+function imprimirRequisicaoCliche(p, d, valorTotalCliche){
   const qtdArtesPorIdx = {};
+  const qtdCoresPorIdx = {};
   document.querySelectorAll('.req-qtd-artes-input').forEach(inp=>{
     qtdArtesPorIdx[inp.dataset.idx] = inp.value.trim() || '—';
   });
+  document.querySelectorAll('.req-qtd-cores-input').forEach(inp=>{
+    qtdCoresPorIdx[inp.dataset.idx] = inp.value.trim() || '—';
+  });
   const agora = fmtDateTime(new Date().toISOString());
+  const percentual = p.valorTotal ? (valorTotalCliche / p.valorTotal * 100).toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2})+'%' : '—';
 
   function viaHTML(via){
     return `
@@ -4167,18 +4223,16 @@ function imprimirRequisicaoCliche(p, d){
           <tr><td>Data:</td><td>${agora}</td><td>Pedido:</td><td>${p.pedido}</td></tr>
           <tr><td>Representante:</td><td colspan="3">${p.vendedor || '—'}</td></tr>
           <tr><td>Valor do pedido:</td><td colspan="3">${fmtBRL(p.valorTotal)}</td></tr>
-          <tr><td>% Clichê em relação ao pedido:</td><td colspan="3">${d.percentual!=null ? d.percentual.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2})+'%' : '—'}</td></tr>
+          <tr><td>% Clichê em relação ao pedido:</td><td colspan="3">${percentual}</td></tr>
         </table>
         <table>
           <thead><tr><th>Item</th><th>Código</th><th>Qtd. cores</th><th>Qtd. artes</th></tr></thead>
           <tbody>
-            ${d.itensOrcamento.map((it,idx)=>`<tr><td>${it.nome}</td><td>${it.codigo || '—'}</td><td>${it.qtdCores!==''?it.qtdCores:'—'}</td><td>${qtdArtesPorIdx[idx] || '—'}</td></tr>`).join('')}
+            ${d.itensOrcamento.map((it,idx)=>`<tr><td>${it.nome}</td><td>${it.codigo || '—'}</td><td>${qtdCoresPorIdx[idx] || '—'}</td><td>${qtdArtesPorIdx[idx] || '—'}</td></tr>`).join('')}
           </tbody>
         </table>
         <table class="requisicao-campos" style="margin-top:10px;">
-          <tr><td>Situação:</td><td colspan="3">${situacao}</td></tr>
-          <tr><td>Quant. de impressão:</td><td colspan="3">${qtdImpressao}</td></tr>
-          <tr><td>Valor do clichê:</td><td colspan="3">${d.valorClicheTotal!=null ? fmtBRL(d.valorClicheTotal) : '—'}</td></tr>
+          <tr><td style="font-size:13px;">Valor total do clichê:</td><td colspan="3" style="font-size:15px; font-weight:800;">${fmtBRL(valorTotalCliche)}</td></tr>
           <tr><td>Autorizado por:</td><td colspan="3">_______________________________</td></tr>
         </table>
       </div>
