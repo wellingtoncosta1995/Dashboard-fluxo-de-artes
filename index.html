@@ -963,7 +963,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.30';
+const APP_VERSION = 'v8.31';
 const APP_VERSION_DATE = '27/08/2026';
 
 /* ========================================================================
@@ -4057,7 +4057,7 @@ let requisicaoClicheSelecionadoId = null;
 function renderRequisicaoClichePendentes(){
   const wrap = document.getElementById('requisicao-cliche-pendentes');
   if(!wrap) return;
-  const pendentes = pedidos.filter(p=>p.stage===STAGE_APROVACAO_CLICHE);
+  const pendentes = pedidos.filter(p=>p.stage===STAGE_APROVACAO_CLICHE && !p.requisicaoClicheEnviada);
   if(!pendentes.length){
     wrap.innerHTML = `<div class="empty-alt">Nenhum pedido aguardando aprovação de custo de clichê no momento.</div>`;
     return;
@@ -4337,16 +4337,13 @@ async function enviarRequisicaoClichePorEmail(p, d, valorTotalCliche){
   const assunto = `Requisição de liberação de clichê — Pedido ${p.pedido}`;
   window.location.href = `mailto:?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
 
-  // registra o custo no pedido e avança a etapa de "Aguardando aprovação
-  // custo clichê" pra "Solicitação de clichê" — é isso que tira o pedido
-  // da listagem de pendentes desta tela
+  // registra o custo no pedido e marca a requisição como enviada — é isso
+  // que tira o pedido da listagem de pendentes desta tela. A etapa do
+  // pedido no fluxo de artes NÃO é alterada por essa ação.
   p.valorClicheTotal = valorTotalCliche;
   p.valorClichePedido = valorTotalCliche;
   p.clicheRegistradoEm = new Date().toISOString();
-  if(p.stage === STAGE_APROVACAO_CLICHE){
-    registrarMudancaEtapa(p, STAGE_APROVACAO_CLICHE + 1);
-    p.stage = STAGE_APROVACAO_CLICHE + 1;
-  }
+  p.requisicaoClicheEnviada = true;
   await saveState();
   requisicaoClicheSelecionadoId = null;
   document.getElementById('requisicao-cliche-form-wrap').innerHTML = '';
