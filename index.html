@@ -997,7 +997,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.36';
+const APP_VERSION = 'v8.37';
 const APP_VERSION_DATE = '27/08/2026';
 
 /* ========================================================================
@@ -2728,7 +2728,7 @@ const MAPA_TAG_IMPORTACAO = {
 //   linha de item        -> col 0 = "código/versão - nome...", col 8 = UN, col 10 = Entrega, col 24 = Peso
 //   linha "Total Pedido:" -> na col 9, com Peso total na col 24 e Valor total na col 29
 function parseRelatorioCSV(texto){
-  const resultado = { pedidos: [], erros: [] };
+  const resultado = { pedidos: [], erros: [], avisos: [] };
   const rows = Papa.parse(texto.trim(), {delimiter:';'}).data;
 
   let atual = null;
@@ -2774,6 +2774,12 @@ function parseRelatorioCSV(texto){
       const peso = parseNumeroBR(row[24]);
       if(!atual.entrega) atual.entrega = entrega;
       atual.itens.push({codigo: itemMatch[1], nome: itemMatch[2].trim(), peso});
+    } else if(/^\d{2,8}(\/\d+)?\s*-\s*.+/.test(c0)){
+      // parece uma linha de item (código - nome) mas não bateu no formato
+      // esperado (falta a versão "/NN" ou a coluna UN está vazia) — em vez
+      // de sumir sem deixar rastro, avisa pra conferir o CSV original
+      const motivo = itemMatch ? 'coluna de unidade (UN) vazia' : 'sem "/versão" no código';
+      resultado.avisos.push(`Pedido ${atual.pedido}: linha "${c0}" parece um item mas não foi reconhecida (${motivo}).`);
     }
   });
   finalizar();
@@ -2807,7 +2813,7 @@ function mergePedidosImportados(parsed, nomeRelatorio){
     lastImportTime = new Date().toISOString();
     buildCatalogoItens();
   }
-  return {novos, novosRepeticao, duplicados, erros: parsed.erros};
+  return {novos, novosRepeticao, duplicados, erros: parsed.erros, avisos: parsed.avisos};
 }
 
 // Reimporta o mesmo relatório, mas em vez de ignorar pedidos já existentes,
@@ -2860,7 +2866,7 @@ function mergePedidosAtualizarDatas(parsed, nomeRelatorio){
     lastImportTime = new Date().toISOString();
     buildCatalogoItens();
   }
-  return {novos, novosRepeticao, atualizados, semMudanca, erros: parsed.erros};
+  return {novos, novosRepeticao, atualizados, semMudanca, erros: parsed.erros, avisos: parsed.avisos};
 }
 
 function openImportPdfModal(){
@@ -2905,7 +2911,7 @@ function openImportPdfModal(){
       resultDiv.innerHTML = '<span style="color:var(--red);">Nenhum pedido reconhecido nesse arquivo. Confira se é o CSV exportado do relatório RVEN002.</span>';
       return;
     }
-    const {novos, novosRepeticao, duplicados, erros} = mergePedidosImportados(parsed, nome);
+    const {novos, novosRepeticao, duplicados, erros, avisos} = mergePedidosImportados(parsed, nome);
     nomeRelatorioAtual = nome;
     await saveState();
     resultDiv.innerHTML = `
@@ -2913,6 +2919,7 @@ function openImportPdfModal(){
       ${novosRepeticao ? `<br><span style="color:var(--teal);">${novosRepeticao} pedido(s) de Arte Repetição importado(s) direto para Histórico → Arte Repetição.</span>` : ''}
       ${duplicados ? `<br><span style="color:var(--text-dim);">${duplicados} pedido(s) já existiam e foram ignorados.</span>` : ''}
       ${erros.length ? `<br><span style="color:var(--red);">${erros.length} pedido(s) não puderam ser lidos: ${erros.slice(0,5).join('; ')}</span>` : ''}
+      ${avisos.length ? `<br><span style="color:var(--red);">${avisos.length} linha(s) pareciam item mas não foram reconhecidas — confira o CSV: ${avisos.slice(0,5).join('; ')}</span>` : ''}
     `;
     if(novos>0 || novosRepeticao>0) renderAll();
   });
@@ -2965,7 +2972,7 @@ function openImportAtualizarDatasModal(){
       resultDiv.innerHTML = '<span style="color:var(--red);">Nenhum pedido reconhecido nesse arquivo. Confira se é o CSV exportado do relatório RVEN002.</span>';
       return;
     }
-    const {novos, novosRepeticao, atualizados, semMudanca, erros} = mergePedidosAtualizarDatas(parsed, nome);
+    const {novos, novosRepeticao, atualizados, semMudanca, erros, avisos} = mergePedidosAtualizarDatas(parsed, nome);
     nomeRelatorioAtual = nome;
     await saveState();
     resultDiv.innerHTML = `
@@ -2974,6 +2981,7 @@ function openImportAtualizarDatasModal(){
       ${novosRepeticao ? `<br><span style="color:var(--teal);">${novosRepeticao} pedido(s) de Arte Repetição importado(s) direto para Histórico.</span>` : ''}
       ${semMudanca ? `<br><span style="color:var(--text-dim);">${semMudanca} pedido(s) já existiam com a mesma data — nada mudou.</span>` : ''}
       ${erros.length ? `<br><span style="color:var(--red);">${erros.length} pedido(s) não puderam ser lidos: ${erros.slice(0,5).join('; ')}</span>` : ''}
+      ${avisos.length ? `<br><span style="color:var(--red);">${avisos.length} linha(s) pareciam item mas não foram reconhecidas — confira o CSV: ${avisos.slice(0,5).join('; ')}</span>` : ''}
     `;
     if(novos>0 || novosRepeticao>0 || atualizados>0) renderAll();
   });
