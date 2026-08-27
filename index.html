@@ -963,7 +963,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.32';
+const APP_VERSION = 'v8.33';
 const APP_VERSION_DATE = '27/08/2026';
 
 /* ========================================================================
@@ -2466,7 +2466,10 @@ function buildFluxoHistoricoHTML(p, isActive){
       <div class="alt-item" data-idx="${idx}" style="${atual ? 'border-left:3px solid var(--gold); padding-left:9px;' : ''}">
         <div class="alt-date-row" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
           <span class="alt-date">${fmtDate(h.entradaEm)}${atual ? ' — em andamento' : ''}</span>
-          <button class="alt-edit-btn" data-idx="${idx}" title="Corrigir data" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:12px; padding:2px 5px; flex-shrink:0;">&#9998;</button>
+          <span style="display:flex; gap:2px; flex-shrink:0;">
+            <button class="alt-edit-btn" data-idx="${idx}" title="Corrigir data" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:12px; padding:2px 5px;">&#9998;</button>
+            <button class="alt-del-btn" data-idx="${idx}" title="Excluir esta etapa" style="background:none; border:none; color:var(--red); cursor:pointer; font-size:13px; padding:2px 5px;">&times;</button>
+          </span>
         </div>
         <div class="alt-note"><b style="color:var(--text);">${st ? `${st.id} — ${st.nome}` : '—'}</b> · parado por <b style="color:var(--gold-dark); font-family:'IBM Plex Mono',monospace;">${duracao}</b></div>
       </div>`;
@@ -2502,6 +2505,19 @@ function attachFluxoHistoricoEditListeners(root, p, onChange){
         onChange();
       });
       row.querySelector('.alt-cancel-btn').addEventListener('click', ()=> onChange());
+    });
+  });
+  root.querySelectorAll('.alt-del-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const idx = parseInt(btn.dataset.idx,10);
+      if(p.stageHistory.length<=1){ alert('Não é possível excluir a única etapa do histórico.'); return; }
+      if(!confirm('Excluir esta etapa do histórico de fluxo? Essa ação não pode ser desfeita.')) return;
+      const eraUltima = idx === p.stageHistory.length-1;
+      p.stageHistory.splice(idx,1);
+      if(eraUltima) p.stage = p.stageHistory[p.stageHistory.length-1].stage;
+      await saveState();
+      renderAll();
+      onChange();
     });
   });
 }
