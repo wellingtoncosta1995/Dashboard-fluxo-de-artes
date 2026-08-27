@@ -4175,14 +4175,14 @@ function renderRequisicaoClicheForm(){
       </div>
 
       <div class="pedido-info-grid">
-        <div class="modal-row"><span class="k">Nome fantasia (itens)</span><span class="v" style="text-align:right; max-width:60%;">${d.nomeFantasia || '—'}</span></div>
-        <div class="modal-row"><span class="k">O.S.</span><span class="v">${d.osJunto || '—'}</span></div>
+        <div class="modal-row"><span class="k">Cliente</span><span class="v" style="text-align:right; max-width:60%;">${p.clienteNome || '—'}</span></div>
         <div class="modal-row"><span class="k">Representante</span><span class="v">${p.vendedor || '—'}</span></div>
         <div class="modal-row"><span class="k">Valor do pedido</span><span class="v">${fmtBRL(p.valorTotal)}</span></div>
         <div class="modal-row"><span class="k">% Clichê em relação ao pedido</span><span class="v" id="req-percentual-cliche">—</span></div>
       </div>
 
       <hr class="divider" style="margin:14px 0 12px;">
+      <div class="modal-row" style="margin-bottom:10px;"><span class="k">O.S.</span><span class="v">${d.osJunto || '—'}</span></div>
       <table class="items" id="requisicao-itens-table" style="margin-bottom:14px;">
         <thead><tr><th>Código clicheria</th><th>Item</th><th>Valor da chapa</th><th>Qtd. cores</th><th>Valor total</th></tr></thead>
         <tbody>
@@ -4232,13 +4232,14 @@ function imprimirRequisicaoCliche(p, d, valorTotalCliche){
 
   const via = `
     <div class="requisicao-via">
-      <h1>Requisição de liberação de clichês</h1>
+      <h1>Requisição de liberação de clichês — Pedido ${p.pedido}</h1>
       <table class="requisicao-campos">
-        <tr><td>Nome fantasia:</td><td>${d.nomeFantasia || '—'}</td><td>O.S.:</td><td>${d.osJunto || '—'}</td></tr>
+        <tr><td>Cliente:</td><td colspan="3">${p.clienteNome || '—'}</td></tr>
         <tr><td>Data:</td><td>${agora}</td><td>Pedido:</td><td>${p.pedido}</td></tr>
         <tr><td>Representante:</td><td colspan="3">${p.vendedor || '—'}</td></tr>
         <tr><td>Valor do pedido:</td><td colspan="3">${fmtBRL(p.valorTotal)}</td></tr>
         <tr><td>% Clichê em relação ao pedido:</td><td colspan="3">${percentual}</td></tr>
+        <tr><td>O.S.:</td><td colspan="3">${d.osJunto || '—'}</td></tr>
       </table>
       <table>
         <thead><tr><th>Item</th><th>Código</th><th>Qtd. cores</th><th>Valor total</th></tr></thead>
@@ -4267,15 +4268,15 @@ function enviarRequisicaoClichePorEmail(p, d, valorTotalCliche){
     `- ${it.nome} | Código: ${it.codigo || '—'} | Qtd. cores: ${qtdCoresPorIdx[idx] || '—'} | Valor total: ${valorItemPorIdx[idx] || '—'}`
   ).join('\n');
   const corpo = [
-    'Requisição de liberação de clichês',
+    `Requisição de liberação de clichês — Pedido ${p.pedido}`,
     '',
-    `Nome fantasia: ${d.nomeFantasia || '—'}`,
-    `O.S.: ${d.osJunto || '—'}`,
+    `Cliente: ${p.clienteNome || '—'}`,
     `Data: ${agora}`,
     `Pedido: ${p.pedido}`,
     `Representante: ${p.vendedor || '—'}`,
     `Valor do pedido: ${fmtBRL(p.valorTotal)}`,
     `% Clichê em relação ao pedido: ${percentual}`,
+    `O.S.: ${d.osJunto || '—'}`,
     '',
     'Itens:',
     linhasItens,
@@ -4292,13 +4293,14 @@ function requisicaoDocumentoHTMLInline(p, d, valorTotalCliche, dados){
   const td = 'padding:8px 10px; border-bottom:1px solid #e2e2e2; font-size:12.5px; color:#222;';
   return `
     <div style="width:680px; background:#ffffff; padding:28px 32px; font-family:'Plus Jakarta Sans',Arial,sans-serif; color:#222; box-sizing:border-box;">
-      <h1 style="font-family:'Parkinsans',Arial,sans-serif; font-size:20px; margin:0 0 18px; color:#111;">Requisição de liberação de clichês</h1>
+      <h1 style="font-family:'Parkinsans',Arial,sans-serif; font-size:20px; margin:0 0 18px; color:#111;">Requisição de liberação de clichês — Pedido ${p.pedido}</h1>
       <table style="width:100%; border-collapse:collapse; margin-bottom:18px;">
-        <tr><td style="padding:3px 8px 3px 0; color:#666; font-weight:700; white-space:nowrap; font-size:12.5px;">Nome fantasia:</td><td style="padding:3px 0; font-size:12.5px;">${d.nomeFantasia || '—'}</td><td style="padding:3px 8px 3px 18px; color:#666; font-weight:700; white-space:nowrap; font-size:12.5px;">O.S.:</td><td style="padding:3px 0; font-size:12.5px;">${d.osJunto || '—'}</td></tr>
+        <tr><td style="padding:3px 8px 3px 0; color:#666; font-weight:700; white-space:nowrap; font-size:12.5px;">Cliente:</td><td colspan="3" style="padding:3px 0; font-size:12.5px;">${p.clienteNome || '—'}</td></tr>
         <tr><td style="padding:3px 8px 3px 0; color:#666; font-weight:700; white-space:nowrap; font-size:12.5px;">Data:</td><td style="padding:3px 0; font-size:12.5px;">${agora}</td><td style="padding:3px 8px 3px 18px; color:#666; font-weight:700; white-space:nowrap; font-size:12.5px;">Pedido:</td><td style="padding:3px 0; font-size:12.5px;">${p.pedido}</td></tr>
         <tr><td style="padding:3px 8px 3px 0; color:#666; font-weight:700; white-space:nowrap; font-size:12.5px;">Representante:</td><td colspan="3" style="padding:3px 0; font-size:12.5px;">${p.vendedor || '—'}</td></tr>
         <tr><td style="padding:3px 8px 3px 0; color:#666; font-weight:700; white-space:nowrap; font-size:12.5px;">Valor do pedido:</td><td colspan="3" style="padding:3px 0; font-size:12.5px;">${fmtBRL(p.valorTotal)}</td></tr>
         <tr><td style="padding:3px 8px 3px 0; color:#666; font-weight:700; white-space:nowrap; font-size:12.5px;">% Clichê em relação ao pedido:</td><td colspan="3" style="padding:3px 0; font-size:12.5px;">${percentual}</td></tr>
+        <tr><td style="padding:3px 8px 3px 0; color:#666; font-weight:700; white-space:nowrap; font-size:12.5px;">O.S.:</td><td colspan="3" style="padding:3px 0; font-size:12.5px;">${d.osJunto || '—'}</td></tr>
       </table>
       <table style="width:100%; border-collapse:collapse; margin-bottom:18px;">
         <thead><tr><th style="${th}">Item</th><th style="${th}">Código</th><th style="${th}">Qtd. cores</th><th style="${th}">Valor total</th></tr></thead>
