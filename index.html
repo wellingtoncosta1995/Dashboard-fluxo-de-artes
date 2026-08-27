@@ -997,7 +997,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.42';
+const APP_VERSION = 'v8.43';
 const APP_VERSION_DATE = '27/08/2026';
 
 /* ========================================================================
@@ -4429,7 +4429,7 @@ function renderRequisicaoClicheForm(){
   wrap.querySelectorAll('.req-qtd-cores-input').forEach(inp=> inp.addEventListener('input', atualizarTotal));
   atualizarTotal();
   document.getElementById('requisicao-cliche-imprimir-btn').addEventListener('click', ()=> imprimirRequisicaoCliche(p, d, calcularTotal()));
-  document.getElementById('requisicao-cliche-email-btn').addEventListener('click', ()=> enviarRequisicaoClichePorEmail(p, d, calcularTotal()));
+  document.getElementById('requisicao-cliche-email-btn').addEventListener('click', (e)=> enviarRequisicaoClichePorEmail(p, d, calcularTotal(), e.currentTarget));
   document.getElementById('requisicao-cliche-imagem-btn').addEventListener('click', (e)=> baixarImagemRequisicao(p, d, calcularTotal(), e.currentTarget));
 }
 
@@ -4483,17 +4483,25 @@ function imprimirRequisicaoCliche(p, d, valorTotalCliche){
   window.print();
 }
 
-async function enviarRequisicaoClichePorEmail(p, d, valorTotalCliche){
+async function enviarRequisicaoClichePorEmail(p, d, valorTotalCliche, btn=null){
   if(!valorTotalCliche && !confirm('O valor total do clichê está R$ 0,00 (nenhuma qtd. de cores preenchida). Enviar mesmo assim?')) return;
+
+  // o mailto: não tem como anexar arquivo sozinho (limitação do protocolo,
+  // não da nossa implementação) — então baixamos a imagem primeiro, pra
+  // você só arrastar ela pro e-mail que abre em seguida
+  const imagemBaixada = await baixarImagemRequisicao(p, d, valorTotalCliche, btn);
 
   const { qtdCoresPorIdx, valorItemPorIdx, agora, percentual } = coletarDadosImpressaoRequisicao(p, d, valorTotalCliche);
   const linhasItens = d.itensOrcamento.map((it,idx)=>
     `- ${it.nome} | Qtd. cores: ${qtdCoresPorIdx[idx] || '—'} | Valor total: ${valorItemPorIdx[idx] || '—'}`
   ).join('\n');
+  const instrucaoImagem = imagemBaixada
+    ? `A imagem também acabou de ser baixada (arquivo requisicao-cliche-${p.pedido}.png) — é só arrastar para este e-mail antes de enviar.`
+    : `Anexe a imagem da requisição a este e-mail antes de enviar.`;
   const corpo = [
     'Prezado representante,',
     '',
-    `Segue abaixo o valor do clichê referente ao pedido ${p.pedido}, para aprovação. A imagem está em anexo.`,
+    `Segue abaixo o valor do clichê referente ao pedido ${p.pedido}, para aprovação. ${instrucaoImagem}`,
     '',
     `Cliente: ${p.clienteNome || '—'}`,
     `Data: ${agora}`,
@@ -4553,19 +4561,19 @@ function requisicaoDocumentoHTMLInline(p, d, valorTotalCliche, dados){
   `;
 }
 
-async function baixarImagemRequisicao(p, d, valorTotalCliche, btn){
+async function baixarImagemRequisicao(p, d, valorTotalCliche, btn=null){
   if(typeof html2canvas==='undefined'){
     alert('Não foi possível carregar o gerador de imagem (sem conexão com a internet?). Tente novamente ou use "Imprimir requisição" e salve como PDF.');
-    return;
+    return false;
   }
-  const textoOriginal = btn.textContent;
-  btn.textContent = 'Gerando imagem...';
-  btn.disabled = true;
+  const textoOriginal = btn ? btn.textContent : null;
+  if(btn){ btn.textContent = 'Gerando imagem...'; btn.disabled = true; }
   const dados = coletarDadosImpressaoRequisicao(p, d, valorTotalCliche);
   const container = document.createElement('div');
   container.style.cssText = 'position:fixed; top:0; left:-99999px;';
   container.innerHTML = requisicaoDocumentoHTMLInline(p, d, valorTotalCliche, dados);
   document.body.appendChild(container);
+  let ok = true;
   try{
     const canvas = await html2canvas(container.firstElementChild, { backgroundColor:'#ffffff', scale:2 });
     const dataUrl = canvas.toDataURL('image/png');
@@ -4578,11 +4586,12 @@ async function baixarImagemRequisicao(p, d, valorTotalCliche, btn){
   }catch(e){
     console.error('Falha ao gerar imagem da requisição', e);
     alert('Não foi possível gerar a imagem. Tente novamente.');
+    ok = false;
   }finally{
     document.body.removeChild(container);
-    btn.textContent = textoOriginal;
-    btn.disabled = false;
+    if(btn){ btn.textContent = textoOriginal; btn.disabled = false; }
   }
+  return ok;
 }
 
 /* ========================================================================
