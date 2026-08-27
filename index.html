@@ -963,7 +963,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.28';
+const APP_VERSION = 'v8.29';
 const APP_VERSION_DATE = '27/08/2026';
 
 /* ========================================================================
@@ -4147,16 +4147,21 @@ function buscarChapaParaItem(cod, nome){
     return !isNaN(dimA) && Math.round(dimA) === diametro;
   });
   if(!candidatos.length) return null;
-  if(candidatos.length===1 || !dims) return { row: candidatos[0], diametro };
+  // entre os candidatos, prioriza os que têm valor unitário preenchido —
+  // há linhas na planilha com dimensões duplicadas mas sem preço (ex: "POTE
+  // 1000 BIBA" tem as mesmas medidas de "POTE 1500 ML" só que sem valor)
+  const comValor = candidatos.filter(r => parseValorBRL(r[10]) != null);
+  const pool = comValor.length ? comValor : candidatos;
+  if(pool.length===1 || !dims) return { row: pool[0], diametro };
   // várias chapas usam o mesmo diâmetro de boca — desempata pela altura (2º número do "(LxA)")
   let melhor = null, menorDiff = Infinity;
-  candidatos.forEach(r=>{
+  pool.forEach(r=>{
     const dimB = parseFloat(String(r[2]).replace(',','.'));
     if(isNaN(dimB)) return;
     const diff = Math.abs(dimB - dims.altura);
     if(diff < menorDiff){ menorDiff = diff; melhor = r; }
   });
-  return { row: melhor || candidatos[0], diametro };
+  return { row: melhor || pool[0], diametro };
 }
 
 function dadosRequisicaoDoPedido(p){
