@@ -997,7 +997,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.41';
+const APP_VERSION = 'v8.42';
 const APP_VERSION_DATE = '27/08/2026';
 
 /* ========================================================================
@@ -4488,10 +4488,12 @@ async function enviarRequisicaoClichePorEmail(p, d, valorTotalCliche){
 
   const { qtdCoresPorIdx, valorItemPorIdx, agora, percentual } = coletarDadosImpressaoRequisicao(p, d, valorTotalCliche);
   const linhasItens = d.itensOrcamento.map((it,idx)=>
-    `- ${it.nome} | O.S.: ${it.os || '—'} | Código: ${it.codigo || '—'} | Qtd. cores: ${qtdCoresPorIdx[idx] || '—'} | Valor total: ${valorItemPorIdx[idx] || '—'}`
+    `- ${it.nome} | Qtd. cores: ${qtdCoresPorIdx[idx] || '—'} | Valor total: ${valorItemPorIdx[idx] || '—'}`
   ).join('\n');
   const corpo = [
-    `Requisição de liberação de clichês — Pedido ${p.pedido}`,
+    'Prezado representante,',
+    '',
+    `Segue abaixo o valor do clichê referente ao pedido ${p.pedido}, para aprovação. A imagem está em anexo.`,
     '',
     `Cliente: ${p.clienteNome || '—'}`,
     `Data: ${agora}`,
