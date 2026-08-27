@@ -963,7 +963,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.31';
+const APP_VERSION = 'v8.32';
 const APP_VERSION_DATE = '27/08/2026';
 
 /* ========================================================================
@@ -2463,11 +2463,47 @@ function buildFluxoHistoricoHTML(p, isActive){
     const duracao = formatDuracao(fim - inicio);
     const atual = idx === p.stageHistory.length-1 && isActive;
     return `
-      <div class="alt-item" style="${atual ? 'border-left:3px solid var(--gold); padding-left:9px;' : ''}">
-        <div class="alt-date">${fmtDate(h.entradaEm)}${atual ? ' — em andamento' : ''}</div>
+      <div class="alt-item" data-idx="${idx}" style="${atual ? 'border-left:3px solid var(--gold); padding-left:9px;' : ''}">
+        <div class="alt-date-row" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <span class="alt-date">${fmtDate(h.entradaEm)}${atual ? ' — em andamento' : ''}</span>
+          <button class="alt-edit-btn" data-idx="${idx}" title="Corrigir data" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:12px; padding:2px 5px; flex-shrink:0;">&#9998;</button>
+        </div>
         <div class="alt-note"><b style="color:var(--text);">${st ? `${st.id} — ${st.nome}` : '—'}</b> · parado por <b style="color:var(--gold-dark); font-family:'IBM Plex Mono',monospace;">${duracao}</b></div>
       </div>`;
   }).join('') : `<div class="empty-alt">Sem histórico de fluxo registrado para este pedido.</div>`;
+}
+
+function attachFluxoHistoricoEditListeners(root, p, onChange){
+  root.querySelectorAll('.alt-edit-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const idx = parseInt(btn.dataset.idx,10);
+      const item = p.stageHistory[idx];
+      const row = btn.closest('.alt-item').querySelector('.alt-date-row');
+      const d = new Date(item.entradaEm);
+      const pad = n=>String(n).padStart(2,'0');
+      const localVal = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+      row.innerHTML = `
+        <input type="date" class="alt-date-input" value="${localVal}" style="font-size:12px; padding:5px 6px; border-radius:6px; border:1px solid var(--gold); font-family:'IBM Plex Mono',monospace; background:var(--panel-alt); color:var(--text);">
+        <span style="display:flex; gap:2px; flex-shrink:0;">
+          <button class="alt-save-btn" title="Salvar" style="background:none; border:none; color:var(--green-dark); cursor:pointer; font-size:13px; padding:2px 5px;">&#10003;</button>
+          <button class="alt-cancel-btn" title="Cancelar" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:13px; padding:2px 5px;">&times;</button>
+        </span>
+      `;
+      row.querySelector('.alt-save-btn').addEventListener('click', async ()=>{
+        const val = row.querySelector('.alt-date-input').value;
+        if(!val) return;
+        // mantém o horário original, só troca o dia
+        const [y,m,dia] = val.split('-').map(Number);
+        const novaData = new Date(item.entradaEm);
+        novaData.setFullYear(y, m-1, dia);
+        p.stageHistory[idx].entradaEm = novaData.toISOString();
+        await saveState();
+        renderAll();
+        onChange();
+      });
+      row.querySelector('.alt-cancel-btn').addEventListener('click', ()=> onChange());
+    });
+  });
 }
 
 function openHistoricoFluxoScreen(id, opts={}){
@@ -2490,6 +2526,7 @@ function openHistoricoFluxoScreen(id, opts={}){
   `;
   document.getElementById('historico-fluxo-voltar').addEventListener('click', ()=> openModal(id, opts));
   document.getElementById('modal-close').addEventListener('click', closeModal);
+  attachFluxoHistoricoEditListeners(modal, p, ()=> openHistoricoFluxoScreen(id, opts));
 }
 
 function closeModal(){ document.getElementById('overlay').classList.remove('open'); document.getElementById('modal').classList.remove('modal-wide','modal-2xl'); }
