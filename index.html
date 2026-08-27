@@ -2063,24 +2063,7 @@ function openModal(id, opts={}){
     </tr>
   `).join('');
 
-  const fluxoHistorico = (p.stageHistory && p.stageHistory.length) ? p.stageHistory.map((h,idx)=>{
-    const st = STAGES.find(s=>s.id===h.stage);
-    const inicio = new Date(h.entradaEm);
-    const fim = idx < p.stageHistory.length-1 ? new Date(p.stageHistory[idx+1].entradaEm) : new Date();
-    const duracao = formatDuracao(fim - inicio);
-    const atual = idx === p.stageHistory.length-1 && isActive;
-    return `
-      <div class="alt-item" data-idx="${idx}" style="${atual ? 'border-left:3px solid var(--gold); padding-left:9px;' : ''}">
-        <div class="alt-date-row" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
-          <span class="alt-date">${fmtDate(h.entradaEm)}${atual ? ' — em andamento' : ''}</span>
-          <span style="display:flex; gap:2px; flex-shrink:0;">
-            <button class="alt-edit-btn" data-idx="${idx}" title="Corrigir data" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:12px; padding:2px 5px;">&#9998;</button>
-            <button class="alt-del-btn" data-idx="${idx}" title="Excluir esta etapa" style="background:none; border:none; color:var(--red); cursor:pointer; font-size:13px; padding:2px 5px;">&times;</button>
-          </span>
-        </div>
-        <div class="alt-note"><b style="color:var(--text);">${st ? `${st.id} — ${st.nome}` : '—'}</b> · parado por <b style="color:var(--gold-dark); font-family:'IBM Plex Mono',monospace;">${duracao}</b></div>
-      </div>`;
-  }).join('') : `<div class="empty-alt">Sem histórico de fluxo registrado para este pedido.</div>`;
+  const temFluxoHistorico = p.stageHistory && p.stageHistory.length;
 
   const classificacaoHTML = p.tag
     ? `<span class="tag ${tagClass(p.tag)}">${p.tag}</span>`
@@ -2152,8 +2135,9 @@ function openModal(id, opts={}){
     ${p.historicoExterno && p.historicoExterno.length ? `
     <button id="toggle-historico-externo" style="background:none; border:none; color:var(--blue-dark); font-weight:600; font-size:12.5px; cursor:pointer; padding:0 0 10px; display:flex; align-items:center; gap:5px;">&#128203; Histórico externo</button>
     ` : ''}
-    <div class="k" style="font-size:12.5px; margin-bottom:2px;">Histórico de fluxo</div>
-    <div class="alt-list">${fluxoHistorico}</div>
+    ${temFluxoHistorico ? `
+    <button id="toggle-historico-fluxo" style="background:none; border:none; color:var(--blue-dark); font-weight:600; font-size:12.5px; cursor:pointer; padding:0 0 10px; display:flex; align-items:center; gap:5px;">&#128203; Histórico de fluxo</button>
+    ` : `<div class="empty-alt">Sem histórico de fluxo registrado para este pedido.</div>`}
 
     ${resumido ? `
     <button id="modal-voltar" style="margin-top:16px; width:100%; padding:9px 0; border-radius:9px; border:1px solid var(--border-soft); background:var(--panel-alt); color:var(--text-dim); font-weight:700; font-size:13px; cursor:pointer;">&#8592; Voltar</button>
@@ -2237,6 +2221,10 @@ function openModal(id, opts={}){
     openHistoricoExternoScreen(id, opts);
   });
 
+  document.getElementById('toggle-historico-fluxo')?.addEventListener('click', ()=>{
+    openHistoricoFluxoScreen(id, opts);
+  });
+
   document.getElementById('entrega-hist-btn')?.addEventListener('click', (e)=>{
     const box = document.getElementById('entrega-hist-lista');
     const aberto = box.style.display !== 'none';
@@ -2276,50 +2264,6 @@ function openModal(id, opts={}){
 
   document.getElementById('modal-close').addEventListener('click', closeModal);
   overlay.classList.add('open');
-
-  modal.querySelectorAll('.alt-edit-btn').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      const idx = parseInt(btn.dataset.idx,10);
-      const item = p.stageHistory[idx];
-      const row = btn.closest('.alt-item').querySelector('.alt-date-row');
-      const d = new Date(item.entradaEm);
-      const pad = n=>String(n).padStart(2,'0');
-      const localVal = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-      row.innerHTML = `
-        <input type="date" class="alt-date-input" value="${localVal}" style="font-size:12px; padding:5px 6px; border-radius:6px; border:1px solid var(--gold); font-family:'IBM Plex Mono',monospace; background:var(--panel-alt); color:var(--text);">
-        <span style="display:flex; gap:2px; flex-shrink:0;">
-          <button class="alt-save-btn" title="Salvar" style="background:none; border:none; color:var(--green-dark); cursor:pointer; font-size:13px; padding:2px 5px;">&#10003;</button>
-          <button class="alt-cancel-btn" title="Cancelar" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:13px; padding:2px 5px;">&times;</button>
-        </span>
-      `;
-      row.querySelector('.alt-save-btn').addEventListener('click', async ()=>{
-        const val = row.querySelector('.alt-date-input').value;
-        if(!val) return;
-        // mantém o horário original, só troca o dia
-        const [y,m,dia] = val.split('-').map(Number);
-        const novaData = new Date(item.entradaEm);
-        novaData.setFullYear(y, m-1, dia);
-        p.stageHistory[idx].entradaEm = novaData.toISOString();
-        await saveState();
-        renderAll();
-        openModal(id, opts);
-      });
-      row.querySelector('.alt-cancel-btn').addEventListener('click', ()=> openModal(id, opts));
-    });
-  });
-  modal.querySelectorAll('.alt-del-btn').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      const idx = parseInt(btn.dataset.idx,10);
-      if(p.stageHistory.length<=1){ alert('Não é possível excluir a única etapa do histórico.'); return; }
-      if(!confirm('Excluir esta etapa do histórico de fluxo? Essa ação não pode ser desfeita.')) return;
-      const eraUltima = idx === p.stageHistory.length-1;
-      p.stageHistory.splice(idx,1);
-      if(eraUltima) p.stage = p.stageHistory[p.stageHistory.length-1].stage;
-      await saveState();
-      renderAll();
-      openModal(id, opts);
-    });
-  });
 
   if(isActive){
     document.getElementById('modal-tag-select')?.addEventListener('change', async (e)=>{
@@ -2446,6 +2390,97 @@ function openHistoricoExternoScreen(id, opts={}){
   document.getElementById('historico-externo-voltar').addEventListener('click', ()=> openModal(id, opts));
   document.getElementById('modal-close').addEventListener('click', closeModal);
 }
+
+function buildFluxoHistoricoHTML(p, isActive){
+  return (p.stageHistory && p.stageHistory.length) ? p.stageHistory.map((h,idx)=>{
+    const st = STAGES.find(s=>s.id===h.stage);
+    const inicio = new Date(h.entradaEm);
+    const fim = idx < p.stageHistory.length-1 ? new Date(p.stageHistory[idx+1].entradaEm) : new Date();
+    const duracao = formatDuracao(fim - inicio);
+    const atual = idx === p.stageHistory.length-1 && isActive;
+    return `
+      <div class="alt-item" data-idx="${idx}" style="${atual ? 'border-left:3px solid var(--gold); padding-left:9px;' : ''}">
+        <div class="alt-date-row" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <span class="alt-date">${fmtDate(h.entradaEm)}${atual ? ' — em andamento' : ''}</span>
+          <span style="display:flex; gap:2px; flex-shrink:0;">
+            <button class="alt-edit-btn" data-idx="${idx}" title="Corrigir data" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:12px; padding:2px 5px;">&#9998;</button>
+            <button class="alt-del-btn" data-idx="${idx}" title="Excluir esta etapa" style="background:none; border:none; color:var(--red); cursor:pointer; font-size:13px; padding:2px 5px;">&times;</button>
+          </span>
+        </div>
+        <div class="alt-note"><b style="color:var(--text);">${st ? `${st.id} — ${st.nome}` : '—'}</b> · parado por <b style="color:var(--gold-dark); font-family:'IBM Plex Mono',monospace;">${duracao}</b></div>
+      </div>`;
+  }).join('') : `<div class="empty-alt">Sem histórico de fluxo registrado para este pedido.</div>`;
+}
+
+function attachFluxoHistoricoListeners(root, p, onChange){
+  root.querySelectorAll('.alt-edit-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const idx = parseInt(btn.dataset.idx,10);
+      const item = p.stageHistory[idx];
+      const row = btn.closest('.alt-item').querySelector('.alt-date-row');
+      const d = new Date(item.entradaEm);
+      const pad = n=>String(n).padStart(2,'0');
+      const localVal = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+      row.innerHTML = `
+        <input type="date" class="alt-date-input" value="${localVal}" style="font-size:12px; padding:5px 6px; border-radius:6px; border:1px solid var(--gold); font-family:'IBM Plex Mono',monospace; background:var(--panel-alt); color:var(--text);">
+        <span style="display:flex; gap:2px; flex-shrink:0;">
+          <button class="alt-save-btn" title="Salvar" style="background:none; border:none; color:var(--green-dark); cursor:pointer; font-size:13px; padding:2px 5px;">&#10003;</button>
+          <button class="alt-cancel-btn" title="Cancelar" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:13px; padding:2px 5px;">&times;</button>
+        </span>
+      `;
+      row.querySelector('.alt-save-btn').addEventListener('click', async ()=>{
+        const val = row.querySelector('.alt-date-input').value;
+        if(!val) return;
+        // mantém o horário original, só troca o dia
+        const [y,m,dia] = val.split('-').map(Number);
+        const novaData = new Date(item.entradaEm);
+        novaData.setFullYear(y, m-1, dia);
+        p.stageHistory[idx].entradaEm = novaData.toISOString();
+        await saveState();
+        renderAll();
+        onChange();
+      });
+      row.querySelector('.alt-cancel-btn').addEventListener('click', ()=> onChange());
+    });
+  });
+  root.querySelectorAll('.alt-del-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const idx = parseInt(btn.dataset.idx,10);
+      if(p.stageHistory.length<=1){ alert('Não é possível excluir a única etapa do histórico.'); return; }
+      if(!confirm('Excluir esta etapa do histórico de fluxo? Essa ação não pode ser desfeita.')) return;
+      const eraUltima = idx === p.stageHistory.length-1;
+      p.stageHistory.splice(idx,1);
+      if(eraUltima) p.stage = p.stageHistory[p.stageHistory.length-1].stage;
+      await saveState();
+      renderAll();
+      onChange();
+    });
+  });
+}
+
+function openHistoricoFluxoScreen(id, opts={}){
+  const p = pedidos.find(x=>x.id===id) || historico.find(x=>x.id===id);
+  if(!p) return;
+  const isActive = p.tipo === 'ativo';
+  const modal = document.getElementById('modal');
+  const cards = buildFluxoHistoricoHTML(p, isActive);
+  modal.innerHTML = `
+    <div class="modal-head" style="margin-bottom:10px;">
+      <div>
+        <button id="historico-fluxo-voltar" style="background:none; border:none; color:var(--blue-dark); font-weight:600; font-size:12.5px; cursor:pointer; padding:0 0 8px; display:flex; align-items:center; gap:5px;">&#8592; Voltar</button>
+        <h2 style="font-size:19px;">Histórico de fluxo</h2>
+        <p>${p.pedido} · ${p.clienteNome}</p>
+      </div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <hr class="divider" style="margin:10px 0;">
+    <div class="alt-list" style="max-height:none;">${cards}</div>
+  `;
+  document.getElementById('historico-fluxo-voltar').addEventListener('click', ()=> openModal(id, opts));
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  attachFluxoHistoricoListeners(modal, p, ()=> openHistoricoFluxoScreen(id, opts));
+}
+
 function closeModal(){ document.getElementById('overlay').classList.remove('open'); document.getElementById('modal').classList.remove('modal-wide','modal-2xl'); }
 document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
 
