@@ -963,7 +963,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.33';
+const APP_VERSION = 'v8.34';
 const APP_VERSION_DATE = '27/08/2026';
 
 /* ========================================================================
@@ -1074,7 +1074,7 @@ function P(pedido, clienteCod, clienteNome, entrega, tag, itens, pesoTotal, valo
     pedido, clienteCod, clienteNome, entrega, tag,
     itens, pesoTotal, valorTotal, vendedor: vendedor || null,
     stage:0, alteracoes:[], finalizado:false, finalizadoEm:null, tipo:'ativo', validado:false,
-    origem:null, valorClicheTotal:null, valorClichePedido:null, clicheBonificado:false, clicheBonificado50:false, clicheRegistradoEm:null,
+    origem:null, valorClicheTotal:null, valorClichePedido:null, clicheBonificado:false, clicheBonificado50:false, clicheEmbutido100:false, clicheRegistradoEm:null,
     stageHistory:null
   };
 }
@@ -2175,7 +2175,7 @@ function openModal(id, opts={}){
           </div>
           <div>
             <div class="k" style="font-size:11px; margin-bottom:5px;">Valor inserido no pedido</div>
-            <input type="text" id="cliche-pedido-input" placeholder="R$ 0,00" value="${p.valorClichePedido!=null?fmtBRL(p.valorClichePedido):''}" ${(p.clicheBonificado||p.clicheBonificado50)?'disabled':''}
+            <input type="text" id="cliche-pedido-input" placeholder="R$ 0,00" value="${p.valorClichePedido!=null?fmtBRL(p.valorClichePedido):''}" ${(p.clicheBonificado||p.clicheBonificado50||p.clicheEmbutido100)?'disabled':''}
               style="width:140px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:8px; padding:7px 10px; font-size:12.5px; font-family:'IBM Plex Mono',monospace;">
           </div>
           <div style="display:flex; align-items:center; gap:14px; flex-wrap:nowrap; padding-bottom:9px;">
@@ -2185,11 +2185,14 @@ function openModal(id, opts={}){
             <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim); cursor:pointer; white-space:nowrap;">
               <input type="checkbox" id="cliche-bonificado50-check" ${p.clicheBonificado50?'checked':''} style="width:15px; height:15px; accent-color:var(--teal); cursor:pointer;"> Bonificado 50%
             </label>
+            <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim); cursor:pointer; white-space:nowrap;">
+              <input type="checkbox" id="cliche-embutido100-check" ${p.clicheEmbutido100?'checked':''} style="width:15px; height:15px; accent-color:var(--teal); cursor:pointer;"> Embutido 100%
+            </label>
           </div>
           ${!isActive ? `<button class="finalize-mini" id="btn-finalizar-cliche" style="padding:8px 14px;">&#10003; Finalizar tratativa</button>` : ''}
         ` : `
           <div class="modal-row" style="margin:0; width:100%;"><span class="k">Valor total do clichê</span><span class="v">${p.valorClicheTotal!=null ? fmtBRL(p.valorClicheTotal) : '—'}</span></div>
-          <div class="modal-row" style="margin:0; width:100%;"><span class="k">Valor inserido no pedido</span><span class="v">${p.clicheBonificado ? `<span class="tag tag-repeticao">BONIFICADO</span>` : (p.clicheBonificado50 ? `${fmtBRL(p.valorClichePedido)} <span class="tag tag-repeticao">50%</span>` : (p.valorClichePedido!=null ? fmtBRL(p.valorClichePedido) : '—'))}</span></div>
+          <div class="modal-row" style="margin:0; width:100%;"><span class="k">Valor inserido no pedido</span><span class="v">${p.clicheBonificado ? `<span class="tag tag-repeticao">BONIFICADO</span>` : (p.clicheBonificado50 ? `${fmtBRL(p.valorClichePedido)} <span class="tag tag-repeticao">50%</span>` : (p.clicheEmbutido100 ? `${fmtBRL(p.valorClichePedido)} <span class="tag tag-repeticao">100%</span>` : (p.valorClichePedido!=null ? fmtBRL(p.valorClichePedido) : '—')))}</span></div>
         `}
       </div>
     </div>
@@ -2375,6 +2378,10 @@ function openModal(id, opts={}){
         // bonificado 50%: metade pro cliente, metade vira custo Rioplastic
         p.valorClichePedido = p.valorClicheTotal!=null ? p.valorClicheTotal/2 : 0;
         if(pedidoInput) pedidoInput.value = fmtBRL(p.valorClichePedido);
+      } else if(p.clicheEmbutido100){
+        // embutido 100%: o valor total do clichê é cobrado integralmente no pedido
+        p.valorClichePedido = p.valorClicheTotal;
+        if(pedidoInput) pedidoInput.value = p.valorClicheTotal!=null ? fmtBRL(p.valorClicheTotal) : '';
       }
       p.clicheRegistradoEm = new Date().toISOString();
       await saveState();
@@ -2390,7 +2397,7 @@ function openModal(id, opts={}){
     });
     document.getElementById('cliche-bonificado-check')?.addEventListener('change', async (e)=>{
       p.clicheBonificado = e.target.checked;
-      if(p.clicheBonificado) p.clicheBonificado50 = false;
+      if(p.clicheBonificado){ p.clicheBonificado50 = false; p.clicheEmbutido100 = false; }
       // bonificado: nada é cobrado no pedido — o valor todo vira custo Rioplastic
       p.valorClichePedido = p.clicheBonificado ? 0 : null;
       p.clicheRegistradoEm = new Date().toISOString();
@@ -2400,9 +2407,19 @@ function openModal(id, opts={}){
     });
     document.getElementById('cliche-bonificado50-check')?.addEventListener('change', async (e)=>{
       p.clicheBonificado50 = e.target.checked;
-      if(p.clicheBonificado50) p.clicheBonificado = false;
+      if(p.clicheBonificado50){ p.clicheBonificado = false; p.clicheEmbutido100 = false; }
       // bonificado 50%: metade pro cliente, metade vira custo Rioplastic
       p.valorClichePedido = p.clicheBonificado50 ? (p.valorClicheTotal!=null ? p.valorClicheTotal/2 : 0) : null;
+      p.clicheRegistradoEm = new Date().toISOString();
+      await saveState();
+      renderAll();
+      openModal(id, opts);
+    });
+    document.getElementById('cliche-embutido100-check')?.addEventListener('change', async (e)=>{
+      p.clicheEmbutido100 = e.target.checked;
+      if(p.clicheEmbutido100){ p.clicheBonificado = false; p.clicheBonificado50 = false; }
+      // embutido 100%: o valor total do clichê é cobrado integralmente no pedido
+      p.valorClichePedido = p.clicheEmbutido100 ? (p.valorClicheTotal!=null ? p.valorClicheTotal : 0) : null;
       p.clicheRegistradoEm = new Date().toISOString();
       await saveState();
       renderAll();
@@ -2414,14 +2431,16 @@ function openModal(id, opts={}){
       const pedidoRaw = document.getElementById('cliche-pedido-input').value.replace(/\./g,'').replace(',', '.').replace(/[^\d.]/g,'');
       const bonificado = document.getElementById('cliche-bonificado-check').checked;
       const bonificado50 = document.getElementById('cliche-bonificado50-check').checked;
+      const embutido100 = document.getElementById('cliche-embutido100-check').checked;
       const valorClicheTotal = totalRaw ? parseFloat(totalRaw) : null;
-      const valorClichePedido = bonificado ? 0 : (bonificado50 ? (valorClicheTotal!=null ? valorClicheTotal/2 : 0) : (pedidoRaw ? parseFloat(pedidoRaw) : null));
-      if(!bonificado && !bonificado50 && valorClichePedido==null){
-        alert('Preencha o "Valor inserido no pedido" ou marque como Bonificado antes de finalizar.');
+      const valorClichePedido = bonificado ? 0 : (bonificado50 ? (valorClicheTotal!=null ? valorClicheTotal/2 : 0) : (embutido100 ? valorClicheTotal : (pedidoRaw ? parseFloat(pedidoRaw) : null)));
+      if(!bonificado && !bonificado50 && !embutido100 && valorClichePedido==null){
+        alert('Preencha o "Valor inserido no pedido" ou marque uma das opções (Bonificado / Bonificado 50% / Embutido 100%) antes de finalizar.');
         return;
       }
       p.clicheBonificado = bonificado;
       p.clicheBonificado50 = bonificado50;
+      p.clicheEmbutido100 = embutido100;
       p.valorClicheTotal = valorClicheTotal;
       p.valorClichePedido = valorClichePedido;
       p.clicheRegistradoEm = new Date().toISOString();
@@ -3803,7 +3822,7 @@ function renderClicheHistory(){
       <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
       <td>${situacaoLabelPedido(p)}</td>
       <td class="val">${p.valorClicheTotal!=null ? fmtBRL(p.valorClicheTotal) : '—'}</td>
-      <td class="val">${p.clicheBonificado ? `<span class="tag tag-repeticao">BONIFICADO</span>` : (p.clicheBonificado50 ? `${fmtBRL(p.valorClichePedido)} <span class="tag tag-repeticao">50%</span>` : (p.valorClichePedido!=null ? fmtBRL(p.valorClichePedido) : '—'))}</td>
+      <td class="val">${p.clicheBonificado ? `<span class="tag tag-repeticao">BONIFICADO</span>` : (p.clicheBonificado50 ? `${fmtBRL(p.valorClichePedido)} <span class="tag tag-repeticao">50%</span>` : (p.clicheEmbutido100 ? `${fmtBRL(p.valorClichePedido)} <span class="tag tag-repeticao">100%</span>` : (p.valorClichePedido!=null ? fmtBRL(p.valorClichePedido) : '—')))}</td>
     </tr>`).join('') : `<tr><td colspan="5" class="hist-empty">Nenhum pedido com custo de clichê registrado ainda.</td></tr>`;
 
   tbody.querySelectorAll('.link-pedido-hist').forEach(btn=>{
@@ -4390,11 +4409,13 @@ async function enviarRequisicaoClichePorEmail(p, d, valorTotalCliche){
   const assunto = `Requisição de liberação de clichê — Pedido ${p.pedido}`;
   window.location.href = `mailto:?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
 
-  // registra o custo no pedido e marca a requisição como enviada — é isso
-  // que tira o pedido da listagem de pendentes desta tela. A etapa do
-  // pedido no fluxo de artes NÃO é alterada por essa ação.
+  // registra o custo total no pedido e marca a requisição como enviada —
+  // é isso que tira o pedido da listagem de pendentes desta tela. NÃO
+  // preenche "Valor inserido no pedido" automaticamente: isso fica pra
+  // você definir no modal do pedido (Bonificado / Bonificado 50% /
+  // Embutido 100% / valor manual), conforme o que foi tratado com o
+  // cliente. A etapa do pedido no fluxo de artes também não é alterada.
   p.valorClicheTotal = valorTotalCliche;
-  p.valorClichePedido = valorTotalCliche;
   p.clicheRegistradoEm = new Date().toISOString();
   p.requisicaoClicheEnviada = true;
   await saveState();
