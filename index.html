@@ -963,7 +963,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.27';
+const APP_VERSION = 'v8.28';
 const APP_VERSION_DATE = '27/08/2026';
 
 /* ========================================================================
@@ -4041,6 +4041,10 @@ document.getElementById('valores-chapa-save-btn').addEventListener('click', asyn
   await saveState();
   valoresChapaEditMode = false;
   renderValoresChapaTable();
+  // se tiver um pedido aberto na Requisição de clichê, recalcula os itens
+  // com os valores de chapa que acabaram de ser salvos (ex: item que estava
+  // "não encontrado" pode passar a bater agora)
+  if(requisicaoClicheSelecionadoId) renderRequisicaoClicheForm();
 });
 
 /* ========================================================================
