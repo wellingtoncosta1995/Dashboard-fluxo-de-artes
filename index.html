@@ -963,7 +963,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.29';
+const APP_VERSION = 'v8.30';
 const APP_VERSION_DATE = '27/08/2026';
 
 /* ========================================================================
@@ -4313,7 +4313,9 @@ function imprimirRequisicaoCliche(p, d, valorTotalCliche){
   window.print();
 }
 
-function enviarRequisicaoClichePorEmail(p, d, valorTotalCliche){
+async function enviarRequisicaoClichePorEmail(p, d, valorTotalCliche){
+  if(!valorTotalCliche && !confirm('O valor total do clichê está R$ 0,00 (nenhuma qtd. de cores preenchida). Enviar mesmo assim?')) return;
+
   const { qtdCoresPorIdx, valorItemPorIdx, agora, percentual } = coletarDadosImpressaoRequisicao(p, d, valorTotalCliche);
   const linhasItens = d.itensOrcamento.map((it,idx)=>
     `- ${it.nome} | O.S.: ${it.os || '—'} | Código: ${it.codigo || '—'} | Qtd. cores: ${qtdCoresPorIdx[idx] || '—'} | Valor total: ${valorItemPorIdx[idx] || '—'}`
@@ -4334,6 +4336,21 @@ function enviarRequisicaoClichePorEmail(p, d, valorTotalCliche){
   ].join('\n');
   const assunto = `Requisição de liberação de clichê — Pedido ${p.pedido}`;
   window.location.href = `mailto:?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+
+  // registra o custo no pedido e avança a etapa de "Aguardando aprovação
+  // custo clichê" pra "Solicitação de clichê" — é isso que tira o pedido
+  // da listagem de pendentes desta tela
+  p.valorClicheTotal = valorTotalCliche;
+  p.valorClichePedido = valorTotalCliche;
+  p.clicheRegistradoEm = new Date().toISOString();
+  if(p.stage === STAGE_APROVACAO_CLICHE){
+    registrarMudancaEtapa(p, STAGE_APROVACAO_CLICHE + 1);
+    p.stage = STAGE_APROVACAO_CLICHE + 1;
+  }
+  await saveState();
+  requisicaoClicheSelecionadoId = null;
+  document.getElementById('requisicao-cliche-form-wrap').innerHTML = '';
+  renderAll();
 }
 
 function requisicaoDocumentoHTMLInline(p, d, valorTotalCliche, dados){
