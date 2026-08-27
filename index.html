@@ -4112,8 +4112,6 @@ function buscarChapaParaItem(cod, nome){
 }
 
 function dadosRequisicaoDoPedido(p){
-  const nomeFantasia = p.itens.map(it=>it.nome).filter(Boolean).join(' / ');
-  const osJunto = p.itens.map(it=>it.os).filter(Boolean).join(', ');
   const itensOrcamento = p.itens.map(it=>{
     const cod = fmtCodigo(it.codigo);
     const info = clicheItensInfo[cod];
@@ -4121,13 +4119,14 @@ function dadosRequisicaoDoPedido(p){
     return {
       codigo: cod,
       nome: it.nome,
+      os: it.os || '',
       qtdCoresInicial: (info && info.qtdCores!=null) ? info.qtdCores : '',
       diametro: chapaRow ? chapaRow[1] : null,
       modeloChapa: chapaRow ? chapaRow[0] : null,
       valorChapa: chapaRow ? parseValorBRL(chapaRow[10]) : null,
     };
   });
-  return { nomeFantasia, osJunto, itensOrcamento };
+  return { itensOrcamento };
 }
 
 function renderRequisicaoClicheForm(){
@@ -4182,12 +4181,12 @@ function renderRequisicaoClicheForm(){
       </div>
 
       <hr class="divider" style="margin:14px 0 12px;">
-      <div class="modal-row" style="margin-bottom:10px;"><span class="k">O.S.</span><span class="v">${d.osJunto || '—'}</span></div>
       <table class="items" id="requisicao-itens-table" style="margin-bottom:14px;">
-        <thead><tr><th>Código clicheria</th><th>Item</th><th>Valor da chapa</th><th>Qtd. cores</th><th>Valor total</th></tr></thead>
+        <thead><tr><th>O.S.</th><th>Código clicheria</th><th>Item</th><th>Valor da chapa</th><th>Qtd. cores</th><th>Valor total</th></tr></thead>
         <tbody>
           ${d.itensOrcamento.map((it,idx)=>`
             <tr>
+              <td class="code">${it.os || '—'}</td>
               <td class="code">${it.codigo || '—'}</td>
               <td>${it.nome}</td>
               <td>${it.valorChapa!=null ? `${fmtBRL(it.valorChapa)} <span style="color:var(--text-faint); font-size:10.5px;">(Ø${it.diametro} · ${it.modeloChapa})</span>` : `<span style="color:var(--text-faint);">não encontrado em Valores por chapa</span>`}</td>
@@ -4240,11 +4239,10 @@ function imprimirRequisicaoCliche(p, d, valorTotalCliche){
         <tr><td>Valor do pedido:</td><td colspan="3">${fmtBRL(p.valorTotal)}</td></tr>
         <tr><td>% Clichê em relação ao pedido:</td><td colspan="3">${percentual}</td></tr>
       </table>
-      <p style="margin:0 0 10px; font-weight:700;">O.S.: <span style="font-weight:400;">${d.osJunto || '—'}</span></p>
       <table>
-        <thead><tr><th>Item</th><th>Código</th><th>Qtd. cores</th><th>Valor total</th></tr></thead>
+        <thead><tr><th>O.S.</th><th>Item</th><th>Código</th><th>Qtd. cores</th><th>Valor total</th></tr></thead>
         <tbody>
-          ${d.itensOrcamento.map((it,idx)=>`<tr><td>${it.nome}</td><td>${it.codigo || '—'}</td><td>${qtdCoresPorIdx[idx] || '—'}</td><td>${valorItemPorIdx[idx] || '—'}</td></tr>`).join('')}
+          ${d.itensOrcamento.map((it,idx)=>`<tr><td>${it.os || '—'}</td><td>${it.nome}</td><td>${it.codigo || '—'}</td><td>${qtdCoresPorIdx[idx] || '—'}</td><td>${valorItemPorIdx[idx] || '—'}</td></tr>`).join('')}
         </tbody>
       </table>
       <table class="requisicao-campos" style="margin-top:10px;">
@@ -4265,7 +4263,7 @@ function imprimirRequisicaoCliche(p, d, valorTotalCliche){
 function enviarRequisicaoClichePorEmail(p, d, valorTotalCliche){
   const { qtdCoresPorIdx, valorItemPorIdx, agora, percentual } = coletarDadosImpressaoRequisicao(p, d, valorTotalCliche);
   const linhasItens = d.itensOrcamento.map((it,idx)=>
-    `- ${it.nome} | Código: ${it.codigo || '—'} | Qtd. cores: ${qtdCoresPorIdx[idx] || '—'} | Valor total: ${valorItemPorIdx[idx] || '—'}`
+    `- ${it.nome} | O.S.: ${it.os || '—'} | Código: ${it.codigo || '—'} | Qtd. cores: ${qtdCoresPorIdx[idx] || '—'} | Valor total: ${valorItemPorIdx[idx] || '—'}`
   ).join('\n');
   const corpo = [
     `Requisição de liberação de clichês — Pedido ${p.pedido}`,
@@ -4275,7 +4273,6 @@ function enviarRequisicaoClichePorEmail(p, d, valorTotalCliche){
     `Representante: ${p.vendedor || '—'}`,
     `Valor do pedido: ${fmtBRL(p.valorTotal)}`,
     `% Clichê em relação ao pedido: ${percentual}`,
-    `O.S.: ${d.osJunto || '—'}`,
     '',
     'Itens:',
     linhasItens,
@@ -4300,11 +4297,10 @@ function requisicaoDocumentoHTMLInline(p, d, valorTotalCliche, dados){
         <tr><td style="padding:3px 8px 3px 0; color:#666; font-weight:700; white-space:nowrap; font-size:12.5px;">Valor do pedido:</td><td colspan="3" style="padding:3px 0; font-size:12.5px;">${fmtBRL(p.valorTotal)}</td></tr>
         <tr><td style="padding:3px 8px 3px 0; color:#666; font-weight:700; white-space:nowrap; font-size:12.5px;">% Clichê em relação ao pedido:</td><td colspan="3" style="padding:3px 0; font-size:12.5px;">${percentual}</td></tr>
       </table>
-      <p style="margin:0 0 12px; font-size:12.5px; color:#222;"><span style="color:#666; font-weight:700;">O.S.:</span> ${d.osJunto || '—'}</p>
       <table style="width:100%; border-collapse:collapse; margin-bottom:18px;">
-        <thead><tr><th style="${th}">Item</th><th style="${th}">Código</th><th style="${th}">Qtd. cores</th><th style="${th}">Valor total</th></tr></thead>
+        <thead><tr><th style="${th}">O.S.</th><th style="${th}">Item</th><th style="${th}">Código</th><th style="${th}">Qtd. cores</th><th style="${th}">Valor total</th></tr></thead>
         <tbody>
-          ${d.itensOrcamento.map((it,idx)=>`<tr><td style="${td}">${it.nome}</td><td style="${td}">${it.codigo || '—'}</td><td style="${td}">${qtdCoresPorIdx[idx] || '—'}</td><td style="${td}">${valorItemPorIdx[idx] || '—'}</td></tr>`).join('')}
+          ${d.itensOrcamento.map((it,idx)=>`<tr><td style="${td}">${it.os || '—'}</td><td style="${td}">${it.nome}</td><td style="${td}">${it.codigo || '—'}</td><td style="${td}">${qtdCoresPorIdx[idx] || '—'}</td><td style="${td}">${valorItemPorIdx[idx] || '—'}</td></tr>`).join('')}
         </tbody>
       </table>
       <div style="display:flex; align-items:center; gap:10px; background:#f7f3ea; border:1.5px solid #b8935a; border-radius:10px; padding:12px 18px; width:fit-content; margin-bottom:18px;">
