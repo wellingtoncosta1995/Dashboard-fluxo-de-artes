@@ -9,6 +9,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root{
     /* ===== paleta oficial Rioplastic (extraída da logo/site) =====
@@ -4167,6 +4168,7 @@ function renderRequisicaoClicheForm(){
           <div style="font-size:12.5px; color:var(--text-dim); margin-top:2px;">${p.clienteNome}</div>
         </div>
         <div style="display:flex; gap:8px; flex-shrink:0;">
+          <button id="requisicao-cliche-imagem-btn" class="btn small ghost" style="display:inline-flex; align-items:center; gap:6px;">&#128247; Baixar imagem</button>
           <button id="requisicao-cliche-email-btn" class="btn small ghost" style="display:inline-flex; align-items:center; gap:6px;">&#128231; Enviar por e-mail</button>
           <button id="requisicao-cliche-imprimir-btn" class="btn gold" style="display:inline-flex; align-items:center; gap:6px;">&#128424; Imprimir requisição</button>
         </div>
@@ -4206,6 +4208,7 @@ function renderRequisicaoClicheForm(){
   atualizarTotal();
   document.getElementById('requisicao-cliche-imprimir-btn').addEventListener('click', ()=> imprimirRequisicaoCliche(p, d, calcularTotal()));
   document.getElementById('requisicao-cliche-email-btn').addEventListener('click', ()=> enviarRequisicaoClichePorEmail(p, d, calcularTotal()));
+  document.getElementById('requisicao-cliche-imagem-btn').addEventListener('click', (e)=> baixarImagemRequisicao(p, d, calcularTotal(), e.currentTarget));
 }
 
 function coletarDadosImpressaoRequisicao(p, d, valorTotalCliche){
@@ -4281,6 +4284,67 @@ function enviarRequisicaoClichePorEmail(p, d, valorTotalCliche){
   ].join('\n');
   const assunto = `Requisição de liberação de clichê — Pedido ${p.pedido}`;
   window.location.href = `mailto:?subject=${encodeURIComponent(assunto)}&body=${encodeURIComponent(corpo)}`;
+}
+
+function requisicaoDocumentoHTMLInline(p, d, valorTotalCliche, dados){
+  const { qtdCoresPorIdx, valorItemPorIdx, agora, percentual } = dados;
+  const th = 'padding:8px 10px; text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.3px; color:#777; border-bottom:2px solid #333;';
+  const td = 'padding:8px 10px; border-bottom:1px solid #e2e2e2; font-size:12.5px; color:#222;';
+  return `
+    <div style="width:680px; background:#ffffff; padding:28px 32px; font-family:'Plus Jakarta Sans',Arial,sans-serif; color:#222; box-sizing:border-box;">
+      <h1 style="font-family:'Parkinsans',Arial,sans-serif; font-size:20px; margin:0 0 18px; color:#111;">Requisição de liberação de clichês</h1>
+      <table style="width:100%; border-collapse:collapse; margin-bottom:18px;">
+        <tr><td style="padding:3px 8px 3px 0; color:#666; font-weight:700; white-space:nowrap; font-size:12.5px;">Nome fantasia:</td><td style="padding:3px 0; font-size:12.5px;">${d.nomeFantasia || '—'}</td><td style="padding:3px 8px 3px 18px; color:#666; font-weight:700; white-space:nowrap; font-size:12.5px;">O.S.:</td><td style="padding:3px 0; font-size:12.5px;">${d.osJunto || '—'}</td></tr>
+        <tr><td style="padding:3px 8px 3px 0; color:#666; font-weight:700; white-space:nowrap; font-size:12.5px;">Data:</td><td style="padding:3px 0; font-size:12.5px;">${agora}</td><td style="padding:3px 8px 3px 18px; color:#666; font-weight:700; white-space:nowrap; font-size:12.5px;">Pedido:</td><td style="padding:3px 0; font-size:12.5px;">${p.pedido}</td></tr>
+        <tr><td style="padding:3px 8px 3px 0; color:#666; font-weight:700; white-space:nowrap; font-size:12.5px;">Representante:</td><td colspan="3" style="padding:3px 0; font-size:12.5px;">${p.vendedor || '—'}</td></tr>
+        <tr><td style="padding:3px 8px 3px 0; color:#666; font-weight:700; white-space:nowrap; font-size:12.5px;">Valor do pedido:</td><td colspan="3" style="padding:3px 0; font-size:12.5px;">${fmtBRL(p.valorTotal)}</td></tr>
+        <tr><td style="padding:3px 8px 3px 0; color:#666; font-weight:700; white-space:nowrap; font-size:12.5px;">% Clichê em relação ao pedido:</td><td colspan="3" style="padding:3px 0; font-size:12.5px;">${percentual}</td></tr>
+      </table>
+      <table style="width:100%; border-collapse:collapse; margin-bottom:18px;">
+        <thead><tr><th style="${th}">Item</th><th style="${th}">Código</th><th style="${th}">Qtd. cores</th><th style="${th}">Valor total</th></tr></thead>
+        <tbody>
+          ${d.itensOrcamento.map((it,idx)=>`<tr><td style="${td}">${it.nome}</td><td style="${td}">${it.codigo || '—'}</td><td style="${td}">${qtdCoresPorIdx[idx] || '—'}</td><td style="${td}">${valorItemPorIdx[idx] || '—'}</td></tr>`).join('')}
+        </tbody>
+      </table>
+      <div style="display:flex; align-items:center; gap:10px; background:#f7f3ea; border:1.5px solid #b8935a; border-radius:10px; padding:12px 18px; width:fit-content; margin-bottom:18px;">
+        <span style="font-size:11px; color:#666; font-weight:700; text-transform:uppercase; letter-spacing:.4px;">Valor total do clichê</span>
+        <span style="font-family:'IBM Plex Mono',monospace; font-size:22px; font-weight:800; color:#8c6a2e;">${fmtBRL(valorTotalCliche)}</span>
+      </div>
+      <p style="font-size:12px; color:#666; margin:0;">Autorizado por: _______________________________</p>
+    </div>
+  `;
+}
+
+async function baixarImagemRequisicao(p, d, valorTotalCliche, btn){
+  if(typeof html2canvas==='undefined'){
+    alert('Não foi possível carregar o gerador de imagem (sem conexão com a internet?). Tente novamente ou use "Imprimir requisição" e salve como PDF.');
+    return;
+  }
+  const textoOriginal = btn.textContent;
+  btn.textContent = 'Gerando imagem...';
+  btn.disabled = true;
+  const dados = coletarDadosImpressaoRequisicao(p, d, valorTotalCliche);
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed; top:0; left:-99999px;';
+  container.innerHTML = requisicaoDocumentoHTMLInline(p, d, valorTotalCliche, dados);
+  document.body.appendChild(container);
+  try{
+    const canvas = await html2canvas(container.firstElementChild, { backgroundColor:'#ffffff', scale:2 });
+    const dataUrl = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.href = dataUrl;
+    link.download = `requisicao-cliche-${p.pedido}.png`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  }catch(e){
+    console.error('Falha ao gerar imagem da requisição', e);
+    alert('Não foi possível gerar a imagem. Tente novamente.');
+  }finally{
+    document.body.removeChild(container);
+    btn.textContent = textoOriginal;
+    btn.disabled = false;
+  }
 }
 
 /* ========================================================================
