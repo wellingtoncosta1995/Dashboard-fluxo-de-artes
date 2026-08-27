@@ -441,6 +441,12 @@
     #print-area td{padding:6px 8px; border-bottom:1px solid #ddd;}
     #print-area h2{font-family:'Parkinsans',sans-serif; font-size:13px; margin:18px 0 8px; padding-left:8px; border-left:3px solid #333;}
     #print-area h2:first-of-type{margin-top:10px;}
+    #print-area .requisicao-via{margin-bottom:22px; padding-bottom:18px; border-bottom:2px dashed #999;}
+    #print-area .requisicao-via:last-child{border-bottom:none; margin-bottom:0; padding-bottom:0;}
+    #print-area .requisicao-via-titulo{font-size:10px; font-weight:800; letter-spacing:.5px; color:#777; margin-bottom:2px;}
+    #print-area table.requisicao-campos{margin-bottom:12px;}
+    #print-area table.requisicao-campos td{border-bottom:none; padding:3px 8px;}
+    #print-area table.requisicao-campos td:nth-child(odd){color:#555; font-weight:700; white-space:nowrap; width:1%;}
   }
   #print-area{display:none;}
 
@@ -516,6 +522,7 @@
         <button class="nav-item" data-view="custo-mensal" style="padding-left:34px; font-size:12.5px;"><span class="icon">&#128197;</span> Custo mensal</button>
         <button class="nav-item" data-view="custo-anual" style="padding-left:34px; font-size:12.5px;"><span class="icon">&#128202;</span> Custo anual</button>
         <button class="nav-item" data-view="valores-chapa" style="padding-left:34px; font-size:12.5px;"><span class="icon">&#128203;</span> Valores por chapa</button>
+        <button class="nav-item" data-view="requisicao-cliche" style="padding-left:34px; font-size:12.5px;"><span class="icon">&#128196;</span> Requisição de clichê</button>
       </div>
       <button class="nav-item" data-view="regravacao"><span class="icon">&#128260;</span> Regravação de clichê</button>
       <button class="nav-item" data-view="catalogo"><span class="icon">&#128218;</span> Catálogo de itens</button>
@@ -729,6 +736,18 @@
           <tbody></tbody>
         </table>
       </div>
+    </div>
+
+    <div id="view-requisicao-cliche" style="display:none;">
+      <div class="topics-card">
+        <p class="topics-intro"><span class="mono-label">REQUISIÇÃO DE CLICHÊ</span> <span class="link-text">gere e imprima a requisição de liberação de clichê de um pedido</span></p>
+        <div class="search-box" style="max-width:340px;">
+          <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
+          <input type="text" id="requisicao-cliche-search-input" placeholder="Buscar pedido ou cliente...">
+        </div>
+        <div id="requisicao-cliche-resultados" style="margin-top:10px;"></div>
+      </div>
+      <div id="requisicao-cliche-form-wrap" style="margin-top:12px;"></div>
     </div>
 
     <div id="view-regravacao" style="display:none;">
@@ -4024,6 +4043,157 @@ document.getElementById('valores-chapa-save-btn').addEventListener('click', asyn
 });
 
 /* ========================================================================
+   REQUISIÇÃO DE CLICHÊ — recria o formulário de liberação de clichê da
+   planilha (busca um pedido, gera os campos e imprime em 1ª/2ª via)
+   ======================================================================== */
+let requisicaoClicheSearchTerm = '';
+let requisicaoClicheSelecionadoId = null;
+
+function renderRequisicaoClicheResultados(){
+  const wrap = document.getElementById('requisicao-cliche-resultados');
+  const termo = requisicaoClicheSearchTerm.trim();
+  if(!termo){
+    wrap.innerHTML = '';
+    return;
+  }
+  const encontrados = [...pedidos, ...historico].filter(p=>matchesSearch(p, termo)).slice(0, 12);
+  wrap.innerHTML = encontrados.length ? `
+    <div style="display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto;">
+      ${encontrados.map(p=>`
+        <button class="requisicao-cliche-resultado-btn" data-id="${p.id}" style="text-align:left; background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:8px; padding:9px 12px; cursor:pointer; font-size:12.5px; color:var(--text);">
+          <b style="font-family:'IBM Plex Mono',monospace; color:var(--gold-dark);">${p.pedido}</b> · ${p.clienteNome}
+        </button>
+      `).join('')}
+    </div>
+  ` : `<div class="empty-alt">Nenhum pedido encontrado.</div>`;
+  wrap.querySelectorAll('.requisicao-cliche-resultado-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      requisicaoClicheSelecionadoId = btn.dataset.id;
+      renderRequisicaoClicheForm();
+    });
+  });
+}
+document.getElementById('requisicao-cliche-search-input').addEventListener('input', (e)=>{
+  requisicaoClicheSearchTerm = e.target.value;
+  renderRequisicaoClicheResultados();
+});
+
+function dadosRequisicaoDoPedido(p){
+  const nomeFantasia = p.itens.map(it=>it.nome).filter(Boolean).join(' / ');
+  const osJunto = p.itens.map(it=>it.os).filter(Boolean).join(', ');
+  const valorClicheTotal = p.valorClicheTotal!=null ? p.valorClicheTotal : (p.valorClichePedido!=null ? p.valorClichePedido : null);
+  const percentual = (valorClicheTotal!=null && p.valorTotal) ? (valorClicheTotal / p.valorTotal * 100) : null;
+  const itensOrcamento = p.itens.map(it=>{
+    const cod = fmtCodigo(it.codigo);
+    const info = clicheItensInfo[cod];
+    return { codigo: cod, nome: it.nome, qtdCores: (info && info.qtdCores!=null) ? info.qtdCores : '' };
+  });
+  return { nomeFantasia, osJunto, valorClicheTotal, percentual, itensOrcamento };
+}
+
+function renderRequisicaoClicheForm(){
+  const wrap = document.getElementById('requisicao-cliche-form-wrap');
+  const p = pedidos.find(x=>x.id===requisicaoClicheSelecionadoId) || historico.find(x=>x.id===requisicaoClicheSelecionadoId);
+  if(!p){ wrap.innerHTML = ''; return; }
+  const d = dadosRequisicaoDoPedido(p);
+  wrap.innerHTML = `
+    <hr class="divider" style="margin:0 0 14px;">
+    <div class="topics-card">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap; margin-bottom:14px;">
+        <div>
+          <div class="k" style="font-size:11px;">Pedido selecionado</div>
+          <div style="font-size:16px; font-weight:800; font-family:'IBM Plex Mono',monospace; color:var(--gold-dark);">${p.pedido}</div>
+          <div style="font-size:12.5px; color:var(--text-dim); margin-top:2px;">${p.clienteNome}</div>
+        </div>
+        <button id="requisicao-cliche-imprimir-btn" class="btn gold" style="display:inline-flex; align-items:center; gap:6px;">&#128424; Imprimir requisição</button>
+      </div>
+
+      <div class="pedido-info-grid">
+        <div class="modal-row"><span class="k">Nome fantasia (itens)</span><span class="v" style="text-align:right; max-width:60%;">${d.nomeFantasia || '—'}</span></div>
+        <div class="modal-row"><span class="k">O.S.</span><span class="v">${d.osJunto || '—'}</span></div>
+        <div class="modal-row"><span class="k">Representante</span><span class="v">${p.vendedor || '—'}</span></div>
+        <div class="modal-row"><span class="k">Valor do pedido</span><span class="v">${fmtBRL(p.valorTotal)}</span></div>
+        <div class="modal-row"><span class="k">Valor do clichê</span><span class="v">${d.valorClicheTotal!=null ? fmtBRL(d.valorClicheTotal) : '—'}</span></div>
+        <div class="modal-row"><span class="k">% Clichê em relação ao pedido</span><span class="v">${d.percentual!=null ? d.percentual.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2})+'%' : '—'}</span></div>
+      </div>
+
+      <hr class="divider" style="margin:14px 0;">
+      <div class="k" style="font-size:12.5px; margin-bottom:8px;">Itens (orçamento)</div>
+      <table class="items" style="margin-bottom:14px;">
+        <thead><tr><th>Código clicheria</th><th>Item</th><th>Qtd. cores</th><th>Qtd. artes</th></tr></thead>
+        <tbody>
+          ${d.itensOrcamento.map((it,idx)=>`
+            <tr>
+              <td class="code">${it.codigo || '—'}</td>
+              <td>${it.nome}</td>
+              <td>${it.qtdCores!==''? it.qtdCores : '—'}</td>
+              <td><input type="text" class="req-qtd-artes-input" data-idx="${idx}" placeholder="—" style="width:60px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:6px; padding:4px 6px; font-size:12px; font-family:'IBM Plex Mono',monospace;"></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+
+      <div style="display:flex; gap:16px; flex-wrap:wrap;">
+        <div>
+          <div class="k" style="font-size:11px; margin-bottom:5px;">Situação</div>
+          <input type="text" id="req-situacao-input" value="${p.tag || ''}" placeholder="Ex: alteração de artes" style="width:220px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:8px; padding:7px 10px; font-size:12.5px;">
+        </div>
+        <div>
+          <div class="k" style="font-size:11px; margin-bottom:5px;">Quant. de impressão</div>
+          <input type="text" id="req-qtdimpressao-input" placeholder="—" style="width:140px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:8px; padding:7px 10px; font-size:12.5px; font-family:'IBM Plex Mono',monospace;">
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('requisicao-cliche-imprimir-btn').addEventListener('click', ()=> imprimirRequisicaoCliche(p, d));
+}
+
+function imprimirRequisicaoCliche(p, d){
+  const situacao = document.getElementById('req-situacao-input').value.trim() || '—';
+  const qtdImpressao = document.getElementById('req-qtdimpressao-input').value.trim() || '—';
+  const qtdArtesPorIdx = {};
+  document.querySelectorAll('.req-qtd-artes-input').forEach(inp=>{
+    qtdArtesPorIdx[inp.dataset.idx] = inp.value.trim() || '—';
+  });
+  const agora = fmtDateTime(new Date().toISOString());
+
+  function viaHTML(via){
+    return `
+      <div class="requisicao-via">
+        <div class="requisicao-via-titulo">${via}ª VIA</div>
+        <h1>Requisição de liberação de clichês</h1>
+        <table class="requisicao-campos">
+          <tr><td>Nome fantasia:</td><td>${d.nomeFantasia || '—'}</td><td>O.S.:</td><td>${d.osJunto || '—'}</td></tr>
+          <tr><td>Data:</td><td>${agora}</td><td>Pedido:</td><td>${p.pedido}</td></tr>
+          <tr><td>Representante:</td><td colspan="3">${p.vendedor || '—'}</td></tr>
+          <tr><td>Valor do pedido:</td><td colspan="3">${fmtBRL(p.valorTotal)}</td></tr>
+          <tr><td>% Clichê em relação ao pedido:</td><td colspan="3">${d.percentual!=null ? d.percentual.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2})+'%' : '—'}</td></tr>
+        </table>
+        <table>
+          <thead><tr><th>Item</th><th>Código</th><th>Qtd. cores</th><th>Qtd. artes</th></tr></thead>
+          <tbody>
+            ${d.itensOrcamento.map((it,idx)=>`<tr><td>${it.nome}</td><td>${it.codigo || '—'}</td><td>${it.qtdCores!==''?it.qtdCores:'—'}</td><td>${qtdArtesPorIdx[idx] || '—'}</td></tr>`).join('')}
+          </tbody>
+        </table>
+        <table class="requisicao-campos" style="margin-top:10px;">
+          <tr><td>Situação:</td><td colspan="3">${situacao}</td></tr>
+          <tr><td>Quant. de impressão:</td><td colspan="3">${qtdImpressao}</td></tr>
+          <tr><td>Valor do clichê:</td><td colspan="3">${d.valorClicheTotal!=null ? fmtBRL(d.valorClicheTotal) : '—'}</td></tr>
+          <tr><td>Autorizado por:</td><td colspan="3">_______________________________</td></tr>
+        </table>
+      </div>
+    `;
+  }
+
+  const printArea = document.getElementById('print-area');
+  printArea.innerHTML = viaHTML(1) + viaHTML(2);
+  document.body.classList.add('printing');
+  const limpar = ()=>{ document.body.classList.remove('printing'); window.removeEventListener('afterprint', limpar); };
+  window.addEventListener('afterprint', limpar);
+  window.print();
+}
+
+/* ========================================================================
    REGRAVAÇÃO DE CLICHÊ — registros manuais
    ======================================================================== */
 function fmtDataISO(iso){
@@ -4536,6 +4706,7 @@ const VIEW_TITULOS = {
   'custo-mensal': "Custo mensal",
   'custo-anual': "Custo anual",
   'valores-chapa': "Valores por chapa",
+  'requisicao-cliche': "Requisição de clichê",
   regravacao: "Regravação de clichê",
   catalogo: "Catálogo de itens",
   codigos: "Tabela de Códigos",
@@ -4546,7 +4717,7 @@ const VIEW_TITULOS = {
 };
 function switchView(view){
   currentView = view;
-  if(view!=='cliche' && view!=='custo-mensal' && view!=='custo-anual' && view!=='valores-chapa') clicheSubmenuOpen = false;
+  if(view!=='cliche' && view!=='custo-mensal' && view!=='custo-anual' && view!=='valores-chapa' && view!=='requisicao-cliche') clicheSubmenuOpen = false;
   if(view!=='analise-entrega' && view!=='analise-entrega-historico') analiseEntregaSubmenuOpen = false;
   document.getElementById('view-home').style.display = view==='home' ? 'block' : 'none';
   document.getElementById('view-board').style.display = view==='board' ? 'block' : 'none';
@@ -4554,6 +4725,7 @@ function switchView(view){
   document.getElementById('view-custo-mensal').style.display = view==='custo-mensal' ? 'block' : 'none';
   document.getElementById('view-custo-anual').style.display = view==='custo-anual' ? 'block' : 'none';
   document.getElementById('view-valores-chapa').style.display = view==='valores-chapa' ? 'block' : 'none';
+  document.getElementById('view-requisicao-cliche').style.display = view==='requisicao-cliche' ? 'block' : 'none';
   document.getElementById('cliche-submenu').style.display = clicheSubmenuOpen ? 'block' : 'none';
   document.getElementById('history-submenu').style.display = (view==='history' && historySubmenuOpen) ? 'block' : 'none';
   document.getElementById('view-regravacao').style.display = view==='regravacao' ? 'block' : 'none';
@@ -4571,6 +4743,7 @@ function switchView(view){
   if(view==='cliche') renderClicheHistory();
   if(view==='custo-mensal' || view==='custo-anual') renderClicheHistoricoPeriodos();
   if(view==='valores-chapa') renderValoresChapaTable();
+  if(view==='requisicao-cliche') renderRequisicaoClicheResultados();
   if(view==='regravacao') renderRegravacao();
   if(view==='catalogo') renderCatalogo();
   if(view==='codigos') renderCodigosInternos();
