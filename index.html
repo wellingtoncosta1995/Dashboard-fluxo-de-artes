@@ -987,7 +987,7 @@
     </div>
 
     <div id="view-separacao-caixas" style="display:none;">
-      <p class="topics-intro">Envie os PDFs "Consumo de Componentes por Fila de Produção" (RPCP107) de cada máquina — pode selecionar vários de uma vez. O sistema soma o Pendente de cada componente (Em Produção + Em Fila), arredonda pra cima e já acrescenta +20 caixas por item.</p>
+      <p class="topics-intro">Envie os PDFs "Consumo de Componentes por Fila de Produção" (RPCP107) de cada máquina — pode selecionar vários de uma vez. O sistema soma o Pendente de cada componente (Em Produção + Em Fila) e já arredonda pra dezena cheia com folga (ex: 67 → 90, 70 → 80, 83 → 80, 86 → 90).</p>
       <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:16px;">
         <label class="btn gold" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
           &#8679; Selecionar PDFs
@@ -1012,7 +1012,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.45';
+const APP_VERSION = 'v8.46';
 const APP_VERSION_DATE = '28/08/2026';
 
 /* ========================================================================
@@ -6151,7 +6151,9 @@ document.getElementById('btn-notif').addEventListener('click', openNotificacoesM
    SEPARAÇÃO DE CAIXAS PARA PRODUÇÃO
    Lê os PDFs "Consumo de Componentes por Fila de Produção" (RPCP107),
    usa a seção "Resumo por Item" de cada Recurso (que já soma Em Produção +
-   Em Fila do mesmo componente), arredonda pra cima e soma +20 caixas.
+   Em Fila do mesmo componente) e arredonda pra dezena "de folga":
+   caixas inteiras já múltiplo de 10 -> soma +10; senão soma +20; depois
+   ajusta pra dezena mais próxima (resto 1-5 desce, resto 6-9 sobe).
    ======================================================================== */
 if(typeof pdfjsLib !== 'undefined'){
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -6228,6 +6230,17 @@ async function sepcxProcessarArquivos(fileList){
   document.getElementById('sepcx-limpar-btn').style.display = qtdMaquinas ? 'inline-flex' : 'none';
 }
 
+function sepcxArredondarCaixas(pendenteTotal){
+  // caixas inteiras necessárias (arredonda pra cima)
+  const base = Math.ceil(Math.round(pendenteTotal*1000)/1000);
+  // já é múltiplo de 10: soma só +10 (folga menor). Senão soma +20.
+  let soma = (base % 10 === 0) ? base + 10 : base + 20;
+  // ajusta pra dezena mais próxima: resto 1-5 desce, resto 6-9 sobe
+  const resto = soma % 10;
+  if(resto === 0) return soma;
+  return resto <= 5 ? soma - resto : soma + (10 - resto);
+}
+
 function renderSepcxResultado(){
   const wrap = document.getElementById('sepcx-resultado');
   const recursos = Object.keys(sepcxDados).sort((a,b)=>Number(a)-Number(b));
@@ -6236,7 +6249,7 @@ function renderSepcxResultado(){
     recurso,
     itens: Object.entries(sepcxDados[recurso]).map(([codigo, pendente])=>({
       codigo,
-      qtd: Math.ceil(Math.round(pendente*1000)/1000) + 20,
+      qtd: sepcxArredondarCaixas(pendente),
     })),
   }));
   wrap.innerHTML = `
