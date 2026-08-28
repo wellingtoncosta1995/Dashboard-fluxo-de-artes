@@ -1058,7 +1058,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.70';
+const APP_VERSION = 'v8.71';
 const APP_VERSION_DATE = '28/08/2026';
 
 /* ========================================================================
@@ -2433,15 +2433,14 @@ function openModal(id, opts={}){
     </div>
     ` : '')}
 
-    ${isActive && STAGES_FINALIZAVEIS.includes(p.stage) ? `<button class="finalize-mini" id="modal-finalize" style="margin-top:16px; width:100%; padding:9px 0;">&#10003; Finalizar e liberar para produção</button>` : ''}
-    ${isActive ? `<button id="modal-cancelar" style="margin-top:10px; width:100%; padding:9px 0; border-radius:9px; border:1px solid var(--red); background:var(--red-bg); color:var(--red); font-weight:700; font-size:13px; cursor:pointer;">&#10005; Cancelar pedido</button>` : ''}
-
     ${isActive && p.stage === STAGE_CONFERENCIA_LAYOUT ? `
-    <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
+    <div style="display:flex; flex-direction:column; gap:8px; margin-top:16px;">
       <button id="cl-repeticao" style="width:100%; padding:9px 0; border-radius:9px; border:1px solid var(--green); background:var(--green-bg); color:var(--green-dark); font-weight:700; font-size:13px; cursor:pointer;">&#10003; Layout confere — liberar para Arte Repetição</button>
       <button id="cl-alteracao" style="width:100%; padding:9px 0; border-radius:9px; border:1px solid var(--red); background:var(--red-bg); color:var(--red); font-weight:700; font-size:13px; cursor:pointer;">&#9998; Precisa de alteração — enviar para "Alteração de arte"</button>
     </div>
     ` : ''}
+    ${isActive && STAGES_FINALIZAVEIS.includes(p.stage) ? `<button class="finalize-mini" id="modal-finalize" style="margin-top:16px; width:100%; padding:9px 0;">&#10003; Finalizar e liberar para produção</button>` : ''}
+    ${isActive ? `<button id="modal-cancelar" style="margin-top:10px; width:100%; padding:9px 0; border-radius:9px; border:1px solid var(--red); background:var(--red-bg); color:var(--red); font-weight:700; font-size:13px; cursor:pointer;">&#10005; Cancelar pedido</button>` : ''}
     `}
   `;
 
