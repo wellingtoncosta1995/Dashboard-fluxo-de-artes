@@ -460,11 +460,13 @@
     #print-area table.requisicao-campos{margin-bottom:12px;}
     #print-area table.requisicao-campos td{border-bottom:none; padding:3px 8px;}
     #print-area table.requisicao-campos td:nth-child(odd){color:#555; font-weight:700; white-space:nowrap; width:1%;}
-    #print-area .sepcx-print-cols{column-count:2; column-gap:26px;}
-    #print-area .sepcx-print-bloco{break-inside:avoid; -webkit-column-break-inside:avoid; margin-bottom:16px;}
+    #print-area .sepcx-print-grid{display:grid; grid-template-columns:1fr 1fr; gap:0 30px; align-items:start;}
+    #print-area .sepcx-print-bloco{break-inside:avoid; margin-bottom:16px;}
     #print-area .sepcx-print-bloco h2{font-size:15px; margin:0 0 5px; padding-left:0; border-left:none; border-bottom:2px solid #333; padding-bottom:2px;}
-    #print-area .sepcx-print-linha{display:flex; justify-content:space-between; gap:10px; font-size:12px; padding:2px 0; border-bottom:1px dotted #ccc;}
-    #print-area .sepcx-print-linha b{font-family:'IBM Plex Mono',monospace; font-weight:700;}
+    #print-area .sepcx-print-linha{display:flex; align-items:center; gap:5px; font-size:12.5px; padding:4px 0;}
+    #print-area .sepcx-print-seta{color:#777;}
+    #print-area .sepcx-print-qtd{font-family:'IBM Plex Mono',monospace; font-weight:700; white-space:nowrap;}
+    #print-area .sepcx-print-marcar{flex:1; border-bottom:1px solid #999; margin-left:10px;}
   }
   #print-area{display:none;}
 
@@ -1026,7 +1028,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.50';
+const APP_VERSION = 'v8.51';
 const APP_VERSION_DATE = '28/08/2026';
 
 /* ========================================================================
@@ -6348,20 +6350,45 @@ function sepcxCopiarLista(){
   });
 }
 
+const SEPCX_COL_ESQUERDA = ['710', '708', '705', '702', '703'];
+const SEPCX_COL_DIREITA = ['704', '706', '707', '709'];
+
+function sepcxOrdemColunas(recursosDisponiveis){
+  const esquerda = SEPCX_COL_ESQUERDA.filter(r=>recursosDisponiveis.includes(r));
+  const direita = SEPCX_COL_DIREITA.filter(r=>recursosDisponiveis.includes(r));
+  const conhecidos = new Set([...SEPCX_COL_ESQUERDA, ...SEPCX_COL_DIREITA]);
+  recursosDisponiveis.filter(r=>!conhecidos.has(r)).sort((a,b)=>Number(a)-Number(b)).forEach(r=>{
+    (esquerda.length <= direita.length ? esquerda : direita).push(r);
+  });
+  return [esquerda, direita];
+}
+
+function sepcxBlocoImpressaoHTML(recurso){
+  return `
+    <div class="sepcx-print-bloco">
+      <h2>${recurso}</h2>
+      ${sepcxDados[recurso].map(it=>`
+        <div class="sepcx-print-linha">
+          <span>${it.codigo}</span>
+          <span class="sepcx-print-seta">&#8594;</span>
+          <b class="sepcx-print-qtd">${it.qtd} cx</b>
+          <span class="sepcx-print-marcar"></span>
+        </div>
+      `).join('')}
+    </div>`;
+}
+
 function sepcxImprimirLista(){
   // layout compacto em 2 colunas (igual à folha de papel usada na movimentação), pra caber numa folha só
   const recursos = sepcxRecursosOrdenados();
+  const [esquerda, direita] = sepcxOrdemColunas(recursos);
   const printArea = document.getElementById('print-area');
   printArea.innerHTML = `
     <h1>Separação de caixas para produção</h1>
     <p>${new Date().toLocaleDateString('pt-BR')}</p>
-    <div class="sepcx-print-cols">
-      ${recursos.map(recurso=>`
-        <div class="sepcx-print-bloco">
-          <h2>${recurso}</h2>
-          ${sepcxDados[recurso].map(it=>`<div class="sepcx-print-linha"><span>${it.codigo}</span><b>${it.qtd} cx</b></div>`).join('')}
-        </div>
-      `).join('')}
+    <div class="sepcx-print-grid">
+      <div>${esquerda.map(sepcxBlocoImpressaoHTML).join('')}</div>
+      <div>${direita.map(sepcxBlocoImpressaoHTML).join('')}</div>
     </div>
   `;
   document.body.classList.add('printing');
