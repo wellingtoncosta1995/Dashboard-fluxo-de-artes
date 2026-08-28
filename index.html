@@ -129,6 +129,23 @@
     border-radius:8px; min-width:16px; height:16px; display:flex; align-items:center; justify-content:center; padding:0 3px;
   }
 
+  /* ===== MODO SOMENTE LEITURA: congela tudo que altera dado, deixa navegação/busca livre ===== */
+  #app-shell.somente-leitura input:not(.busca-livre),
+  #app-shell.somente-leitura select,
+  #app-shell.somente-leitura textarea{
+    pointer-events:none !important; opacity:.5; cursor:not-allowed;
+  }
+  #app-shell.somente-leitura [class*="btn"],
+  #app-shell.somente-leitura .lp-cobrar,
+  #app-shell.somente-leitura .lp-finalize,
+  #app-shell.somente-leitura .diametro-limpar,
+  #app-shell.somente-leitura .codigos-add-item,
+  #app-shell.somente-leitura #menu-item-importar,
+  #app-shell.somente-leitura #menu-item-validar-repeticao,
+  #app-shell.somente-leitura #menu-item-historico-externo{
+    pointer-events:none !important; opacity:.45; filter:grayscale(60%); cursor:not-allowed;
+  }
+
   /* ===== TOPICS CARD ===== */
   .topics-card{background:var(--panel); border:1px solid var(--border-soft); border-radius:var(--radius); padding:20px; margin-bottom:18px;}
   .topics-intro{font-size:13.5px; line-height:1.5; margin:0 0 16px; padding-bottom:16px; border-bottom:1px solid var(--border-soft);}
@@ -665,7 +682,7 @@
           <button class="btn-outline" id="btn-multiselect">&#9745; SELECIONAR VÁRIOS</button>
           <div class="search-box">
             <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
-            <input type="text" id="search-input" placeholder="Buscar pedido, cliente ou item...">
+            <input type="text" id="search-input" class="busca-livre" placeholder="Buscar pedido, cliente ou item...">
           </div>
         </div>
 
@@ -775,7 +792,7 @@
           <p style="margin:0; font-size:11.5px; color:var(--text-faint); max-width:420px;">O valor do clichê é multiplicado pelas dimensões da chapa (altura × largura) para chegar ao valor unitário de cada item.</p>
           <div class="search-box" style="max-width:320px;">
             <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
-            <input type="text" id="valores-chapa-search-input" placeholder="Buscar por modelo ou código...">
+            <input type="text" id="valores-chapa-search-input" class="busca-livre" placeholder="Buscar por modelo ou código...">
           </div>
         </div>
       </div>
@@ -804,7 +821,7 @@
         <hr class="divider" style="margin:14px 0;">
         <div class="search-box" style="max-width:340px;">
           <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
-          <input type="text" id="requisicao-cliche-search-input" placeholder="Buscar pedido ou cliente...">
+          <input type="text" id="requisicao-cliche-search-input" class="busca-livre" placeholder="Buscar pedido ou cliente...">
         </div>
         <div id="requisicao-cliche-resultados" style="margin-top:10px;"></div>
       </div>
@@ -874,7 +891,7 @@
           </div>
           <div class="search-box" style="max-width:320px;">
             <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
-            <input type="text" id="catalogo-search-input" placeholder="Buscar por código ou nome...">
+            <input type="text" id="catalogo-search-input" class="busca-livre" placeholder="Buscar por código ou nome...">
           </div>
           <button class="btn-outline" id="catalogo-toggle-nao-identificados" style="height:38px;">&#9888; SÓ NÃO IDENTIFICADOS</button>
         </div>
@@ -895,7 +912,7 @@
           <button class="btn gold" id="codigos-exportar-btn">&#8681; Exportar PDF</button>
           <div class="search-box" id="codigos-search-wrap" style="max-width:280px;">
             <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
-            <input type="text" id="codigos-search-input" placeholder="Buscar por código ou produto...">
+            <input type="text" id="codigos-search-input" class="busca-livre" placeholder="Buscar por código ou produto...">
           </div>
         </div>
         <p style="font-size:11.5px; color:var(--text-dim); margin:10px 0 0;">Última atualização: <b id="codigos-ultima-atualizacao" style="color:var(--text); font-family:'IBM Plex Mono',monospace;"></b></p>
@@ -948,7 +965,7 @@
         <p class="topics-intro"><span class="mono-label">HISTÓRICO DE DATAS ACORDADAS</span> <span class="link-text">pedidos cuja data de entrega foi ajustada pra data acordada com o cliente</span></p>
         <div class="search-box" style="max-width:340px; margin-bottom:14px;">
           <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
-          <input type="text" id="hist-acordada-search-input" placeholder="Buscar pedido ou cliente...">
+          <input type="text" id="hist-acordada-search-input" class="busca-livre" placeholder="Buscar pedido ou cliente...">
         </div>
         <div class="hist-table-wrap">
           <table class="hist" id="hist-acordada-table">
@@ -982,7 +999,7 @@
 
         <div class="search-box" style="max-width:340px; margin-bottom:14px;">
           <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
-          <input type="text" id="hist-search-input" placeholder="Buscar pedido, cliente ou item...">
+          <input type="text" id="hist-search-input" class="busca-livre" placeholder="Buscar pedido, cliente ou item...">
         </div>
         <div class="hist-table-wrap">
           <table class="hist" id="hist-table">
@@ -1035,7 +1052,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.63';
+const APP_VERSION = 'v8.64';
 const APP_VERSION_DATE = '28/08/2026';
 
 /* ========================================================================
@@ -3740,7 +3757,7 @@ function openHistMonthModal(label, itens){
       <hr class="divider">
       <div class="search-box" style="max-width:320px; margin-bottom:14px;">
         <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
-        <input type="text" id="hist-month-search-input" placeholder="Buscar pedido, cliente ou item..." value="${termoBusca}">
+        <input type="text" id="hist-month-search-input" class="busca-livre" placeholder="Buscar pedido, cliente ou item..." value="${termoBusca}">
       </div>
       <div class="k" style="font-size:12.5px; margin-bottom:10px;">${g.label} (${filtrados.length}${filtrados.length!==g.itens.length ? ' de '+g.itens.length : ''})</div>
       <div class="hist-table-wrap">
@@ -6369,14 +6386,17 @@ const SENHA_EDICAO = 'impressao';
 function atualizarModoEdicaoUI(){
   const btn = document.getElementById('btn-modo-edicao');
   const banner = document.getElementById('banner-somente-leitura');
+  const appShell = document.getElementById('app-shell');
   if(modoEdicaoLiberado){
     btn.innerHTML = '&#128275;';
     btn.title = 'Edição liberada — clique pra travar';
     banner.style.display = 'none';
+    appShell.classList.remove('somente-leitura');
   } else {
     btn.innerHTML = '&#128274;';
     btn.title = 'Modo somente leitura — clique pra liberar edição';
     banner.style.display = 'flex';
+    appShell.classList.add('somente-leitura');
   }
 }
 
