@@ -1029,7 +1029,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.60';
+const APP_VERSION = 'v8.61';
 const APP_VERSION_DATE = '28/08/2026';
 
 /* ========================================================================
@@ -2575,11 +2575,19 @@ function openHistoricoExternoScreen(id, opts={}){
   const p = pedidos.find(x=>x.id===id) || historico.find(x=>x.id===id);
   if(!p) return;
   const modal = document.getElementById('modal');
-  const cards = (p.historicoExterno||[]).map(h=>`
+  const listaExterna = p.historicoExterno || [];
+  const cards = listaExterna.map((h,idx)=>{
+    // o último card é o setor atual (ainda em andamento) — em vez do "tempo"
+    // estático que veio congelado do relatório importado, calcula ao vivo
+    // quanto já se passou desde que entrou nele até agora
+    const ultimo = idx === listaExterna.length - 1;
+    const tempoExibido = ultimo ? formatDuracao(new Date() - new Date(h.dataISO)) : h.tempo;
+    return `
     <div class="alt-item">
       <div class="alt-date">${fmtDateTime(h.dataISO)}</div>
-      <div class="alt-note"><b style="color:var(--text);">${h.seq} — ${h.setor}</b> · parado por <b style="color:var(--gold-dark); font-family:'IBM Plex Mono',monospace;">${h.tempo}</b>${h.usuarioInclusao ? ` · <span style="color:var(--text-faint);">${h.usuarioInclusao}</span>` : ''}</div>
-    </div>`).join('');
+      <div class="alt-note"><b style="color:var(--text);">${h.seq} — ${h.setor}</b> · parado por <b style="color:var(--gold-dark); font-family:'IBM Plex Mono',monospace;">${tempoExibido}</b>${h.usuarioInclusao ? ` · <span style="color:var(--text-faint);">${h.usuarioInclusao}</span>` : ''}</div>
+    </div>`;
+  }).join('');
   modal.innerHTML = `
     <div class="modal-head" style="margin-bottom:10px;">
       <div>
