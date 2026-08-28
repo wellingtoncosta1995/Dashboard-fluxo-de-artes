@@ -1028,7 +1028,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.51';
+const APP_VERSION = 'v8.52';
 const APP_VERSION_DATE = '28/08/2026';
 
 /* ========================================================================
@@ -6210,6 +6210,8 @@ async function sepcxExtrairTexto(file){
   return texto;
 }
 
+const SEPCX_CODIGOS_IGNORAR = new Set(['500434']); // itens que não entram na separação de caixas (ex: saco liso)
+
 function sepcxParsePdf(texto){
   // varre linha a linha guardando em que Recurso e em que Situação estamos,
   // pra saber tanto o total (Resumo por Item) quanto quais componentes
@@ -6230,6 +6232,8 @@ function sepcxParsePdf(texto){
     if(!recursoAtual || !situacaoAtual) return;
     const mCod = linha.match(/^(\d{5,8})\b(.*)$/);
     if(!mCod) return;
+    // descarta saco liso (500434) e qualquer item de tinta — não fazem parte da separação de caixas
+    if(SEPCX_CODIGOS_IGNORAR.has(mCod[1]) || /tinta/i.test(mCod[2])) return;
     if(situacaoAtual === 'producao'){
       if(!emProducaoPorRecurso[recursoAtual]) emProducaoPorRecurso[recursoAtual] = new Set();
       emProducaoPorRecurso[recursoAtual].add(mCod[1]);
