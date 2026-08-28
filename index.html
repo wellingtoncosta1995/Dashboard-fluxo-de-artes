@@ -1058,7 +1058,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.69';
+const APP_VERSION = 'v8.70';
 const APP_VERSION_DATE = '28/08/2026';
 
 /* ========================================================================
@@ -1229,7 +1229,7 @@ async function registrarCobranca(id){
   saveState();
 }
 const STAGE_APROVACAO_CLICHE = 7; // etapa "Aguardando aprovação custo clichê" — a partir daqui o bloco de clichê aparece e fica editável
-const STAGES_FINALIZAVEIS = [10, 1]; // Clichê em fábrica / Aguardando conferência de layout
+const STAGES_FINALIZAVEIS = [10]; // Clichê em fábrica — na etapa "Aguardando conferência de layout" a decisão é Layout confere / Precisa de alteração, não Finalizar
 const STAGE_REMAP_V2 = {0:0, 1:2, 2:3, 3:4, 4:5, 5:6, 6:7, 7:8, 8:9, 9:10, 10:1}; // migração da ordem antiga p/ nova
 function osCompleta(p){ return p.itens.every(it=> it.os && it.os.trim()); }
 
