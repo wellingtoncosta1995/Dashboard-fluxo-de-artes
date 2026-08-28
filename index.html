@@ -595,6 +595,7 @@
           <button class="sync-chip" id="btn-sync-info">&#128260; <span id="app-version"></span></button>
           <button class="icon-circle" id="btn-notif" title="Cobranças de aprovação pendentes">&#128276;<span class="badge-dot" id="notif-badge" style="display:none;"></span></button>
           <button class="icon-circle" id="btn-tarefas" title="Minhas tarefas do dia a dia">&#128172;<span class="badge-dot" id="tarefas-badge" style="display:none;"></span></button>
+          <button class="icon-circle" id="btn-modo-edicao" title="Modo somente leitura — clique pra liberar edição">&#128274;</button>
           <div style="position:relative;">
             <button class="icon-circle" id="btn-settings-header" title="Configurações">&#9881;&#65039;</button>
             <div id="settings-menu" style="display:none; position:absolute; top:44px; right:0; z-index:50; background:var(--panel); border:1px solid var(--border-soft); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.12); min-width:210px; padding:6px; overflow:hidden;">
@@ -607,6 +608,10 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <div id="banner-somente-leitura" style="display:none; align-items:center; gap:8px; background:var(--gold-bg-light); border:1px solid var(--gold); color:var(--gold-dark); border-radius:10px; padding:9px 14px; font-size:12.5px; font-weight:600; margin:0 0 16px;">
+      &#128274; Modo somente leitura — suas alterações não serão salvas. Clique no cadeado no topo pra liberar a edição.
     </div>
 
     <div id="view-home">
@@ -1029,7 +1034,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.61';
+const APP_VERSION = 'v8.62';
 const APP_VERSION_DATE = '28/08/2026';
 
 /* ========================================================================
@@ -1615,6 +1620,7 @@ let historyShowOnlyCards = true; // true = clicou em "Histórico" (só cards); f
 let historySubmenuOpen = false; // controla se o submenu do Histórico está expandido no menu lateral
 let clicheSubmenuOpen = false; // controla se o submenu de Custo de clichê está expandido no menu lateral
 let boardSubmenuOpen = false; // controla se o submenu de Fluxo de artes está expandido no menu lateral
+let modoEdicaoLiberado = localStorage.getItem('artes_edicao_ok') === '1'; // trava de interface: só quem sabe a senha de edição consegue salvar alterações
 let analiseEntregaSubmenuOpen = false; // controla se o submenu de Análise data de entrega está expandido no menu lateral
 let nomeRelatorioAtual = '';
 let multiSelectMode = false;
@@ -1719,6 +1725,10 @@ function buildCatalogoItens(){
   });
 }
 async function saveState(){
+  if(!modoEdicaoLiberado){
+    console.warn('Modo somente leitura: alteração não foi salva no servidor.');
+    return;
+  }
   try{
     await window.storage.set('artes-pedidos-v3', JSON.stringify({pedidos, historico, regravacoes, nomeRelatorioAtual, lastImportTime, seedDescartada, tabelaCodigosInternos: TABELA_CODIGOS_INTERNOS, codigosUltimaAtualizacao, diametrosManual, clicheItensInfo, leadTimePorBoca, valoresChapa, valorClicheReferencia, tarefasDiarias, stageOrderV2:true}), false);
   }catch(e){ console.error('Falha ao salvar', e); }
@@ -6276,6 +6286,48 @@ function openTarefasModal(){
 document.getElementById('btn-tarefas').addEventListener('click', openTarefasModal);
 
 /* ========================================================================
+   MODO DE EDIÇÃO (trava de interface)
+   O link é compartilhado com mais gente vendo só a senha normal — sem
+   liberar o modo de edição (senha própria), as alterações não são
+   gravadas no banco (saveState vira no-op). Não impede alguém técnico
+   mexendo direto via console, mas evita edição acidental/indevida pela tela.
+   ======================================================================== */
+const SENHA_EDICAO = 'impressao';
+
+function atualizarModoEdicaoUI(){
+  const btn = document.getElementById('btn-modo-edicao');
+  const banner = document.getElementById('banner-somente-leitura');
+  if(modoEdicaoLiberado){
+    btn.innerHTML = '&#128275;';
+    btn.title = 'Edição liberada — clique pra travar';
+    banner.style.display = 'none';
+  } else {
+    btn.innerHTML = '&#128274;';
+    btn.title = 'Modo somente leitura — clique pra liberar edição';
+    banner.style.display = 'flex';
+  }
+}
+
+function alternarModoEdicao(){
+  if(modoEdicaoLiberado){
+    modoEdicaoLiberado = false;
+    localStorage.removeItem('artes_edicao_ok');
+    atualizarModoEdicaoUI();
+    return;
+  }
+  const senha = prompt('Senha para liberar o modo de edição:');
+  if(senha === null) return;
+  if(senha === SENHA_EDICAO){
+    modoEdicaoLiberado = true;
+    localStorage.setItem('artes_edicao_ok', '1');
+  } else {
+    alert('Senha incorreta.');
+  }
+  atualizarModoEdicaoUI();
+}
+document.getElementById('btn-modo-edicao').addEventListener('click', alternarModoEdicao);
+
+/* ========================================================================
    SEPARAÇÃO DE CAIXAS PARA PRODUÇÃO
    Lê os PDFs "Consumo de Componentes por Fila de Produção" (RPCP107),
    usa a seção "Resumo por Item" de cada Recurso (que já soma Em Produção +
@@ -6576,6 +6628,7 @@ const SENHA_ACESSO = 'muzambinho';
 async function iniciarApp(){
   document.getElementById('password-gate').style.display = 'none';
   document.getElementById('app-shell').style.display = 'flex';
+  atualizarModoEdicaoUI();
   await loadState();
   switchView('home');
   renderAll();
