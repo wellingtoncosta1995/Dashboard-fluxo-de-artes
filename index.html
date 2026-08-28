@@ -996,7 +996,7 @@
     </div>
 
     <div id="view-separacao-caixas" style="display:none;">
-      <p class="topics-intro">Envie os PDFs "Consumo de Componentes por Fila de Produção" (RPCP107) de cada máquina — pode selecionar vários de uma vez. O sistema soma o Pendente de cada componente (Em Produção + Em Fila) e já arredonda pra dezena cheia com folga (ex: 67 → 90, 70 → 80, 83 → 80, 86 → 90). Use ▲▼ pra reordenar, o campo de caixas pra ajustar a mão e "Dividir" quando o mesmo componente for rodar em dois momentos separados.</p>
+      <p class="topics-intro">Envie os PDFs "Consumo de Componentes por Fila de Produção" (RPCP107) de cada máquina — pode selecionar vários de uma vez. O sistema soma o Pendente de cada componente (Em Produção + Em Fila), já coloca em primeiro quem está "Em Produção" (destacado) e arredonda pra dezena cheia com folga (ex: 67 → 90, 70 → 80, 83 → 80, 86 → 90). Use ▲▼ pra reordenar, o campo de caixas pra ajustar a mão e "Dividir" quando o mesmo componente for rodar em dois momentos separados.</p>
       <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:16px;">
         <label class="btn gold" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
           &#8679; Selecionar PDFs
@@ -1021,7 +1021,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.48';
+const APP_VERSION = 'v8.49';
 const APP_VERSION_DATE = '28/08/2026';
 
 /* ========================================================================
@@ -6204,28 +6204,39 @@ async function sepcxExtrairTexto(file){
 }
 
 function sepcxParsePdf(texto){
-  const resultado = {}; // recurso -> Map(codigo -> pendenteTotal), Map preserva a ordem de leitura do PDF
-  texto.split(/(?=Recurso:\s*\d+\s*-)/).forEach(bloco=>{
-    const mRecurso = bloco.match(/Recurso:\s*(\d+)\s*-/);
-    const idxResumo = bloco.search(/Resumo por Item/);
-    if(!mRecurso || idxResumo === -1) return;
-    let resumo = bloco.slice(idxResumo);
-    const idxComposicoes = resumo.search(/Lista de Composições/);
-    if(idxComposicoes !== -1) resumo = resumo.slice(0, idxComposicoes);
-    const recurso = mRecurso[1];
-    if(!resultado[recurso]) resultado[recurso] = new Map();
-    const mapa = resultado[recurso];
-    resumo.split('\n').forEach(linha=>{
-      const mCod = linha.trim().match(/^(\d{5,8})\b(.*)$/);
-      if(!mCod) return;
+  // varre linha a linha guardando em que Recurso e em que Situação estamos,
+  // pra saber tanto o total (Resumo por Item) quanto quais componentes
+  // estão "Em Produção" (que devem entrar primeiro na lista final)
+  const resumoPorRecurso = {}; // recurso -> Map(codigo -> pendenteTotal), Map preserva a ordem de leitura do PDF
+  const emProducaoPorRecurso = {}; // recurso -> Set(codigo)
+  let recursoAtual = null;
+  let situacaoAtual = null; // 'fila' | 'producao' | 'resumo' | null
+  texto.split('\n').forEach(linhaRaw=>{
+    const linha = linhaRaw.trim();
+    if(!linha) return;
+    const mRecurso = linha.match(/Recurso:\s*(\d+)\s*-/);
+    if(mRecurso){ recursoAtual = mRecurso[1]; return; }
+    if(/Situação:\s*Em Produção/i.test(linha)){ situacaoAtual = 'producao'; return; }
+    if(/Situação:\s*Em Fila/i.test(linha)){ situacaoAtual = 'fila'; return; }
+    if(/Resumo por Item/i.test(linha)){ situacaoAtual = 'resumo'; return; }
+    if(/Lista de Composições/i.test(linha)){ situacaoAtual = null; return; }
+    if(!recursoAtual || !situacaoAtual) return;
+    const mCod = linha.match(/^(\d{5,8})\b(.*)$/);
+    if(!mCod) return;
+    if(situacaoAtual === 'producao'){
+      if(!emProducaoPorRecurso[recursoAtual]) emProducaoPorRecurso[recursoAtual] = new Set();
+      emProducaoPorRecurso[recursoAtual].add(mCod[1]);
+    } else if(situacaoAtual === 'resumo'){
       const numeros = mCod[2].match(/-?\d+,\d{3}/g);
       if(!numeros || numeros.length < 2) return;
       const pendente = parseFloat(numeros[1].replace(',', '.'));
       if(isNaN(pendente)) return;
+      if(!resumoPorRecurso[recursoAtual]) resumoPorRecurso[recursoAtual] = new Map();
+      const mapa = resumoPorRecurso[recursoAtual];
       mapa.set(mCod[1], (mapa.get(mCod[1]) || 0) + pendente);
-    });
+    }
   });
-  return resultado;
+  return { resumoPorRecurso, emProducaoPorRecurso };
 }
 
 async function sepcxProcessarArquivos(fileList){
@@ -6240,15 +6251,19 @@ async function sepcxProcessarArquivos(fileList){
   for(const file of files){
     try{
       const texto = await sepcxExtrairTexto(file);
-      const parsed = sepcxParsePdf(texto);
-      const recursos = Object.keys(parsed);
+      const { resumoPorRecurso, emProducaoPorRecurso } = sepcxParsePdf(texto);
+      const recursos = Object.keys(resumoPorRecurso);
       if(!recursos.length){ erros.push(`${file.name}: não encontrei "Resumo por Item" com Recurso identificado.`); continue; }
       recursos.forEach(recurso=>{
-        const linhas = [];
-        parsed[recurso].forEach((pendente, codigo)=>{
-          linhas.push({ id: sepcxNextId++, codigo, qtd: sepcxArredondarCaixas(pendente) });
+        const emProducao = emProducaoPorRecurso[recurso] || new Set();
+        const comProducao = [];
+        const semProducao = [];
+        resumoPorRecurso[recurso].forEach((pendente, codigo)=>{
+          const producao = emProducao.has(codigo);
+          const item = { id: sepcxNextId++, codigo, qtd: sepcxArredondarCaixas(pendente), producao };
+          (producao ? comProducao : semProducao).push(item);
         });
-        sepcxDados[recurso] = linhas;
+        sepcxDados[recurso] = comProducao.concat(semProducao);
       });
     }catch(err){
       console.error(err);
@@ -6296,8 +6311,8 @@ function renderSepcxResultado(){
               <thead><tr><th>Componente</th><th>Caixas</th><th></th></tr></thead>
               <tbody>
                 ${itens.map((it,i)=>`
-                <tr>
-                  <td class="pedido">${it.codigo}</td>
+                <tr${it.producao ? ' style="background:var(--gold-bg-light);"' : ''}>
+                  <td class="pedido">${it.codigo}${it.producao ? ' <span style="font-size:9.5px; font-weight:700; color:var(--gold-dark); background:var(--panel); border-radius:4px; padding:1px 5px; vertical-align:middle;">EM PRODUÇÃO</span>' : ''}</td>
                   <td><input type="number" min="0" class="sepcx-qtd-input" data-recurso="${recurso}" data-id="${it.id}" value="${it.qtd}"> cx</td>
                   <td style="white-space:nowrap;">
                     <button class="sepcx-mini-btn" data-action="up" data-recurso="${recurso}" data-id="${it.id}" title="Subir" ${i===0?'disabled':''}>&#9650;</button>
@@ -6357,8 +6372,8 @@ function sepcxHandleAcao(e){
     const metade1 = Math.ceil(item.qtd/2);
     const metade2 = item.qtd - metade1;
     lista.splice(idx, 1,
-      { id: item.id, codigo: item.codigo, qtd: metade1 },
-      { id: sepcxNextId++, codigo: item.codigo, qtd: metade2 }
+      { id: item.id, codigo: item.codigo, qtd: metade1, producao: item.producao },
+      { id: sepcxNextId++, codigo: item.codigo, qtd: metade2, producao: item.producao }
     );
   } else if(acao === 'remove'){
     lista.splice(idx, 1);
