@@ -460,6 +460,11 @@
     #print-area table.requisicao-campos{margin-bottom:12px;}
     #print-area table.requisicao-campos td{border-bottom:none; padding:3px 8px;}
     #print-area table.requisicao-campos td:nth-child(odd){color:#555; font-weight:700; white-space:nowrap; width:1%;}
+    #print-area .sepcx-print-cols{column-count:2; column-gap:26px;}
+    #print-area .sepcx-print-bloco{break-inside:avoid; -webkit-column-break-inside:avoid; margin-bottom:16px;}
+    #print-area .sepcx-print-bloco h2{font-size:15px; margin:0 0 5px; padding-left:0; border-left:none; border-bottom:2px solid #333; padding-bottom:2px;}
+    #print-area .sepcx-print-linha{display:flex; justify-content:space-between; gap:10px; font-size:12px; padding:2px 0; border-bottom:1px dotted #ccc;}
+    #print-area .sepcx-print-linha b{font-family:'IBM Plex Mono',monospace; font-weight:700;}
   }
   #print-area{display:none;}
 
@@ -1021,7 +1026,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.49';
+const APP_VERSION = 'v8.50';
 const APP_VERSION_DATE = '28/08/2026';
 
 /* ========================================================================
@@ -6344,13 +6349,25 @@ function sepcxCopiarLista(){
 }
 
 function sepcxImprimirLista(){
+  // layout compacto em 2 colunas (igual à folha de papel usada na movimentação), pra caber numa folha só
   const recursos = sepcxRecursosOrdenados();
-  exportarTabelaPDF({
-    titulo: 'Separação de caixas para produção',
-    subtitulo: new Date().toLocaleDateString('pt-BR'),
-    colunas: ['Componente', 'Caixas'],
-    grupos: recursos.map(recurso=>({ titulo: recurso, linhas: sepcxDados[recurso].map(it=>[it.codigo, it.qtd + ' cx']) })),
-  });
+  const printArea = document.getElementById('print-area');
+  printArea.innerHTML = `
+    <h1>Separação de caixas para produção</h1>
+    <p>${new Date().toLocaleDateString('pt-BR')}</p>
+    <div class="sepcx-print-cols">
+      ${recursos.map(recurso=>`
+        <div class="sepcx-print-bloco">
+          <h2>${recurso}</h2>
+          ${sepcxDados[recurso].map(it=>`<div class="sepcx-print-linha"><span>${it.codigo}</span><b>${it.qtd} cx</b></div>`).join('')}
+        </div>
+      `).join('')}
+    </div>
+  `;
+  document.body.classList.add('printing');
+  const limpar = ()=>{ document.body.classList.remove('printing'); window.removeEventListener('afterprint', limpar); };
+  window.addEventListener('afterprint', limpar);
+  window.print();
 }
 
 function sepcxHandleAcao(e){
