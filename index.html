@@ -596,6 +596,7 @@
           <button class="icon-circle" id="btn-notif" title="Cobranças de aprovação pendentes">&#128276;<span class="badge-dot" id="notif-badge" style="display:none;"></span></button>
           <button class="icon-circle" id="btn-tarefas" title="Minhas tarefas do dia a dia">&#128172;<span class="badge-dot" id="tarefas-badge" style="display:none;"></span></button>
           <button class="icon-circle" id="btn-modo-edicao" title="Modo somente leitura — clique pra liberar edição">&#128274;</button>
+          <button class="icon-circle" id="btn-presenca" title="Quem está acessando">&#128101;</button>
           <div style="position:relative;">
             <button class="icon-circle" id="btn-settings-header" title="Configurações">&#9881;&#65039;</button>
             <div id="settings-menu" style="display:none; position:absolute; top:44px; right:0; z-index:50; background:var(--panel); border:1px solid var(--border-soft); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.12); min-width:210px; padding:6px; overflow:hidden;">
@@ -1034,7 +1035,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.62';
+const APP_VERSION = 'v8.63';
 const APP_VERSION_DATE = '28/08/2026';
 
 /* ========================================================================
@@ -1080,6 +1081,76 @@ sbClient
     renderAll();
   })
   .subscribe();
+
+/* ========================================================================
+   PRESENÇA — quem está acessando e em qual tela (tabela dashboard_presenca,
+   separada de dashboard_estado pra não disparar o realtime sync acima a
+   cada heartbeat)
+   ======================================================================== */
+const SESSAO_ID = (function(){
+  let id = localStorage.getItem('artes_sessao_id');
+  if(!id){
+    id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('sess-' + Date.now() + '-' + Math.random().toString(36).slice(2));
+    localStorage.setItem('artes_sessao_id', id);
+  }
+  return id;
+})();
+
+function obterNomeUsuario(){
+  let nome = localStorage.getItem('artes_nome_usuario');
+  if(!nome){
+    nome = (prompt('Como você se chama? (aparece pra quem acompanha o acesso ao dashboard)') || '').trim() || 'Anônimo';
+    localStorage.setItem('artes_nome_usuario', nome);
+  }
+  return nome;
+}
+
+async function registrarPresenca(){
+  try{
+    await sbClient.from('dashboard_presenca').upsert({
+      id: SESSAO_ID,
+      nome: obterNomeUsuario(),
+      tela: (typeof VIEW_TITULOS !== 'undefined' && VIEW_TITULOS[currentView]) || currentView || '—',
+      atualizado_em: new Date().toISOString(),
+    });
+  }catch(e){ console.error('Falha ao registrar presença', e); }
+}
+
+async function abrirPresencaModal(){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  modal.classList.remove('modal-wide');
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div>
+        <h2 style="font-size:18px;">Quem está acessando</h2>
+        <p>Nome e tela de cada pessoa — atualiza conforme navegam pelo dashboard</p>
+      </div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <hr class="divider">
+    <div id="presenca-corpo" class="hist-empty">Carregando...</div>
+  `;
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  overlay.classList.add('open');
+
+  const { data, error } = await sbClient.from('dashboard_presenca').select('*').order('atualizado_em', { ascending: false });
+  const corpo = document.getElementById('presenca-corpo');
+  if(!corpo) return; // fechou o modal antes de terminar de carregar
+  if(error){ corpo.textContent = `Erro ao carregar: ${error.message}`; return; }
+  if(!data || !data.length){ corpo.textContent = 'Ninguém registrado ainda.'; return; }
+  corpo.outerHTML = `
+    <div class="hist-table-wrap">
+      <table class="hist">
+        <thead><tr><th>Nome</th><th>Tela atual</th><th>Última atividade</th></tr></thead>
+        <tbody>${data.map(row=>{
+          const ms = Date.now() - new Date(row.atualizado_em).getTime();
+          const status = ms < 3*60000 ? `<span style="color:var(--teal); font-weight:700;">&#9679; ativo agora</span>` : `há ${formatDuracao(ms)}`;
+          return `<tr><td>${escapeHtml(row.nome || 'Anônimo')}</td><td>${escapeHtml(row.tela || '—')}</td><td>${status}</td></tr>`;
+        }).join('')}</tbody>
+      </table>
+    </div>`;
+}
 
 /* ========================================================================
    DADOS — extraídos do relatório RVEN002 (relação de pedidos parados)
@@ -5227,6 +5298,7 @@ function switchView(view){
   if(view==='codigos') renderCodigosInternos();
   if(view==='leadtime') renderLeadTime();
   if(view==='analise-entrega-historico') renderHistoricoDatasAcordadasView();
+  registrarPresenca();
 }
 const HIST_TAB_LABELS = {
   finalizados: 'Histórico de pedidos finalizados',
@@ -6326,6 +6398,7 @@ function alternarModoEdicao(){
   atualizarModoEdicaoUI();
 }
 document.getElementById('btn-modo-edicao').addEventListener('click', alternarModoEdicao);
+document.getElementById('btn-presenca').addEventListener('click', abrirPresencaModal);
 
 /* ========================================================================
    SEPARAÇÃO DE CAIXAS PARA PRODUÇÃO
@@ -6632,6 +6705,7 @@ async function iniciarApp(){
   await loadState();
   switchView('home');
   renderAll();
+  setInterval(registrarPresenca, 60000); // mantém "última atividade" atualizada mesmo sem trocar de tela
 }
 
 function tentarSenha(){
