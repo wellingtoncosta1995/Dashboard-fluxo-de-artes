@@ -136,10 +136,14 @@
     pointer-events:none !important; opacity:.5; cursor:not-allowed;
   }
   #app-shell.somente-leitura [class*="btn"],
+  #app-shell.somente-leitura [id*="btn"]:not(#btn-modo-edicao):not(#btn-presenca):not(#btn-notif):not(#btn-tarefas):not(#btn-settings-header):not(#btn-sync-info):not(#entrega-hist-btn),
   #app-shell.somente-leitura .lp-cobrar,
   #app-shell.somente-leitura .lp-finalize,
   #app-shell.somente-leitura .diametro-limpar,
   #app-shell.somente-leitura .codigos-add-item,
+  #app-shell.somente-leitura .tarefa-del,
+  #app-shell.somente-leitura #modal-cancelar,
+  #app-shell.somente-leitura #modal-finalize,
   #app-shell.somente-leitura #menu-item-importar,
   #app-shell.somente-leitura #menu-item-validar-repeticao,
   #app-shell.somente-leitura #menu-item-historico-externo{
@@ -1052,7 +1056,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.64';
+const APP_VERSION = 'v8.65';
 const APP_VERSION_DATE = '28/08/2026';
 
 /* ========================================================================
