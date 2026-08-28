@@ -535,7 +535,12 @@
     </div>
     <nav class="sidebar-nav">
       <button class="nav-item active" data-view="home"><span class="icon"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 10 3l7 6.5"/><path d="M5 8.5V16a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V8.5"/><path d="M8 17v-4.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1V17"/></svg></span> Home</button>
-      <button class="nav-item" data-view="board"><span class="icon"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3a7 7 0 1 0 0 14h1.2c.9 0 1.5-.8 1.2-1.6l-.2-.5c-.3-.8.3-1.6 1.1-1.6H14a3 3 0 0 0 3-3A7 7 0 0 0 10 3Z"/><circle cx="7" cy="9" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="7" r=".9" fill="currentColor" stroke="none"/><circle cx="13" cy="9" r=".9" fill="currentColor" stroke="none"/></svg></span> Fluxo de artes</button>
+      <div class="nav-panel">
+        <button class="nav-item nav-panel-head" data-view="board"><span class="icon"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3a7 7 0 1 0 0 14h1.2c.9 0 1.5-.8 1.2-1.6l-.2-.5c-.3-.8.3-1.6 1.1-1.6H14a3 3 0 0 0 3-3A7 7 0 0 0 10 3Z"/><circle cx="7" cy="9" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="7" r=".9" fill="currentColor" stroke="none"/><circle cx="13" cy="9" r=".9" fill="currentColor" stroke="none"/></svg></span> Fluxo de artes<span class="nav-chevron"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5 7 9l3.5-3.5"/></svg></span></button>
+        <div id="board-submenu" style="display:none;">
+          <button class="nav-item nav-sub-item" data-view="separacao-caixas">Separação de caixas</button>
+        </div>
+      </div>
 
       <div class="nav-panel">
         <button class="nav-item nav-panel-head" data-view="cliche"><span class="icon"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="10" cy="10" r="7"/><path d="M10 6.5v7M12 8c0-.9-.9-1.5-2-1.5s-2 .6-2 1.4c0 2 4 1.2 4 3.1 0 .8-.9 1.5-2 1.5s-2-.6-2-1.5"/></svg></span> Custo de clichê<span class="nav-chevron"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5 7 9l3.5-3.5"/></svg></span></button>
@@ -567,7 +572,6 @@
           <button class="nav-item nav-sub-item hist-submenu-item" data-histtab="finalizados">Finalizados</button>
           <button class="nav-item nav-sub-item hist-submenu-item" data-histtab="repeticao-validados">Repetição — validados</button>
           <button class="nav-item nav-sub-item hist-submenu-item" data-histtab="cancelados">Cancelados</button>
-          <button class="nav-item nav-sub-item" data-view="separacao-caixas">Separação de caixas</button>
         </div>
       </div>
     </nav>
@@ -1017,7 +1021,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.47';
+const APP_VERSION = 'v8.48';
 const APP_VERSION_DATE = '28/08/2026';
 
 /* ========================================================================
@@ -1601,6 +1605,7 @@ let historicoAcordadaSearchTerm = '';
 let historyShowOnlyCards = true; // true = clicou em "Histórico" (só cards); false = clicou num sub-item específico
 let historySubmenuOpen = false; // controla se o submenu do Histórico está expandido no menu lateral
 let clicheSubmenuOpen = false; // controla se o submenu de Custo de clichê está expandido no menu lateral
+let boardSubmenuOpen = false; // controla se o submenu de Fluxo de artes está expandido no menu lateral
 let analiseEntregaSubmenuOpen = false; // controla se o submenu de Análise data de entrega está expandido no menu lateral
 let nomeRelatorioAtual = '';
 let multiSelectMode = false;
@@ -5145,7 +5150,8 @@ function switchView(view){
   currentView = view;
   if(view!=='cliche' && view!=='custo-mensal' && view!=='custo-anual' && view!=='valores-chapa' && view!=='requisicao-cliche') clicheSubmenuOpen = false;
   if(view!=='analise-entrega' && view!=='analise-entrega-historico') analiseEntregaSubmenuOpen = false;
-  if(view!=='history' && view!=='separacao-caixas') historySubmenuOpen = false;
+  if(view!=='history') historySubmenuOpen = false;
+  if(view!=='board' && view!=='separacao-caixas') boardSubmenuOpen = false;
   document.getElementById('view-home').style.display = view==='home' ? 'block' : 'none';
   document.getElementById('view-board').style.display = view==='board' ? 'block' : 'none';
   document.getElementById('view-cliche').style.display = view==='cliche' ? 'block' : 'none';
@@ -5155,8 +5161,10 @@ function switchView(view){
   document.getElementById('view-requisicao-cliche').style.display = view==='requisicao-cliche' ? 'block' : 'none';
   document.getElementById('cliche-submenu').style.display = clicheSubmenuOpen ? 'block' : 'none';
   syncGroupChevron('cliche', clicheSubmenuOpen);
-  document.getElementById('history-submenu').style.display = historySubmenuOpen ? 'block' : 'none';
-  syncGroupChevron('history', historySubmenuOpen);
+  document.getElementById('board-submenu').style.display = boardSubmenuOpen ? 'block' : 'none';
+  syncGroupChevron('board', boardSubmenuOpen);
+  document.getElementById('history-submenu').style.display = (view==='history' && historySubmenuOpen) ? 'block' : 'none';
+  syncGroupChevron('history', view==='history' && historySubmenuOpen);
   document.getElementById('view-regravacao').style.display = view==='regravacao' ? 'block' : 'none';
   document.getElementById('view-catalogo').style.display = view==='catalogo' ? 'block' : 'none';
   document.getElementById('view-codigos').style.display = view==='codigos' ? 'block' : 'none';
@@ -5210,6 +5218,16 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
         return;
       }
       clicheSubmenuOpen = true;
+    }
+    if(btn.dataset.view === 'board'){
+      if(currentView === 'board'){
+        // já está na tela de Fluxo de artes: apenas abre/fecha o submenu
+        boardSubmenuOpen = !boardSubmenuOpen;
+        document.getElementById('board-submenu').style.display = boardSubmenuOpen ? 'block' : 'none';
+        syncGroupChevron('board', boardSubmenuOpen);
+        return;
+      }
+      boardSubmenuOpen = true;
     }
     if(btn.dataset.view === 'analise-entrega'){
       if(currentView === 'analise-entrega'){
