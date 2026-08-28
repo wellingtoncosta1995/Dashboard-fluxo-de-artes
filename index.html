@@ -10,6 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   :root{
     /* ===== paleta oficial Rioplastic (extraída da logo/site) =====
@@ -561,6 +562,7 @@
           <button class="nav-item nav-sub-item hist-submenu-item" data-histtab="finalizados">Finalizados</button>
           <button class="nav-item nav-sub-item hist-submenu-item" data-histtab="repeticao-validados">Repetição — validados</button>
           <button class="nav-item nav-sub-item hist-submenu-item" data-histtab="cancelados">Cancelados</button>
+          <button class="nav-item nav-sub-item" data-view="separacao-caixas">Separação de caixas</button>
         </div>
       </div>
     </nav>
@@ -983,6 +985,19 @@
         <div class="home-cards-grid" id="hist-month-cards" style="grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));"></div>
       </div>
     </div>
+
+    <div id="view-separacao-caixas" style="display:none;">
+      <p class="topics-intro">Envie os PDFs "Consumo de Componentes por Fila de Produção" (RPCP107) de cada máquina — pode selecionar vários de uma vez. O sistema soma o Pendente de cada componente (Em Produção + Em Fila), arredonda pra cima e já acrescenta +20 caixas por item.</p>
+      <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-bottom:16px;">
+        <label class="btn gold" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+          &#8679; Selecionar PDFs
+          <input type="file" id="sepcx-file-input" accept="application/pdf" multiple style="display:none;">
+        </label>
+        <button class="btn ghost" id="sepcx-limpar-btn" style="display:none;">Limpar</button>
+        <span id="sepcx-status" style="font-size:12.5px; color:var(--text-dim);"></span>
+      </div>
+      <div id="sepcx-resultado"></div>
+    </div>
   </main>
 </div>
 
@@ -997,8 +1012,8 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.44';
-const APP_VERSION_DATE = '27/08/2026';
+const APP_VERSION = 'v8.45';
+const APP_VERSION_DATE = '28/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -5115,6 +5130,7 @@ const VIEW_TITULOS = {
   'analise-entrega': "Análise data de entrega",
   'analise-entrega-historico': "Histórico de datas acordadas",
   history: "Histórico",
+  'separacao-caixas': "Separação de caixas para produção",
 };
 function syncGroupChevron(dataView, open){
   const btn = document.querySelector(`.nav-panel-head[data-view="${dataView}"]`);
@@ -5124,6 +5140,7 @@ function switchView(view){
   currentView = view;
   if(view!=='cliche' && view!=='custo-mensal' && view!=='custo-anual' && view!=='valores-chapa' && view!=='requisicao-cliche') clicheSubmenuOpen = false;
   if(view!=='analise-entrega' && view!=='analise-entrega-historico') analiseEntregaSubmenuOpen = false;
+  if(view!=='history' && view!=='separacao-caixas') historySubmenuOpen = false;
   document.getElementById('view-home').style.display = view==='home' ? 'block' : 'none';
   document.getElementById('view-board').style.display = view==='board' ? 'block' : 'none';
   document.getElementById('view-cliche').style.display = view==='cliche' ? 'block' : 'none';
@@ -5133,8 +5150,8 @@ function switchView(view){
   document.getElementById('view-requisicao-cliche').style.display = view==='requisicao-cliche' ? 'block' : 'none';
   document.getElementById('cliche-submenu').style.display = clicheSubmenuOpen ? 'block' : 'none';
   syncGroupChevron('cliche', clicheSubmenuOpen);
-  document.getElementById('history-submenu').style.display = (view==='history' && historySubmenuOpen) ? 'block' : 'none';
-  syncGroupChevron('history', view==='history' && historySubmenuOpen);
+  document.getElementById('history-submenu').style.display = historySubmenuOpen ? 'block' : 'none';
+  syncGroupChevron('history', historySubmenuOpen);
   document.getElementById('view-regravacao').style.display = view==='regravacao' ? 'block' : 'none';
   document.getElementById('view-catalogo').style.display = view==='catalogo' ? 'block' : 'none';
   document.getElementById('view-codigos').style.display = view==='codigos' ? 'block' : 'none';
@@ -5144,6 +5161,7 @@ function switchView(view){
   document.getElementById('analise-entrega-submenu').style.display = analiseEntregaSubmenuOpen ? 'block' : 'none';
   syncGroupChevron('analise-entrega', analiseEntregaSubmenuOpen);
   document.getElementById('view-history').style.display = view==='history' ? 'block' : 'none';
+  document.getElementById('view-separacao-caixas').style.display = view==='separacao-caixas' ? 'block' : 'none';
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.querySelectorAll(`[data-view="${view}"]`).forEach(n=>{ if(!n.classList.contains('disabled')) n.classList.add('active'); });
   document.getElementById('page-title').textContent = VIEW_TITULOS[view] || 'Controle de fluxo de artes';
@@ -6128,6 +6146,147 @@ function openNotificacoesModal(){
   overlay.classList.add('open');
 }
 document.getElementById('btn-notif').addEventListener('click', openNotificacoesModal);
+
+/* ========================================================================
+   SEPARAÇÃO DE CAIXAS PARA PRODUÇÃO
+   Lê os PDFs "Consumo de Componentes por Fila de Produção" (RPCP107),
+   usa a seção "Resumo por Item" de cada Recurso (que já soma Em Produção +
+   Em Fila do mesmo componente), arredonda pra cima e soma +20 caixas.
+   ======================================================================== */
+if(typeof pdfjsLib !== 'undefined'){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+}
+let sepcxDados = {}; // { '710': { '1002369': pendenteTotal, ... }, ... }
+
+async function sepcxExtrairTexto(file){
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+  let texto = '';
+  for(let i=1; i<=pdf.numPages; i++){
+    const page = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    const porLinha = {};
+    content.items.forEach(item=>{
+      const y = Math.round(item.transform[5]);
+      (porLinha[y] = porLinha[y] || []).push(item);
+    });
+    Object.keys(porLinha).map(Number).sort((a,b)=>b-a).forEach(y=>{
+      texto += porLinha[y].sort((a,b)=>a.transform[4]-b.transform[4]).map(it=>it.str).join(' ') + '\n';
+    });
+  }
+  return texto;
+}
+
+function sepcxParsePdf(texto){
+  const resultado = {};
+  texto.split(/(?=Recurso:\s*\d+\s*-)/).forEach(bloco=>{
+    const mRecurso = bloco.match(/Recurso:\s*(\d+)\s*-/);
+    const idxResumo = bloco.search(/Resumo por Item/);
+    if(!mRecurso || idxResumo === -1) return;
+    let resumo = bloco.slice(idxResumo);
+    const idxComposicoes = resumo.search(/Lista de Composições/);
+    if(idxComposicoes !== -1) resumo = resumo.slice(0, idxComposicoes);
+    const recurso = mRecurso[1];
+    resumo.split('\n').forEach(linha=>{
+      const mCod = linha.trim().match(/^(\d{5,8})\b(.*)$/);
+      if(!mCod) return;
+      const numeros = mCod[2].match(/-?\d+,\d{3}/g);
+      if(!numeros || numeros.length < 2) return;
+      const pendente = parseFloat(numeros[1].replace(',', '.'));
+      if(isNaN(pendente)) return;
+      if(!resultado[recurso]) resultado[recurso] = {};
+      resultado[recurso][mCod[1]] = (resultado[recurso][mCod[1]] || 0) + pendente;
+    });
+  });
+  return resultado;
+}
+
+async function sepcxProcessarArquivos(fileList){
+  const status = document.getElementById('sepcx-status');
+  const files = Array.from(fileList);
+  if(typeof pdfjsLib === 'undefined'){
+    status.innerHTML = '<span style="color:var(--red);">Não foi possível carregar o leitor de PDF (sem conexão com a internet?). Tente novamente.</span>';
+    return;
+  }
+  status.textContent = `Lendo ${files.length} arquivo(s)...`;
+  const erros = [];
+  for(const file of files){
+    try{
+      const texto = await sepcxExtrairTexto(file);
+      const parsed = sepcxParsePdf(texto);
+      const recursos = Object.keys(parsed);
+      if(!recursos.length){ erros.push(`${file.name}: não encontrei "Resumo por Item" com Recurso identificado.`); continue; }
+      recursos.forEach(recurso=>{ sepcxDados[recurso] = parsed[recurso]; });
+    }catch(err){
+      console.error(err);
+      erros.push(`${file.name}: ${err.message || 'falha ao ler o PDF'}`);
+    }
+  }
+  renderSepcxResultado();
+  const qtdMaquinas = Object.keys(sepcxDados).length;
+  status.innerHTML = `${qtdMaquinas} máquina(s) carregada(s).` + (erros.length ? `<br><span style="color:var(--red);">${erros.join('<br>')}</span>` : '');
+  document.getElementById('sepcx-limpar-btn').style.display = qtdMaquinas ? 'inline-flex' : 'none';
+}
+
+function renderSepcxResultado(){
+  const wrap = document.getElementById('sepcx-resultado');
+  const recursos = Object.keys(sepcxDados).sort((a,b)=>Number(a)-Number(b));
+  if(!recursos.length){ wrap.innerHTML = ''; return; }
+  const grupos = recursos.map(recurso=>({
+    recurso,
+    itens: Object.entries(sepcxDados[recurso]).map(([codigo, pendente])=>({
+      codigo,
+      qtd: Math.ceil(Math.round(pendente*1000)/1000) + 20,
+    })),
+  }));
+  wrap.innerHTML = `
+    <div style="display:flex; gap:10px; margin-bottom:18px;">
+      <button class="btn gold" id="sepcx-copiar-btn">&#128203; Copiar lista</button>
+      <button class="btn ghost" id="sepcx-imprimir-btn">&#8681; Imprimir / PDF</button>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; gap:24px;">
+      ${grupos.map(g=>`
+        <div style="min-width:260px;">
+          <h3 style="font-family:'IBM Plex Mono',monospace; font-size:16px; margin-bottom:8px;">${g.recurso}</h3>
+          <div class="hist-table-wrap">
+            <table class="hist">
+              <thead><tr><th>Componente</th><th>Caixas</th></tr></thead>
+              <tbody>${g.itens.map(it=>`<tr><td class="pedido">${it.codigo}</td><td>${it.qtd} cx</td></tr>`).join('')}</tbody>
+            </table>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  document.getElementById('sepcx-copiar-btn').addEventListener('click', ()=>{
+    const texto = grupos.map(g=>`${g.recurso}\n` + g.itens.map(it=>`${it.codigo} -> ${it.qtd} cx`).join('\n')).join('\n\n');
+    navigator.clipboard.writeText(texto).then(()=>{
+      const btn = document.getElementById('sepcx-copiar-btn');
+      const original = btn.innerHTML;
+      btn.textContent = 'Copiado!';
+      setTimeout(()=>{ btn.innerHTML = original; }, 1500);
+    });
+  });
+  document.getElementById('sepcx-imprimir-btn').addEventListener('click', ()=>{
+    exportarTabelaPDF({
+      titulo: 'Separação de caixas para produção',
+      subtitulo: new Date().toLocaleDateString('pt-BR'),
+      colunas: ['Componente', 'Caixas'],
+      grupos: grupos.map(g=>({ titulo: g.recurso, linhas: g.itens.map(it=>[it.codigo, it.qtd + ' cx']) })),
+    });
+  });
+}
+
+document.getElementById('sepcx-file-input').addEventListener('change', (e)=>{
+  if(e.target.files && e.target.files.length) sepcxProcessarArquivos(e.target.files);
+  e.target.value = '';
+});
+document.getElementById('sepcx-limpar-btn').addEventListener('click', ()=>{
+  sepcxDados = {};
+  renderSepcxResultado();
+  document.getElementById('sepcx-status').textContent = '';
+  document.getElementById('sepcx-limpar-btn').style.display = 'none';
+});
 
 /* ========================================================================
    INIT
