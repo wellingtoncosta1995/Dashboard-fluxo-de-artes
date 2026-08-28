@@ -594,6 +594,7 @@
         <div style="display:flex; align-items:center; gap:10px;">
           <button class="sync-chip" id="btn-sync-info">&#128260; <span id="app-version"></span></button>
           <button class="icon-circle" id="btn-notif" title="Cobranças de aprovação pendentes">&#128276;<span class="badge-dot" id="notif-badge" style="display:none;"></span></button>
+          <button class="icon-circle" id="btn-tarefas" title="Minhas tarefas do dia a dia">&#128172;<span class="badge-dot" id="tarefas-badge" style="display:none;"></span></button>
           <div style="position:relative;">
             <button class="icon-circle" id="btn-settings-header" title="Configurações">&#9881;&#65039;</button>
             <div id="settings-menu" style="display:none; position:absolute; top:44px; right:0; z-index:50; background:var(--panel); border:1px solid var(--border-soft); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,0.12); min-width:210px; padding:6px; overflow:hidden;">
@@ -1028,7 +1029,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.59';
+const APP_VERSION = 'v8.60';
 const APP_VERSION_DATE = '28/08/2026';
 
 /* ========================================================================
@@ -1561,6 +1562,7 @@ let TABELA_CODIGOS_INTERNOS = [
 let pedidos = [];       // pedidos ativos no quadro (stage 0-10)
 let historico = [];     // finalizados + repetição
 let regravacoes = [];   // registros manuais de regravação de clichê
+let tarefasDiarias = []; // { id, texto, feito, criadoEm } — checklist pessoal de atividades do dia a dia
 let catalogoItens = {}; // {codigo: nome} — deduplicado, extraído de todos os pedidos
 const DIAMETROS_CONHECIDOS = [68,75,79,93,101,120,150,185];
 let diametrosManual = {}; // {codigo: diametro} — identificação manual, quando não dá pra detectar pelo nome
@@ -1649,6 +1651,7 @@ async function loadState(){
     if(saved.diametrosManual) diametrosManual = saved.diametrosManual;
     if(saved.clicheItensInfo) clicheItensInfo = saved.clicheItensInfo;
     if(saved.leadTimePorBoca) leadTimePorBoca = saved.leadTimePorBoca;
+    tarefasDiarias = saved.tarefasDiarias || [];
     valoresChapa = saved.valoresChapa || JSON.parse(JSON.stringify(VALORES_CHAPA_SEED));
     if(saved.valorClicheReferencia!=null) valorClicheReferencia = saved.valorClicheReferencia;
     const known = new Set([...pedidos, ...historico].map(p=>p.pedido));
@@ -1717,7 +1720,7 @@ function buildCatalogoItens(){
 }
 async function saveState(){
   try{
-    await window.storage.set('artes-pedidos-v3', JSON.stringify({pedidos, historico, regravacoes, nomeRelatorioAtual, lastImportTime, seedDescartada, tabelaCodigosInternos: TABELA_CODIGOS_INTERNOS, codigosUltimaAtualizacao, diametrosManual, clicheItensInfo, leadTimePorBoca, valoresChapa, valorClicheReferencia, stageOrderV2:true}), false);
+    await window.storage.set('artes-pedidos-v3', JSON.stringify({pedidos, historico, regravacoes, nomeRelatorioAtual, lastImportTime, seedDescartada, tabelaCodigosInternos: TABELA_CODIGOS_INTERNOS, codigosUltimaAtualizacao, diametrosManual, clicheItensInfo, leadTimePorBoca, valoresChapa, valorClicheReferencia, tarefasDiarias, stageOrderV2:true}), false);
   }catch(e){ console.error('Falha ao salvar', e); }
 }
 
@@ -1799,6 +1802,9 @@ function renderPageHeader(){
   const cobrancasPendentes = pedidos.filter(p=>precisaCobranca(p)).length;
   const badge = document.getElementById('notif-badge');
   if(cobrancasPendentes>0){ badge.style.display='flex'; badge.textContent = cobrancasPendentes; } else { badge.style.display='none'; }
+  const tarefasPendentes = tarefasDiarias.filter(t=>!t.feito).length;
+  const tarefasBadge = document.getElementById('tarefas-badge');
+  if(tarefasPendentes>0){ tarefasBadge.style.display='flex'; tarefasBadge.textContent = tarefasPendentes; } else { tarefasBadge.style.display='none'; }
 }
 
 /* ========================================================================
@@ -6184,6 +6190,82 @@ function openNotificacoesModal(){
   overlay.classList.add('open');
 }
 document.getElementById('btn-notif').addEventListener('click', openNotificacoesModal);
+
+/* ========================================================================
+   MINHAS TAREFAS DO DIA A DIA (checklist pessoal)
+   ======================================================================== */
+function escapeHtml(str){
+  return String(str).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function openTarefasModal(){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  modal.classList.remove('modal-wide');
+
+  const pendentes = tarefasDiarias.filter(t=>!t.feito);
+  const feitas = tarefasDiarias.filter(t=>t.feito);
+
+  function linhaHTML(t){
+    return `
+      <div style="display:flex; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid var(--border-soft);">
+        <input type="checkbox" class="tarefa-check" data-id="${t.id}" ${t.feito ? 'checked' : ''} style="width:17px; height:17px; accent-color:var(--teal); cursor:pointer; flex-shrink:0;">
+        <span style="flex:1; font-size:13.5px; ${t.feito ? 'text-decoration:line-through; color:var(--text-faint);' : 'color:var(--text);'}">${escapeHtml(t.texto)}</span>
+        <button class="tarefa-del" data-id="${t.id}" title="Remover" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:17px; line-height:1; padding:2px 4px;">&times;</button>
+      </div>`;
+  }
+
+  const listaHTML = tarefasDiarias.length
+    ? pendentes.map(linhaHTML).join('') + feitas.map(linhaHTML).join('')
+    : `<div class="hist-empty">Nenhuma tarefa ainda. Adicione a primeira acima. ✅</div>`;
+
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div>
+        <h2 style="font-size:18px;">Minhas tarefas do dia a dia</h2>
+        <p>Checklist pessoal — marque conforme for concluindo</p>
+      </div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <hr class="divider">
+    <div style="display:flex; gap:8px; margin-bottom:16px;">
+      <input type="text" id="tarefa-novo-input" placeholder="Nova tarefa..." maxlength="200" style="flex:1; padding:9px 12px; border:1px solid var(--border-soft); border-radius:8px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif; background:var(--panel-alt); color:var(--text);">
+      <button class="btn gold" id="tarefa-add-btn">Adicionar</button>
+    </div>
+    <div id="tarefas-lista">${listaHTML}</div>
+  `;
+
+  async function adicionarTarefa(){
+    const input = document.getElementById('tarefa-novo-input');
+    const texto = input.value.trim();
+    if(!texto) return;
+    tarefasDiarias.push({ id: Date.now() + '-' + Math.random().toString(36).slice(2), texto, feito: false, criadoEm: new Date().toISOString() });
+    await saveState();
+    openTarefasModal();
+    document.getElementById('tarefa-novo-input').focus();
+  }
+
+  document.getElementById('tarefa-add-btn').addEventListener('click', adicionarTarefa);
+  document.getElementById('tarefa-novo-input').addEventListener('keydown', (e)=>{ if(e.key==='Enter') adicionarTarefa(); });
+  modal.querySelectorAll('.tarefa-check').forEach(chk=>{
+    chk.addEventListener('change', async ()=>{
+      const t = tarefasDiarias.find(x=>x.id===chk.dataset.id);
+      if(t){ t.feito = chk.checked; await saveState(); renderPageHeader(); }
+      openTarefasModal();
+    });
+  });
+  modal.querySelectorAll('.tarefa-del').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      tarefasDiarias = tarefasDiarias.filter(x=>x.id!==btn.dataset.id);
+      await saveState();
+      renderPageHeader();
+      openTarefasModal();
+    });
+  });
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  overlay.classList.add('open');
+}
+document.getElementById('btn-tarefas').addEventListener('click', openTarefasModal);
 
 /* ========================================================================
    SEPARAÇÃO DE CAIXAS PARA PRODUÇÃO
