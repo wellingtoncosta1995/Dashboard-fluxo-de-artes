@@ -463,10 +463,10 @@
     #print-area .sepcx-print-grid{display:grid; grid-template-columns:1fr 1fr; gap:0 30px; align-items:start;}
     #print-area .sepcx-print-bloco{break-inside:avoid; margin-bottom:16px;}
     #print-area .sepcx-print-bloco h2{font-size:15px; margin:0 0 5px; padding-left:0; border-left:none; border-bottom:2px solid #333; padding-bottom:2px;}
-    #print-area .sepcx-print-linha{display:flex; align-items:center; gap:5px; font-size:12.5px; padding:4px 0;}
-    #print-area .sepcx-print-seta{color:#777;}
+    #print-area .sepcx-print-linha{display:flex; align-items:flex-end; gap:6px; font-size:12.5px; padding:4px 0;}
+    #print-area .sepcx-print-seta{color:#000; font-weight:900; font-size:16px; line-height:1;}
     #print-area .sepcx-print-qtd{font-family:'IBM Plex Mono',monospace; font-weight:700; white-space:nowrap;}
-    #print-area .sepcx-print-marcar{flex:1; border-bottom:1px solid #999; margin-left:10px;}
+    #print-area .sepcx-print-marcar{flex:1; border-bottom:1px solid #999; margin-left:10px; align-self:flex-end;}
   }
   #print-area{display:none;}
 
@@ -1028,7 +1028,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.52';
+const APP_VERSION = 'v8.53';
 const APP_VERSION_DATE = '28/08/2026';
 
 /* ========================================================================
