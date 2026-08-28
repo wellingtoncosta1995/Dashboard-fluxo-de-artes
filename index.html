@@ -130,23 +130,23 @@
   }
 
   /* ===== MODO SOMENTE LEITURA: congela tudo que altera dado, deixa navegação/busca livre ===== */
-  #app-shell.somente-leitura input:not(.busca-livre),
-  #app-shell.somente-leitura select,
-  #app-shell.somente-leitura textarea{
+  body.somente-leitura input:not(.busca-livre),
+  body.somente-leitura select,
+  body.somente-leitura textarea{
     pointer-events:none !important; opacity:.5; cursor:not-allowed;
   }
-  #app-shell.somente-leitura [class*="btn"],
-  #app-shell.somente-leitura [id*="btn"]:not(#btn-modo-edicao):not(#btn-presenca):not(#btn-notif):not(#btn-tarefas):not(#btn-settings-header):not(#btn-sync-info):not(#entrega-hist-btn),
-  #app-shell.somente-leitura .lp-cobrar,
-  #app-shell.somente-leitura .lp-finalize,
-  #app-shell.somente-leitura .diametro-limpar,
-  #app-shell.somente-leitura .codigos-add-item,
-  #app-shell.somente-leitura .tarefa-del,
-  #app-shell.somente-leitura #modal-cancelar,
-  #app-shell.somente-leitura #modal-finalize,
-  #app-shell.somente-leitura #menu-item-importar,
-  #app-shell.somente-leitura #menu-item-validar-repeticao,
-  #app-shell.somente-leitura #menu-item-historico-externo{
+  body.somente-leitura [class*="btn"],
+  body.somente-leitura [id*="btn"]:not(#btn-modo-edicao):not(#btn-presenca):not(#btn-notif):not(#btn-tarefas):not(#btn-settings-header):not(#btn-sync-info):not(#entrega-hist-btn),
+  body.somente-leitura .lp-cobrar,
+  body.somente-leitura .lp-finalize,
+  body.somente-leitura .diametro-limpar,
+  body.somente-leitura .codigos-add-item,
+  body.somente-leitura .tarefa-del,
+  body.somente-leitura #modal-cancelar,
+  body.somente-leitura #modal-finalize,
+  body.somente-leitura #menu-item-importar,
+  body.somente-leitura #menu-item-validar-repeticao,
+  body.somente-leitura #menu-item-historico-externo{
     pointer-events:none !important; opacity:.45; filter:grayscale(60%); cursor:not-allowed;
   }
 
@@ -1056,7 +1056,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.65';
+const APP_VERSION = 'v8.66';
 const APP_VERSION_DATE = '28/08/2026';
 
 /* ========================================================================
@@ -6390,17 +6390,16 @@ const SENHA_EDICAO = 'impressao';
 function atualizarModoEdicaoUI(){
   const btn = document.getElementById('btn-modo-edicao');
   const banner = document.getElementById('banner-somente-leitura');
-  const appShell = document.getElementById('app-shell');
   if(modoEdicaoLiberado){
     btn.innerHTML = '&#128275;';
     btn.title = 'Edição liberada — clique pra travar';
     banner.style.display = 'none';
-    appShell.classList.remove('somente-leitura');
+    document.body.classList.remove('somente-leitura');
   } else {
     btn.innerHTML = '&#128274;';
     btn.title = 'Modo somente leitura — clique pra liberar edição';
     banner.style.display = 'flex';
-    appShell.classList.add('somente-leitura');
+    document.body.classList.add('somente-leitura');
   }
 }
 
