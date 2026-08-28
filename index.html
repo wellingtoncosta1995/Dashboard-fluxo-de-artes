@@ -556,9 +556,9 @@
           <button class="nav-item nav-sub-item" data-view="custo-mensal">Custo mensal</button>
           <button class="nav-item nav-sub-item" data-view="custo-anual">Custo anual</button>
           <button class="nav-item nav-sub-item" data-view="valores-chapa">Valores por chapa</button>
-          <button class="nav-item nav-sub-item" data-view="requisicao-cliche">Requisição de clichê</button>
         </div>
         <div class="nav-panel-divider"></div>
+        <button class="nav-item" data-view="requisicao-cliche"><span class="icon"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3.5h6l3 3v10a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-12a1 1 0 0 1 1-1Z"/><path d="M12 3.5v3h3"/><path d="M7.5 10h5M7.5 12.5h5M7.5 15h3"/></svg></span> Requisição de clichê</button>
         <button class="nav-item" data-view="regravacao"><span class="icon"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10a6 6 0 0 1 10.2-4.2L16 7.5"/><path d="M16 4v3.5h-3.5"/><path d="M16 10a6 6 0 0 1-10.2 4.2L4 12.5"/><path d="M4 16v-3.5h3.5"/></svg></span> Regravação de clichê</button>
       </div>
 
@@ -1028,7 +1028,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.57';
+const APP_VERSION = 'v8.58';
 const APP_VERSION_DATE = '28/08/2026';
 
 /* ========================================================================
@@ -5163,7 +5163,7 @@ function syncGroupChevron(dataView, open){
 }
 function switchView(view){
   currentView = view;
-  if(view!=='cliche' && view!=='custo-mensal' && view!=='custo-anual' && view!=='valores-chapa' && view!=='requisicao-cliche') clicheSubmenuOpen = false;
+  if(view!=='cliche' && view!=='custo-mensal' && view!=='custo-anual' && view!=='valores-chapa') clicheSubmenuOpen = false;
   if(view!=='analise-entrega' && view!=='analise-entrega-historico') analiseEntregaSubmenuOpen = false;
   if(view!=='history') historySubmenuOpen = false;
   if(view!=='board' && view!=='separacao-caixas') boardSubmenuOpen = false;
