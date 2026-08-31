@@ -535,6 +535,9 @@
   .sepcx-mini-btn:disabled{opacity:.35; cursor:default;}
   .sepcx-mini-btn:disabled:hover{background:var(--panel-alt); border-color:var(--border-soft);}
   .sepcx-qtd-input{width:60px; padding:4px 6px; border:1px solid var(--border-soft); border-radius:6px; font-family:'IBM Plex Mono',monospace; font-size:12.5px;}
+  .sepcx-codigo-input{width:100px; padding:4px 6px; border:1px solid var(--border-soft); border-radius:6px; font-family:'IBM Plex Mono',monospace; font-size:12.5px;}
+  .sepcx-add-btn{margin-top:8px; border:1px dashed var(--border-soft); background:transparent; border-radius:6px; padding:5px 10px; font-size:12px; font-weight:600; color:var(--text-dim); cursor:pointer; width:100%;}
+  .sepcx-add-btn:hover{background:var(--panel-alt); border-color:var(--gold); color:var(--text);}
 
   @media (max-width: 880px){
     .app-shell{flex-direction:column;}
@@ -1058,8 +1061,8 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.71';
-const APP_VERSION_DATE = '28/08/2026';
+const APP_VERSION = 'v8.72';
+const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -6568,7 +6571,7 @@ function renderSepcxResultado(){
               <tbody>
                 ${itens.map((it,i)=>`
                 <tr${it.producao ? ' style="background:var(--gold-bg-light);"' : ''}>
-                  <td class="pedido">${it.codigo}${it.producao ? ' <span style="font-size:9.5px; font-weight:700; color:var(--gold-dark); background:var(--panel); border-radius:4px; padding:1px 5px; vertical-align:middle;">EM PRODUÇÃO</span>' : ''}</td>
+                  <td class="pedido"><input type="text" class="sepcx-codigo-input" data-recurso="${recurso}" data-id="${it.id}" value="${it.codigo}" placeholder="código">${it.producao ? ' <span style="font-size:9.5px; font-weight:700; color:var(--gold-dark); background:var(--panel); border-radius:4px; padding:1px 5px; vertical-align:middle;">EM PRODUÇÃO</span>' : ''}</td>
                   <td><input type="number" min="0" class="sepcx-qtd-input" data-recurso="${recurso}" data-id="${it.id}" value="${it.qtd}"> cx</td>
                   <td style="white-space:nowrap;">
                     <button class="sepcx-mini-btn" data-action="up" data-recurso="${recurso}" data-id="${it.id}" title="Subir" ${i===0?'disabled':''}>&#9650;</button>
@@ -6580,6 +6583,7 @@ function renderSepcxResultado(){
               </tbody>
             </table>
           </div>
+          <button class="sepcx-add-btn" data-action="add" data-recurso="${recurso}">+ Adicionar item</button>
         </div>`;
       }).join('')}
     </div>
@@ -6647,15 +6651,23 @@ function sepcxImprimirLista(){
 }
 
 function sepcxHandleAcao(e){
-  const btn = e.target.closest('.sepcx-mini-btn');
+  const btn = e.target.closest('.sepcx-mini-btn, .sepcx-add-btn');
   if(!btn) return;
   const recurso = btn.dataset.recurso;
-  const id = Number(btn.dataset.id);
   const lista = sepcxDados[recurso];
   if(!lista) return;
+  const acao = btn.dataset.action;
+  if(acao === 'add'){
+    const novoItem = { id: sepcxNextId++, codigo: '', qtd: 0, producao: false };
+    lista.push(novoItem);
+    renderSepcxResultado();
+    const novoInput = document.querySelector(`.sepcx-codigo-input[data-recurso="${recurso}"][data-id="${novoItem.id}"]`);
+    if(novoInput) novoInput.focus();
+    return;
+  }
+  const id = Number(btn.dataset.id);
   const idx = lista.findIndex(it=>it.id===id);
   if(idx === -1) return;
-  const acao = btn.dataset.action;
   if(acao === 'up' && idx > 0){
     [lista[idx-1], lista[idx]] = [lista[idx], lista[idx-1]];
   } else if(acao === 'down' && idx < lista.length-1){
@@ -6675,6 +6687,16 @@ function sepcxHandleAcao(e){
     return;
   }
   renderSepcxResultado();
+}
+
+function sepcxHandleCodigoChange(e){
+  const input = e.target.closest('.sepcx-codigo-input');
+  if(!input) return;
+  const lista = sepcxDados[input.dataset.recurso];
+  if(!lista) return;
+  const item = lista.find(it=>it.id===Number(input.dataset.id));
+  if(!item) return;
+  item.codigo = input.value.trim();
 }
 
 function sepcxHandleQtdChange(e){
@@ -6701,6 +6723,7 @@ document.getElementById('sepcx-limpar-btn').addEventListener('click', ()=>{
 });
 document.getElementById('sepcx-resultado').addEventListener('click', sepcxHandleAcao);
 document.getElementById('sepcx-resultado').addEventListener('change', sepcxHandleQtdChange);
+document.getElementById('sepcx-resultado').addEventListener('change', sepcxHandleCodigoChange);
 
 /* ========================================================================
    INIT
