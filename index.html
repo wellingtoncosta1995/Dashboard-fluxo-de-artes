@@ -979,7 +979,7 @@
               <input type="text" id="dal-busca-naoalteradas" class="busca-livre" placeholder="Pedido, cliente ou item...">
             </div>
           </div>
-          <div class="home-card home-card-live" id="home-card-vencimento" title="Ver detalhes em Lead time por pedidos">
+          <div class="home-card home-card-live" id="home-card-vencimento" title="Ver lista de pedidos por lead time — limpa os filtros abaixo">
             <div class="hcm-label">LEAD TIME POR PEDIDOS</div>
             <div class="hcm-valor" id="hcv-valor-total">0</div>
             <div class="hcm-breakdown">
@@ -998,6 +998,31 @@
               <tbody></tbody>
             </table>
           </div>
+        </div>
+
+        <div style="margin-top:30px; padding-top:22px; border-top:1px solid var(--border-soft);">
+          <div class="k" style="font-size:12.5px; margin-bottom:10px;">Lead time por pedidos</div>
+          <p style="margin:0 0 12px; font-size:11.5px; color:var(--text-faint);">Data de entrega projetada = data de entrada na etapa atual + lead time atual do diâmetro, comparada à data de entrega prometida</p>
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:10px;">
+            <span class="k" style="font-size:11px;">Data de entrega:</span>
+            <button class="hist-tab venc-filtro-origem active" data-origem="todos" style="padding:6px 12px;">Todos</button>
+            <button class="hist-tab venc-filtro-origem" data-origem="alteradas" style="padding:6px 12px;">Data alterada</button>
+            <button class="hist-tab venc-filtro-origem" data-origem="naoAlteradas" style="padding:6px 12px;">Data não alterada</button>
+          </div>
+          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:14px;">
+            <span class="k" style="font-size:11px;">Dias até a entrega:</span>
+            <button class="hist-tab venc-filtro-dias active" data-dias="" style="padding:6px 12px;">Todos</button>
+            <button class="hist-tab venc-filtro-dias" data-dias="3" style="padding:6px 12px;">3</button>
+            <button class="hist-tab venc-filtro-dias" data-dias="5" style="padding:6px 12px;">5</button>
+            <button class="hist-tab venc-filtro-dias" data-dias="7" style="padding:6px 12px;">7</button>
+            <button class="hist-tab venc-filtro-dias" data-dias="10" style="padding:6px 12px;">10</button>
+            <button class="hist-tab venc-filtro-dias" data-dias="12" style="padding:6px 12px;">12</button>
+            <button class="hist-tab venc-filtro-dias" data-dias="15" style="padding:6px 12px;">15</button>
+            <button class="hist-tab venc-filtro-dias" data-dias="20" style="padding:6px 12px;">20</button>
+            <button class="hist-tab venc-filtro-dias" data-dias="25" style="padding:6px 12px;">25</button>
+            <button class="hist-tab venc-filtro-dias" data-dias="30" style="padding:6px 12px;">30</button>
+          </div>
+          <div id="venc-resultado"></div>
         </div>
       </div>
     </div>
@@ -1094,7 +1119,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.88';
+const APP_VERSION = 'v8.89';
 const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
@@ -5737,6 +5762,7 @@ function renderHomeCards(){
   document.getElementById('hcda-valor-total-n').textContent = pedidos.length;
 
   renderDatasAlteradasLista();
+  renderVencimentoLista();
 }
 let datasAlteradasFiltro = 'alteradas'; // 'alteradas' | 'naoAlteradas' — qual lista aparece na área abaixo dos cards
 let datasAlteradasBusca = { alteradas: '', naoAlteradas: '' }; // busca independente por card (pedido, cliente ou item)
@@ -6074,11 +6100,18 @@ function entregaComHistoricoHTML(p){
   const tooltip = p.entregaHistorico.map(h=>`${fmtDateTime(h.em)}: de ${h.de} para ${h.para}`).join('\n');
   return `${p.entrega} <span title="${tooltip.replace(/"/g,'&quot;')}" style="display:inline-block; background:var(--gold-bg-light); color:var(--gold-dark); border-radius:5px; padding:1px 5px; font-size:9.5px; font-weight:700; cursor:help;">&#8635; ${p.entregaHistorico.length}</span>`;
 }
-const VENCIMENTO_DIAS_OPCOES = [3,5,7,10,12,15,20,25,30];
-function openVencimentoModal(){
-  const overlay = document.getElementById('overlay');
-  const modal = document.getElementById('modal');
-  modal.classList.add('modal-wide');
+function diasParaEntregaTexto(dias){
+  if(dias < 0) return { texto: `Atrasado ${Math.abs(dias)}d`, cor: 'var(--red)' };
+  if(dias === 0) return { texto: 'Hoje', cor: 'var(--red)' };
+  if(dias <= 3) return { texto: `Faltam ${dias}d`, cor: 'var(--red)' };
+  if(dias <= 7) return { texto: `Faltam ${dias}d`, cor: 'var(--gold-dark)' };
+  return { texto: `Faltam ${dias}d`, cor: 'var(--green-dark)' };
+}
+let vencFiltroOrigem = 'todos'; // todos | alteradas | naoAlteradas
+let vencFiltroDiasMax = null; // null = todos, ou um dos valores dos botões — mostra pedidos com dias até a entrega <= esse valor (cumulativo: quanto maior o botão, mais pedidos entram)
+function renderVencimentoLista(){
+  const resultado = document.getElementById('venc-resultado');
+  if(!resultado) return;
 
   const hoje = new Date(); hoje.setHours(0,0,0,0);
   const elegiveis = pedidos.filter(p=>p.stage < STAGE_CLICHE_FABRICA);
@@ -6086,131 +6119,89 @@ function openVencimentoModal(){
     .map(x=>({...x, diasRestantes: Math.round((parseDateBR(x.p.entrega) - hoje) / 86400000)}));
   const semCalculo = elegiveis.length - comCalculo.length;
 
-  let filtroOrigem = 'todos'; // todos | alteradas | naoAlteradas
-  let filtroDiasMax = null; // null = todos, ou um dos VENCIMENTO_DIAS_OPCOES — mostra pedidos com dias até a entrega <= esse valor (cumulativo: quanto maior o botão, mais pedidos entram)
+  let itens = comCalculo;
+  if(vencFiltroOrigem==='alteradas') itens = itens.filter(x=>x.p.entregaHistorico && x.p.entregaHistorico.length);
+  else if(vencFiltroOrigem==='naoAlteradas') itens = itens.filter(x=>!x.p.entregaHistorico || !x.p.entregaHistorico.length);
+  if(vencFiltroDiasMax!=null) itens = itens.filter(x=>x.diasRestantes <= vencFiltroDiasMax);
 
-  modal.innerHTML = `
-    <div class="modal-head">
-      <div>
-        <h2 style="font-size:18px;">Lead time por pedidos</h2>
-        <p>Data de entrega projetada = data de entrada na etapa atual + lead time atual do diâmetro, comparada à data de entrega prometida${semCalculo ? ` · ${semCalculo} pedido(s) sem diâmetro identificado ou sem lead time cadastrado, não entram nesse cálculo` : ''}</p>
-      </div>
-      <button class="close-x" id="modal-close">&times;</button>
-    </div>
+  const label = vencFiltroDiasMax!=null
+    ? `Entrega em até ${vencFiltroDiasMax} dia${vencFiltroDiasMax===1?'':'s'}`
+    : 'Todos os pedidos';
 
-    <hr class="divider">
-    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:10px;">
-      <span class="k" style="font-size:11px;">Data de entrega:</span>
-      <button class="hist-tab venc-filtro-origem active" data-origem="todos" style="padding:6px 12px;">Todos</button>
-      <button class="hist-tab venc-filtro-origem" data-origem="alteradas" style="padding:6px 12px;">Data alterada</button>
-      <button class="hist-tab venc-filtro-origem" data-origem="naoAlteradas" style="padding:6px 12px;">Data não alterada</button>
-    </div>
-    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:14px;">
-      <span class="k" style="font-size:11px;">Dias até a entrega:</span>
-      <button class="hist-tab venc-filtro-dias active" data-dias="" style="padding:6px 12px;">Todos</button>
-      ${VENCIMENTO_DIAS_OPCOES.map(d=>`<button class="hist-tab venc-filtro-dias" data-dias="${d}" style="padding:6px 12px;">${d}</button>`).join('')}
-    </div>
+  const rows = itens.length ? itens
+    .slice()
+    .sort((a,b)=>a.diasRestantes-b.diasRestantes)
+    .map(({p,info,diasRestantes})=>{
+      const st = STAGES.find(s=>s.id===p.stage);
+      const corAtraso = info.diasAtraso>7 ? 'var(--red)' : info.diasAtraso>0 ? 'var(--gold-dark)' : 'var(--green-dark)';
+      const situacao = info.diasAtraso>0 ? `atraso de ${info.diasAtraso}d` : 'no prazo';
+      const dp = diasParaEntregaTexto(diasRestantes);
+      return `
+      <tr>
+        <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
+        <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
+        <td>${st ? `${st.id} — ${st.nome}` : '—'}</td>
+        <td style="font-family:'IBM Plex Mono',monospace;">Ø ${info.diametro} (${info.leadTimeDias}d)</td>
+        <td>${entregaComHistoricoHTML(p)}</td>
+        <td><span style="color:${dp.cor}; font-weight:700;">${dp.texto}</span></td>
+        <td>${info.projetada.toLocaleDateString('pt-BR')}</td>
+        <td><span style="color:${corAtraso}; font-weight:700;">${situacao}</span></td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="8" class="hist-empty">Nenhum pedido com esse filtro.</td></tr>`;
 
-    <div id="vencimento-resultado"></div>
+  resultado.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+      <div class="k" style="font-size:12.5px;">${label} (${itens.length})${semCalculo ? ` · ${semCalculo} sem diâmetro/lead time identificado` : ''}</div>
+      <button class="btn small ghost" id="btn-exportar-leadtime-pdf">&#8681; Exportar PDF</button>
+    </div>
+    <div class="hist-table-wrap">
+      <table class="hist">
+        <thead><tr><th>Pedido</th><th>Cliente</th><th>Etapa atual</th><th>Diâmetro (lead time)</th><th>Entrega prometida</th><th>Dias até a entrega</th><th>Entrega projetada</th><th>Situação</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
   `;
-
-  function diasParaEntregaTexto(dias){
-    if(dias < 0) return { texto: `Atrasado ${Math.abs(dias)}d`, cor: 'var(--red)' };
-    if(dias === 0) return { texto: 'Hoje', cor: 'var(--red)' };
-    if(dias <= 3) return { texto: `Faltam ${dias}d`, cor: 'var(--red)' };
-    if(dias <= 7) return { texto: `Faltam ${dias}d`, cor: 'var(--gold-dark)' };
-    return { texto: `Faltam ${dias}d`, cor: 'var(--green-dark)' };
-  }
-  function renderResultado(){
-    let itens = comCalculo;
-    if(filtroOrigem==='alteradas') itens = itens.filter(x=>x.p.entregaHistorico && x.p.entregaHistorico.length);
-    else if(filtroOrigem==='naoAlteradas') itens = itens.filter(x=>!x.p.entregaHistorico || !x.p.entregaHistorico.length);
-    if(filtroDiasMax!=null) itens = itens.filter(x=>x.diasRestantes <= filtroDiasMax);
-
-    const label = filtroDiasMax!=null
-      ? `Entrega em até ${filtroDiasMax} dia${filtroDiasMax===1?'':'s'}`
-      : 'Todos os pedidos';
-
-    const rows = itens.length ? itens
-      .slice()
-      .sort((a,b)=>a.diasRestantes-b.diasRestantes)
-      .map(({p,info,diasRestantes})=>{
+  document.getElementById('btn-exportar-leadtime-pdf').addEventListener('click', ()=>{
+    exportarTabelaPDF({
+      titulo: 'Lead time por pedidos',
+      subtitulo: `${label} — ${itens.length} pedido${itens.length===1?'':'s'} · gerado em ${new Date().toLocaleString('pt-BR')}`,
+      colunas: ['Pedido','Cliente','Etapa atual','Diâmetro (lead time)','Entrega prometida','Dias até a entrega','Entrega projetada','Situação'],
+      linhas: itens.slice().sort((a,b)=>a.diasRestantes-b.diasRestantes).map(({p,info,diasRestantes})=>{
         const st = STAGES.find(s=>s.id===p.stage);
-        const corAtraso = info.diasAtraso>7 ? 'var(--red)' : info.diasAtraso>0 ? 'var(--gold-dark)' : 'var(--green-dark)';
-        const situacao = info.diasAtraso>0 ? `atraso de ${info.diasAtraso}d` : 'no prazo';
+        const situacao = info.diasAtraso>0 ? `Atraso de ${info.diasAtraso}d` : 'No prazo';
         const dp = diasParaEntregaTexto(diasRestantes);
-        return `
-        <tr>
-          <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
-          <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
-          <td>${st ? `${st.id} — ${st.nome}` : '—'}</td>
-          <td style="font-family:'IBM Plex Mono',monospace;">Ø ${info.diametro} (${info.leadTimeDias}d)</td>
-          <td>${entregaComHistoricoHTML(p)}</td>
-          <td><span style="color:${dp.cor}; font-weight:700;">${dp.texto}</span></td>
-          <td>${info.projetada.toLocaleDateString('pt-BR')}</td>
-          <td><span style="color:${corAtraso}; font-weight:700;">${situacao}</span></td>
-        </tr>`;
-      }).join('') : `<tr><td colspan="8" class="hist-empty">Nenhum pedido com esse filtro.</td></tr>`;
-
-    document.getElementById('vencimento-resultado').innerHTML = `
-      <hr class="divider">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <div class="k" style="font-size:12.5px;">${label} (${itens.length})</div>
-        <button class="btn small ghost" id="btn-exportar-leadtime-pdf">&#8681; Exportar PDF</button>
-      </div>
-      <div class="hist-table-wrap">
-        <table class="hist">
-          <thead><tr><th>Pedido</th><th>Cliente</th><th>Etapa atual</th><th>Diâmetro (lead time)</th><th>Entrega prometida</th><th>Dias até a entrega</th><th>Entrega projetada</th><th>Situação</th></tr></thead>
-          <tbody>${rows}</tbody>
-        </table>
-      </div>
-    `;
-    document.getElementById('btn-exportar-leadtime-pdf').addEventListener('click', ()=>{
-      exportarTabelaPDF({
-        titulo: 'Lead time por pedidos',
-        subtitulo: `${label} — ${itens.length} pedido${itens.length===1?'':'s'} · gerado em ${new Date().toLocaleString('pt-BR')}`,
-        colunas: ['Pedido','Cliente','Etapa atual','Diâmetro (lead time)','Entrega prometida','Dias até a entrega','Entrega projetada','Situação'],
-        linhas: itens.slice().sort((a,b)=>a.diasRestantes-b.diasRestantes).map(({p,info,diasRestantes})=>{
-          const st = STAGES.find(s=>s.id===p.stage);
-          const situacao = info.diasAtraso>0 ? `Atraso de ${info.diasAtraso}d` : 'No prazo';
-          const dp = diasParaEntregaTexto(diasRestantes);
-          return [
-            p.pedido, p.clienteNome, st ? `${st.id} — ${st.nome}` : '—',
-            `Ø ${info.diametro} (${info.leadTimeDias}d)`,
-            p.entrega, dp.texto, info.projetada.toLocaleDateString('pt-BR'), situacao
-          ];
-        }),
-      });
-    });
-    modal.querySelectorAll('.link-pedido-venc').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        modal.classList.remove('modal-wide');
-        openModal(btn.dataset.id, {voltar: openVencimentoModal});
-      });
-    });
-  }
-
-  modal.querySelectorAll('.venc-filtro-origem').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      filtroOrigem = btn.dataset.origem;
-      modal.querySelectorAll('.venc-filtro-origem').forEach(b=>b.classList.toggle('active', b===btn));
-      renderResultado();
+        return [
+          p.pedido, p.clienteNome, st ? `${st.id} — ${st.nome}` : '—',
+          `Ø ${info.diametro} (${info.leadTimeDias}d)`,
+          p.entrega, dp.texto, info.projetada.toLocaleDateString('pt-BR'), situacao
+        ];
+      }),
     });
   });
-  modal.querySelectorAll('.venc-filtro-dias').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      filtroDiasMax = btn.dataset.dias ? Number(btn.dataset.dias) : null;
-      modal.querySelectorAll('.venc-filtro-dias').forEach(b=>b.classList.toggle('active', b===btn));
-      renderResultado();
-    });
+  resultado.querySelectorAll('.link-pedido-venc').forEach(btn=>{
+    btn.addEventListener('click', ()=> openModal(btn.dataset.id));
   });
-  renderResultado();
-
-  document.getElementById('modal-close').addEventListener('click', closeModal);
-  overlay.classList.add('open');
 }
+document.querySelectorAll('.venc-filtro-origem').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    vencFiltroOrigem = btn.dataset.origem;
+    document.querySelectorAll('.venc-filtro-origem').forEach(b=>b.classList.toggle('active', b===btn));
+    renderVencimentoLista();
+  });
+});
+document.querySelectorAll('.venc-filtro-dias').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    vencFiltroDiasMax = btn.dataset.dias ? Number(btn.dataset.dias) : null;
+    document.querySelectorAll('.venc-filtro-dias').forEach(b=>b.classList.toggle('active', b===btn));
+    renderVencimentoLista();
+  });
+});
 document.getElementById('home-card-vencimento').addEventListener('click', ()=>{
-  openVencimentoModal();
+  vencFiltroOrigem = 'todos';
+  vencFiltroDiasMax = null;
+  document.querySelectorAll('.venc-filtro-origem').forEach(b=>b.classList.toggle('active', b.dataset.origem==='todos'));
+  document.querySelectorAll('.venc-filtro-dias').forEach(b=>b.classList.toggle('active', !b.dataset.dias));
+  renderVencimentoLista();
 });
 
 function parseDuracaoParaDias(str){
