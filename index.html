@@ -956,13 +956,19 @@
           <p class="topics-intro" style="margin:0; padding:0; border:none;"><span class="mono-label">ANÁLISE DATA DE ENTREGA</span> <span class="link-text">datas alteradas e atraso projetado em relação ao lead time</span></p>
           <button class="btn small ghost" id="btn-analise-importar-atualizar" style="flex-shrink:0; white-space:nowrap;">&#128260; Importar relatório (atualizar datas)</button>
         </div>
-        <div class="home-cards-grid" style="grid-template-columns:repeat(2, 1fr); max-width:700px;">
-          <div class="home-card" id="home-card-datas-alteradas" title="Pedidos com data de entrega alterada — lista abaixo">
-            <div class="hcm-label">DATAS DE ENTREGA ALTERADAS</div>
-            <div class="hcm-valor" id="hcda-valor-total">0</div>
+        <div class="home-cards-grid" style="grid-template-columns:repeat(3, 1fr); max-width:1050px;">
+          <div class="home-card home-card-live" id="home-card-datas-alteradas" title="Ver lista de pedidos com data alterada">
+            <div class="hcm-label">DATAS DE ENTREGA — ALTERADAS</div>
+            <div class="hcm-valor" id="hcda-valor-alteradas">0</div>
             <div class="hcm-breakdown">
-              <span>Alteradas: <b id="hcda-valor-alteradas">0</b></span>
-              <span>Não alteradas: <b id="hcda-valor-naoalteradas">0</b></span>
+              <span>de <b id="hcda-valor-total-a">0</b> pedido(s) ativo(s)</span>
+            </div>
+          </div>
+          <div class="home-card home-card-live" id="home-card-datas-naoalteradas" title="Ver lista de pedidos com data original">
+            <div class="hcm-label">DATAS DE ENTREGA — NÃO ALTERADAS</div>
+            <div class="hcm-valor" id="hcda-valor-naoalteradas">0</div>
+            <div class="hcm-breakdown">
+              <span>de <b id="hcda-valor-total-n">0</b> pedido(s) ativo(s)</span>
             </div>
           </div>
           <div class="home-card home-card-live" id="home-card-vencimento" title="Ver detalhes em Lead time por pedidos">
@@ -1091,7 +1097,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.81';
+const APP_VERSION = 'v8.82';
 const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
@@ -5724,9 +5730,10 @@ function renderHomeCards(){
 
   const alteradas = pedidos.filter(p=>p.entregaHistorico && p.entregaHistorico.length);
   const naoAlteradas = pedidos.filter(p=>!p.entregaHistorico || !p.entregaHistorico.length);
-  document.getElementById('hcda-valor-total').textContent = pedidos.length;
   document.getElementById('hcda-valor-alteradas').textContent = alteradas.length;
   document.getElementById('hcda-valor-naoalteradas').textContent = naoAlteradas.length;
+  document.getElementById('hcda-valor-total-a').textContent = pedidos.length;
+  document.getElementById('hcda-valor-total-n').textContent = pedidos.length;
 
   document.getElementById('dal-count-alteradas').textContent = alteradas.length;
   const tbodyAlteradas = document.querySelector('#dal-table-alteradas tbody');
@@ -5757,6 +5764,20 @@ function renderHomeCards(){
     });
   });
 }
+function scrollComDestaque(elId, cor){
+  const el = document.getElementById(elId);
+  if(!el) return;
+  el.scrollIntoView({behavior:'smooth', block:'center'});
+  el.style.outline = `2px solid ${cor}`;
+  el.style.outlineOffset = '2px';
+  setTimeout(()=>{ el.style.outline = 'none'; }, 1400);
+}
+document.getElementById('home-card-datas-alteradas').addEventListener('click', ()=>{
+  scrollComDestaque('dal-table-alteradas', 'var(--gold)');
+});
+document.getElementById('home-card-datas-naoalteradas').addEventListener('click', ()=>{
+  scrollComDestaque('dal-table-naoalteradas', 'var(--green)');
+});
 function openClicheMesModal(){
   const agora = new Date();
   const { pedidosMes, regravMes } = listaClicheMesAtual();
