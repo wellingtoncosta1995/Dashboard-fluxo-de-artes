@@ -990,7 +990,7 @@
           </div>
         </div>
 
-        <div style="margin-top:22px;">
+        <div id="venc-secao" style="margin-top:22px;">
           <div class="k" style="font-size:12.5px; margin-bottom:10px;">Lead time por pedidos</div>
           <p style="margin:0 0 12px; font-size:11.5px; color:var(--text-faint);">Data de entrega projetada = data de entrada na etapa atual + lead time atual do diâmetro, comparada à data de entrega prometida</p>
           <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:14px;">
@@ -1009,7 +1009,7 @@
           <div id="venc-resultado"></div>
         </div>
 
-        <div style="margin-top:30px; padding-top:22px; border-top:1px solid var(--border-soft);">
+        <div id="dal-secao" style="margin-top:30px; padding-top:22px; border-top:1px solid var(--border-soft);">
           <div class="k" style="font-size:12.5px; margin-bottom:10px;" id="dal-titulo">Data alterada (<span id="dal-count">0</span>)</div>
           <div class="hist-table-wrap">
             <table class="hist" id="dal-table">
@@ -1113,7 +1113,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.94';
+const APP_VERSION = 'v8.95';
 const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
@@ -5801,23 +5801,33 @@ function renderDatasAlteradasLista(){
     btn.addEventListener('click', ()=> openModal(btn.dataset.id));
   });
 }
+function mostrarSecaoAnalise(secao){
+  // secao: 'leadtime' | 'datas' — clicar num card mostra só a seção dele,
+  // pra não parecer que os dados de um card estão misturados com o outro
+  document.getElementById('venc-secao').style.display = secao==='leadtime' ? 'block' : 'none';
+  document.getElementById('dal-secao').style.display = secao==='datas' ? 'block' : 'none';
+}
 document.getElementById('home-card-datas-alteradas').addEventListener('click', ()=>{
   datasAlteradasFiltro = 'alteradas';
   renderDatasAlteradasLista();
+  mostrarSecaoAnalise('datas');
 });
 document.getElementById('home-card-datas-naoalteradas').addEventListener('click', ()=>{
   datasAlteradasFiltro = 'naoAlteradas';
   renderDatasAlteradasLista();
+  mostrarSecaoAnalise('datas');
 });
 document.getElementById('dal-busca-alteradas').addEventListener('input', (e)=>{
   datasAlteradasBusca.alteradas = e.target.value.trim();
   datasAlteradasFiltro = 'alteradas';
   renderDatasAlteradasLista();
+  mostrarSecaoAnalise('datas');
 });
 document.getElementById('dal-busca-naoalteradas').addEventListener('input', (e)=>{
   datasAlteradasBusca.naoAlteradas = e.target.value.trim();
   datasAlteradasFiltro = 'naoAlteradas';
   renderDatasAlteradasLista();
+  mostrarSecaoAnalise('datas');
 });
 function openClicheMesModal(){
   const agora = new Date();
@@ -6185,6 +6195,7 @@ document.getElementById('home-card-vencimento').addEventListener('click', ()=>{
   vencFiltroDiasMax = null;
   document.querySelectorAll('.venc-filtro-dias').forEach(b=>b.classList.toggle('active', !b.dataset.dias));
   renderVencimentoLista();
+  mostrarSecaoAnalise('leadtime');
 });
 
 function parseDuracaoParaDias(str){
