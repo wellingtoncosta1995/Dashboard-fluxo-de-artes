@@ -1113,7 +1113,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.00';
+const APP_VERSION = 'v9.01';
 const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
@@ -6114,6 +6114,14 @@ function exportarTabelaPDF({titulo, subtitulo, colunas, linhas, corLinhas, grupo
   window.print();
 }
 
+function exportarTabelaExcel({titulo, colunas, linhas}){
+  const ws = XLSX.utils.aoa_to_sheet([colunas, ...linhas]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, titulo.slice(0,31));
+  const nomeArquivo = `${titulo} - ${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.xlsx`;
+  XLSX.writeFile(wb, nomeArquivo);
+}
+
 function entregaComHistoricoHTML(p){
   if(!p.entregaHistorico || !p.entregaHistorico.length) return p.entrega;
   const tooltip = p.entregaHistorico.map(h=>`${fmtDateTime(h.em)}: de ${h.de} para ${h.para}`).join('\n');
@@ -6175,7 +6183,10 @@ function renderVencimentoListaInterno(resultado){
   resultado.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
       <div class="k" style="font-size:12.5px;">${label} (${itens.length})${semCalculo ? ` · ${semCalculo} sem diâmetro/lead time identificado` : ''}</div>
-      <button class="btn small ghost" id="btn-exportar-leadtime-pdf">&#8681; Exportar PDF</button>
+      <div style="display:flex; gap:8px;">
+        <button class="btn small ghost" id="btn-exportar-leadtime-excel">&#128202; Exportar Excel</button>
+        <button class="btn small ghost" id="btn-exportar-leadtime-pdf">&#8681; Exportar PDF</button>
+      </div>
     </div>
     <div class="hist-table-wrap">
       <table class="hist">
@@ -6184,6 +6195,24 @@ function renderVencimentoListaInterno(resultado){
       </table>
     </div>
   `;
+  const colunasExport = ['Pedido','Cliente','Etapa atual','Diâmetro (lead time)','Entrega prometida','Dias até a entrega','Entrega projetada','Situação'];
+  const linhasExport = itens.slice().sort((a,b)=>a.diasRestantes-b.diasRestantes).map(({p,info,diasRestantes})=>{
+    const st = STAGES.find(s=>s.id===p.stage);
+    const situacao = info.diasAtraso>0 ? `Atraso de ${info.diasAtraso}d` : 'No prazo';
+    const dp = diasParaEntregaTexto(diasRestantes);
+    return [
+      p.pedido, p.clienteNome, st ? `${st.id} — ${st.nome}` : '—',
+      `Ø ${info.diametro} (${info.leadTimeDias}d)`,
+      p.entrega, dp.texto, info.projetada.toLocaleDateString('pt-BR'), situacao
+    ];
+  });
+  document.getElementById('btn-exportar-leadtime-excel').addEventListener('click', ()=>{
+    exportarTabelaExcel({
+      titulo: 'Lead time por pedidos',
+      colunas: colunasExport,
+      linhas: linhasExport,
+    });
+  });
   document.getElementById('btn-exportar-leadtime-pdf').addEventListener('click', ()=>{
     // lista à parte, só no PDF, dos pedidos deste relatório que já tiveram
     // a data de entrega alterada — ajuda a explicar situações como
@@ -6204,17 +6233,8 @@ function renderVencimentoListaInterno(resultado){
     exportarTabelaPDF({
       titulo: 'Lead time por pedidos',
       subtitulo: `${label} — ${itens.length} pedido${itens.length===1?'':'s'} · gerado em ${new Date().toLocaleString('pt-BR')}`,
-      colunas: ['Pedido','Cliente','Etapa atual','Diâmetro (lead time)','Entrega prometida','Dias até a entrega','Entrega projetada','Situação'],
-      linhas: itens.slice().sort((a,b)=>a.diasRestantes-b.diasRestantes).map(({p,info,diasRestantes})=>{
-        const st = STAGES.find(s=>s.id===p.stage);
-        const situacao = info.diasAtraso>0 ? `Atraso de ${info.diasAtraso}d` : 'No prazo';
-        const dp = diasParaEntregaTexto(diasRestantes);
-        return [
-          p.pedido, p.clienteNome, st ? `${st.id} — ${st.nome}` : '—',
-          `Ø ${info.diametro} (${info.leadTimeDias}d)`,
-          p.entrega, dp.texto, info.projetada.toLocaleDateString('pt-BR'), situacao
-        ];
-      }),
+      colunas: colunasExport,
+      linhas: linhasExport,
       extraHTML,
     });
   });
