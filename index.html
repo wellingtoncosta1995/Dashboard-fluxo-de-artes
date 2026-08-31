@@ -1061,7 +1061,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.72';
+const APP_VERSION = 'v8.73';
 const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
@@ -4263,6 +4263,28 @@ function renderValoresChapaClicheBox(){
   }
 }
 
+const VC_CATEGORIAS_ORDEM = ['Pote','Copo','Tampa','Print','Imagem','Outros'];
+function vcCategoria(modelo){
+  const m = (modelo||'').toUpperCase();
+  if(m.startsWith('POTE')) return 'Pote';
+  if(m.startsWith('COPO')) return 'Copo';
+  if(m.startsWith('TP') || m.startsWith('STP') || m.includes('TAMPA')) return 'Tampa';
+  if(m.startsWith('PRINT')) return 'Print';
+  if(m.startsWith('IMAGEM')) return 'Imagem';
+  return 'Outros';
+}
+function vcAgrupar(linhas){
+  const grupos = {};
+  linhas.forEach(item=>{
+    const cat = vcCategoria(item.r[0]);
+    (grupos[cat] = grupos[cat] || []).push(item);
+  });
+  return VC_CATEGORIAS_ORDEM.filter(cat=>grupos[cat] && grupos[cat].length).map(cat=>({ cat, itens: grupos[cat] }));
+}
+function vcGroupHeaderRow(cat){
+  return `<tr><td colspan="7" style="text-align:left; background:var(--gold-bg-light); color:var(--gold-dark); font-weight:800; font-size:11.5px; text-transform:uppercase; letter-spacing:.5px; padding:6px 10px;">${cat}</td></tr>`;
+}
+
 function renderValoresChapaTable(){
   document.getElementById('valores-chapa-edit-btn').style.display = valoresChapaEditMode ? 'none' : 'inline-flex';
   document.getElementById('valores-chapa-save-btn').style.display = valoresChapaEditMode ? 'inline-flex' : 'none';
@@ -4285,8 +4307,9 @@ function renderValoresChapaTable(){
     return;
   }
 
+  const grupos = vcAgrupar(linhas);
   if(!valoresChapaEditMode){
-    tbody.innerHTML = linhas.map(({r})=>{
+    tbody.innerHTML = grupos.map(({cat, itens})=>vcGroupHeaderRow(cat) + itens.map(({r})=>{
       const [modelo,dimA,dimB,codigo,produto,ex,,,chapaAlt,chapaLarg,valor] = r;
       const dim = (dimA || dimB) ? `${dimA||'—'} × ${dimB||'—'}` : '—';
       const chapa = (chapaAlt || chapaLarg) ? `${chapaAlt||'—'} × ${chapaLarg||'—'}` : '—';
@@ -4300,9 +4323,9 @@ function renderValoresChapaTable(){
         <td>${chapa}</td>
         <td class="val">${valor || '—'}</td>
       </tr>`;
-    }).join('');
+    }).join('')).join('');
   } else {
-    tbody.innerHTML = linhas.map(({r, idx})=>{
+    tbody.innerHTML = grupos.map(({cat, itens})=>vcGroupHeaderRow(cat) + itens.map(({r, idx})=>{
       const [modelo,dimA,dimB,codigo,produto,ex,,,chapaAlt,chapaLarg,valor] = r;
       return `
       <tr>
@@ -4326,7 +4349,7 @@ function renderValoresChapaTable(){
         </td>
         <td><input class="vc-input" data-idx="${idx}" data-field="10" value="${valor}" style="${vcInputStyle('text-align:right;')}"></td>
       </tr>`;
-    }).join('');
+    }).join('')).join('');
   }
 }
 document.getElementById('valores-chapa-search-input').addEventListener('input', (e)=>{
