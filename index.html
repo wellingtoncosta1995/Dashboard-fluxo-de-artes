@@ -860,8 +860,12 @@
             <div id="regrav-item-suggestions" style="display:none; position:absolute; top:100%; left:0; right:0; z-index:60; background:var(--panel); border:1px solid var(--border-soft); border-radius:8px; box-shadow:0 8px 20px rgba(0,0,0,0.12); max-height:220px; overflow-y:auto; margin-top:2px;"></div>
           </div>
           <div>
+            <label>Qtd. chapas</label>
+            <input type="number" id="regrav-qtd-chapas-input" placeholder="1" min="0" step="1" style="width:90px;">
+          </div>
+          <div>
             <label>Valor do clichê</label>
-            <input type="text" id="regrav-valor-input" placeholder="R$ 0,00">
+            <input type="text" id="regrav-valor-input" placeholder="R$ 0,00" title="Preenchido automaticamente (qtd. de chapas × valor da chapa pelo diâmetro da boca) — pode ser editado manualmente">
           </div>
           <div>
             <label>Data da solicitação</label>
@@ -874,7 +878,7 @@
       <div class="hist-table-wrap" style="margin-top:16px;">
         <table class="hist" id="regravacao-table">
           <thead>
-            <tr><th>OS</th><th>Código</th><th>Item</th><th style="text-align:right;">Valor do clichê</th><th>Solicitado em</th><th>Chegou na fábrica</th><th></th></tr>
+            <tr><th>OS</th><th>Código</th><th>Item</th><th style="text-align:right;">Qtd. chapas</th><th style="text-align:right;">Valor do clichê</th><th>Solicitado em</th><th>Chegou na fábrica</th><th></th></tr>
           </thead>
           <tbody></tbody>
         </table>
@@ -1066,7 +1070,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.76';
+const APP_VERSION = 'v8.77';
 const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
@@ -4823,6 +4827,7 @@ function renderRegravacao(){
       <td class="pedido">${r.os || '—'}</td>
       <td>${fmtCodigo(r.codigo) || '—'}</td>
       <td>${r.item || '—'}</td>
+      <td class="val">${r.qtdChapas!=null ? r.qtdChapas : '—'}</td>
       <td class="val">${r.valorCliche!=null ? fmtBRL(r.valorCliche) : '—'}</td>
       <td>${fmtDataISO(r.dataSolicitacao)}</td>
       <td id="chegada-cell-${r.id}">
@@ -4832,7 +4837,7 @@ function renderRegravacao(){
         }
       </td>
       <td style="text-align:right;"><button class="icon-btn danger btn-del-regrav" data-id="${r.id}" title="Excluir">&#128465;</button></td>
-    </tr>`).join('') : `<tr><td colspan="7" class="hist-empty">Nenhuma regravação de clichê registrada ainda.</td></tr>`;
+    </tr>`).join('') : `<tr><td colspan="8" class="hist-empty">Nenhuma regravação de clichê registrada ainda.</td></tr>`;
 
   tbody.querySelectorAll('.btn-marcar-chegada').forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -4866,6 +4871,27 @@ function renderRegravacao(){
   });
 }
 let regravUltimoAutoNome = '';
+let regravUltimoAutoValor = '';
+// pega o valor unitário da chapa pelo diâmetro da boca do item, igual à
+// Requisição de clichê (buscarChapaParaItem), pra sugerir o valor do clichê
+// a partir da quantidade de chapas informada
+function regravAtualizarValorAuto(){
+  const cod = fmtCodigo(document.getElementById('regrav-codigo-input').value.trim());
+  const nome = document.getElementById('regrav-item-input').value.trim() || (catalogoItens[cod]?.nome || '');
+  const qtdInput = document.getElementById('regrav-qtd-chapas-input');
+  const valorInput = document.getElementById('regrav-valor-input');
+  const qtd = parseFloat((qtdInput.value||'').replace(',','.'));
+  if(!cod && !nome){ return; }
+  if(isNaN(qtd) || qtd<=0) return;
+  const chapa = buscarChapaParaItem(cod, nome);
+  const valorUnitario = chapa ? parseValorBRL(chapa.row[10]) : null;
+  if(valorUnitario==null) return;
+  const total = qtd * valorUnitario;
+  if(valorInput.value.trim()==='' || valorInput.value===regravUltimoAutoValor){
+    valorInput.value = fmtBRL(total);
+    regravUltimoAutoValor = valorInput.value;
+  }
+}
 document.getElementById('regrav-codigo-input').addEventListener('input', (e)=>{
   const cod = fmtCodigo(e.target.value.trim());
   const nomeEncontrado = catalogoItens[cod]?.nome;
@@ -4876,7 +4902,9 @@ document.getElementById('regrav-codigo-input').addEventListener('input', (e)=>{
       regravUltimoAutoNome = nomeEncontrado;
     }
   }
+  regravAtualizarValorAuto();
 });
+document.getElementById('regrav-qtd-chapas-input').addEventListener('input', regravAtualizarValorAuto);
 
 const regravItemInput = document.getElementById('regrav-item-input');
 const regravSuggestBox = document.getElementById('regrav-item-suggestions');
@@ -4898,6 +4926,7 @@ regravItemInput.addEventListener('input', (e)=>{
       regravItemInput.value = catalogoItens[cod].nome;
       regravUltimoAutoNome = catalogoItens[cod].nome;
       regravSuggestBox.style.display = 'none';
+      regravAtualizarValorAuto();
     });
   });
 });
@@ -4913,6 +4942,8 @@ document.getElementById('regrav-add-btn').addEventListener('click', async ()=>{
   const os = document.getElementById('regrav-os-input').value.trim();
   const codigo = document.getElementById('regrav-codigo-input').value.trim();
   const item = document.getElementById('regrav-item-input').value.trim();
+  const qtdChapasRaw = document.getElementById('regrav-qtd-chapas-input').value;
+  const qtdChapas = qtdChapasRaw ? parseFloat(qtdChapasRaw.replace(',','.')) : null;
   const rawValor = document.getElementById('regrav-valor-input').value.replace(/\./g,'').replace(',', '.').replace(/[^\d.]/g,'');
   const valorCliche = rawValor ? parseFloat(rawValor) : null;
   const dataSolicitacao = document.getElementById('regrav-data-solicitacao-input').value || null;
@@ -4921,7 +4952,7 @@ document.getElementById('regrav-add-btn').addEventListener('click', async ()=>{
 
   regravacoes.push({
     id: 'reg_' + Date.now() + '_' + Math.random().toString(36).slice(2,7),
-    os, codigo, item, valorCliche, dataSolicitacao, dataChegada:null,
+    os, codigo, item, qtdChapas, valorCliche, dataSolicitacao, dataChegada:null,
     criadoEm: new Date().toISOString()
   });
   await saveState();
@@ -4929,9 +4960,11 @@ document.getElementById('regrav-add-btn').addEventListener('click', async ()=>{
   document.getElementById('regrav-os-input').value = '';
   document.getElementById('regrav-codigo-input').value = '';
   document.getElementById('regrav-item-input').value = '';
+  document.getElementById('regrav-qtd-chapas-input').value = '';
   document.getElementById('regrav-valor-input').value = '';
   document.getElementById('regrav-data-solicitacao-input').value = '';
   regravUltimoAutoNome = '';
+  regravUltimoAutoValor = '';
   renderRegravacao();
   renderHomeCards();
 });
