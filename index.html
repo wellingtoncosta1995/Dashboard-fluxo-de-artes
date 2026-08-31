@@ -630,6 +630,11 @@
               <button id="menu-item-validar-repeticao" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#10003; Validar Arte Repetição</button>
               <button id="menu-item-historico-externo" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#128203; Importar histórico externo (RVEN304)</button>
               <hr style="border:none; border-top:1px solid var(--border-soft); margin:4px 6px;">
+              <label style="display:flex; align-items:center; justify-content:space-between; gap:10px; width:100%; padding:10px 12px; border-radius:7px; font-size:12.5px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif; cursor:pointer;" title="Mostra, no modal do pedido em Sem tratativa, um botão para enviar direto para Arte Repetição (pulando o fluxo de tratativa)">
+                <span>Botão direto p/ Arte Repetição</span>
+                <input type="checkbox" id="toggle-btn-repeticao" ${botaoRepeticaoAtivo?'checked':''} style="width:15px; height:15px; accent-color:var(--teal); cursor:pointer; flex-shrink:0;">
+              </label>
+              <hr style="border:none; border-top:1px solid var(--border-soft); margin:4px 6px;">
               <button id="menu-item-sair" style="display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:transparent; border:none; padding:10px 12px; border-radius:7px; font-size:13px; font-weight:600; color:var(--text); font-family:'Plus Jakarta Sans',sans-serif;">&#128682; Sair</button>
             </div>
           </div>
@@ -1061,7 +1066,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.75';
+const APP_VERSION = 'v8.76';
 const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
@@ -1718,6 +1723,7 @@ let historySubmenuOpen = false; // controla se o submenu do Histórico está exp
 let clicheSubmenuOpen = false; // controla se o submenu de Custo de clichê está expandido no menu lateral
 let boardSubmenuOpen = false; // controla se o submenu de Fluxo de artes está expandido no menu lateral
 let modoEdicaoLiberado = localStorage.getItem('artes_edicao_ok') === '1'; // trava de interface: só quem sabe a senha de edição consegue salvar alterações
+let botaoRepeticaoAtivo = localStorage.getItem('artes_btn_repeticao_ativo') !== '0'; // liga/desliga (por navegador) o botão "Enviar direto para Arte Repetição" no modal do pedido em Sem tratativa
 let analiseEntregaSubmenuOpen = false; // controla se o submenu de Análise data de entrega está expandido no menu lateral
 let nomeRelatorioAtual = '';
 let multiSelectMode = false;
@@ -2436,7 +2442,7 @@ function openModal(id, opts={}){
     </div>
     ` : '')}
 
-    ${isActive && p.stage === 0 ? `
+    ${isActive && p.stage === 0 && botaoRepeticaoAtivo ? `
     <button id="st-repeticao" style="margin-top:16px; width:100%; padding:9px 0; border-radius:9px; border:1px solid var(--teal); background:var(--teal-bg); color:var(--teal); font-weight:700; font-size:13px; cursor:pointer;">&#8618; Enviar direto para Arte Repetição</button>
     ` : ''}
     ${isActive && p.stage === STAGE_CONFERENCIA_LAYOUT ? `
@@ -3412,6 +3418,10 @@ function openHistoricoExternoModal(){
 document.getElementById('menu-item-historico-externo').addEventListener('click', ()=>{
   document.getElementById('settings-menu').style.display = 'none';
   openHistoricoExternoModal();
+});
+document.getElementById('toggle-btn-repeticao').addEventListener('change', (e)=>{
+  botaoRepeticaoAtivo = e.target.checked;
+  localStorage.setItem('artes_btn_repeticao_ativo', botaoRepeticaoAtivo ? '1' : '0');
 });
 
 /* ========================================================================
