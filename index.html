@@ -1094,7 +1094,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.85';
+const APP_VERSION = 'v8.86';
 const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
@@ -6070,6 +6070,7 @@ function entregaComHistoricoHTML(p){
   const tooltip = p.entregaHistorico.map(h=>`${fmtDateTime(h.em)}: de ${h.de} para ${h.para}`).join('\n');
   return `${p.entrega} <span title="${tooltip.replace(/"/g,'&quot;')}" style="display:inline-block; background:var(--gold-bg-light); color:var(--gold-dark); border-radius:5px; padding:1px 5px; font-size:9.5px; font-weight:700; cursor:help;">&#8635; ${p.entregaHistorico.length}</span>`;
 }
+const VENCIMENTO_DIAS_OPCOES = [3,5,7,10,12,15,20,25,30];
 function openVencimentoModal(){
   const overlay = document.getElementById('overlay');
   const modal = document.getElementById('modal');
@@ -6079,25 +6080,8 @@ function openVencimentoModal(){
   const comCalculo = elegiveis.map(p=>({p, info:atrasoProjetado(p)})).filter(x=>x.info!=null);
   const semCalculo = elegiveis.length - comCalculo.length;
 
-  const grupos = {
-    normal:   { label:'Dentro do prazo',      cor:'var(--green)', itens: comCalculo.filter(x=>x.info.diasAtraso<=0) },
-    moderado: { label:'Atraso de 1 a 7 dias',  cor:'var(--gold)',  itens: comCalculo.filter(x=>x.info.diasAtraso>0 && x.info.diasAtraso<=7) },
-    critico:  { label:'Atraso de 8+ dias',     cor:'var(--red)',   itens: comCalculo.filter(x=>x.info.diasAtraso>7) },
-  };
-  const maiorValor = Math.max(grupos.normal.itens.length, grupos.moderado.itens.length, grupos.critico.itens.length, 1);
-  const ALTURA_MAX = 120;
-
-  const colunas = Object.entries(grupos).map(([key,g])=>{
-    const altura = Math.max(4, Math.round(g.itens.length/maiorValor*ALTURA_MAX));
-    return `
-    <div class="fluxo-col" data-grupo="${key}" style="display:flex; flex-direction:column; align-items:center; gap:8px; cursor:pointer; flex:1;">
-      <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:14px; color:var(--text);">${g.itens.length}</span>
-      <div style="width:100%; max-width:64px; height:${ALTURA_MAX}px; display:flex; align-items:flex-end; background:var(--panel-alt); border-radius:8px; overflow:hidden;">
-        <div style="width:100%; height:${altura}px; background:${g.cor}; border-radius:8px 8px 0 0; transition:filter .15s ease;"></div>
-      </div>
-      <span style="font-size:11.5px; color:var(--text-dim); text-align:center; line-height:1.25;">${g.label}</span>
-    </div>`;
-  }).join('');
+  let filtroOrigem = 'todos'; // todos | alteradas | naoAlteradas
+  let filtroDiasMin = null; // null = todos, ou um dos VENCIMENTO_DIAS_OPCOES (atraso mínimo em dias)
 
   modal.innerHTML = `
     <div class="modal-head">
@@ -6109,18 +6093,32 @@ function openVencimentoModal(){
     </div>
 
     <hr class="divider">
-    <div class="k" style="font-size:12.5px; margin-bottom:14px;">Distribuição por atraso projetado — clique numa barra para ver os pedidos</div>
-    <div style="display:flex; gap:22px; justify-content:center; margin-bottom:10px;">${colunas}</div>
+    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:10px;">
+      <span class="k" style="font-size:11px;">Data de entrega:</span>
+      <button class="hist-tab venc-filtro-origem active" data-origem="todos" style="padding:6px 12px;">Todos</button>
+      <button class="hist-tab venc-filtro-origem" data-origem="alteradas" style="padding:6px 12px;">Data alterada</button>
+      <button class="hist-tab venc-filtro-origem" data-origem="naoAlteradas" style="padding:6px 12px;">Data não alterada</button>
+    </div>
+    <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:14px;">
+      <span class="k" style="font-size:11px;">Atraso mínimo:</span>
+      <button class="hist-tab venc-filtro-dias active" data-dias="" style="padding:6px 12px;">Todos</button>
+      ${VENCIMENTO_DIAS_OPCOES.map((d,i)=>`<button class="hist-tab venc-filtro-dias" data-dias="${d}" style="padding:6px 12px;">${d}${i===VENCIMENTO_DIAS_OPCOES.length-1?'+':''}</button>`).join('')}
+    </div>
 
     <div id="vencimento-resultado"></div>
   `;
 
-  function renderResultado(grupoKey){
-    const g = grupos[grupoKey];
-    modal.querySelectorAll('.fluxo-col').forEach(c=>{
-      c.style.opacity = c.dataset.grupo === grupoKey ? '1' : '.45';
-    });
-    const rows = g.itens.length ? g.itens
+  function renderResultado(){
+    let itens = comCalculo;
+    if(filtroOrigem==='alteradas') itens = itens.filter(x=>x.p.entregaHistorico && x.p.entregaHistorico.length);
+    else if(filtroOrigem==='naoAlteradas') itens = itens.filter(x=>!x.p.entregaHistorico || !x.p.entregaHistorico.length);
+    if(filtroDiasMin!=null) itens = itens.filter(x=>x.info.diasAtraso >= filtroDiasMin);
+
+    const label = filtroDiasMin!=null
+      ? `Atraso de ${filtroDiasMin}+ dias`
+      : 'Todos os pedidos';
+
+    const rows = itens.length ? itens
       .slice()
       .sort((a,b)=>b.info.diasAtraso-a.info.diasAtraso)
       .map(({p,info})=>{
@@ -6138,12 +6136,12 @@ function openVencimentoModal(){
           <td>${info.projetada.toLocaleDateString('pt-BR')}</td>
           <td><span style="color:${cor}; font-weight:700;">${situacao}</span></td>
         </tr>`;
-      }).join('') : `<tr><td colspan="8" class="hist-empty">Nenhum pedido nesse grupo.</td></tr>`;
+      }).join('') : `<tr><td colspan="8" class="hist-empty">Nenhum pedido com esse filtro.</td></tr>`;
 
     document.getElementById('vencimento-resultado').innerHTML = `
       <hr class="divider">
       <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <div class="k" style="font-size:12.5px;">${g.label} (${g.itens.length})</div>
+        <div class="k" style="font-size:12.5px;">${label} (${itens.length})</div>
         <button class="btn small ghost" id="btn-exportar-leadtime-pdf">&#8681; Exportar PDF</button>
       </div>
       <div class="hist-table-wrap">
@@ -6156,9 +6154,9 @@ function openVencimentoModal(){
     document.getElementById('btn-exportar-leadtime-pdf').addEventListener('click', ()=>{
       exportarTabelaPDF({
         titulo: 'Lead time por pedidos',
-        subtitulo: `${g.label} — ${g.itens.length} pedido${g.itens.length===1?'':'s'} · gerado em ${new Date().toLocaleString('pt-BR')}`,
+        subtitulo: `${label} — ${itens.length} pedido${itens.length===1?'':'s'} · gerado em ${new Date().toLocaleString('pt-BR')}`,
         colunas: ['Pedido','Cliente','Etapa atual','Diâmetro (lead time)','Entrada na etapa','Entrega prometida','Entrega projetada','Situação'],
-        linhas: g.itens.slice().sort((a,b)=>b.info.diasAtraso-a.info.diasAtraso).map(({p,info})=>{
+        linhas: itens.slice().sort((a,b)=>b.info.diasAtraso-a.info.diasAtraso).map(({p,info})=>{
           const st = STAGES.find(s=>s.id===p.stage);
           const situacao = info.diasAtraso>0 ? `Atraso de ${info.diasAtraso}d` : 'No prazo';
           return [
@@ -6177,10 +6175,21 @@ function openVencimentoModal(){
     });
   }
 
-  modal.querySelectorAll('.fluxo-col').forEach(col=>{
-    col.addEventListener('click', ()=>renderResultado(col.dataset.grupo));
+  modal.querySelectorAll('.venc-filtro-origem').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      filtroOrigem = btn.dataset.origem;
+      modal.querySelectorAll('.venc-filtro-origem').forEach(b=>b.classList.toggle('active', b===btn));
+      renderResultado();
+    });
   });
-  renderResultado('critico');
+  modal.querySelectorAll('.venc-filtro-dias').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      filtroDiasMin = btn.dataset.dias ? Number(btn.dataset.dias) : null;
+      modal.querySelectorAll('.venc-filtro-dias').forEach(b=>b.classList.toggle('active', b===btn));
+      renderResultado();
+    });
+  });
+  renderResultado();
 
   document.getElementById('modal-close').addEventListener('click', closeModal);
   overlay.classList.add('open');
