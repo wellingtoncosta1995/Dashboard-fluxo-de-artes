@@ -1003,12 +1003,6 @@
         <div style="margin-top:30px; padding-top:22px; border-top:1px solid var(--border-soft);">
           <div class="k" style="font-size:12.5px; margin-bottom:10px;">Lead time por pedidos</div>
           <p style="margin:0 0 12px; font-size:11.5px; color:var(--text-faint);">Data de entrega projetada = data de entrada na etapa atual + lead time atual do diâmetro, comparada à data de entrega prometida</p>
-          <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:10px;">
-            <span class="k" style="font-size:11px;">Data de entrega:</span>
-            <button class="hist-tab venc-filtro-origem active" data-origem="todos" style="padding:6px 12px;">Todos</button>
-            <button class="hist-tab venc-filtro-origem" data-origem="alteradas" style="padding:6px 12px;">Data alterada</button>
-            <button class="hist-tab venc-filtro-origem" data-origem="naoAlteradas" style="padding:6px 12px;">Data não alterada</button>
-          </div>
           <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:14px;">
             <span class="k" style="font-size:11px;">Dias até a entrega:</span>
             <button class="hist-tab venc-filtro-dias active" data-dias="" style="padding:6px 12px;">Todos</button>
@@ -1119,7 +1113,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.91';
+const APP_VERSION = 'v8.92';
 const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
@@ -6101,7 +6095,6 @@ function diasParaEntregaTexto(dias){
   if(dias <= 7) return { texto: `Faltam ${dias}d`, cor: 'var(--gold-dark)' };
   return { texto: `Faltam ${dias}d`, cor: 'var(--green-dark)' };
 }
-let vencFiltroOrigem = 'todos'; // todos | alteradas | naoAlteradas
 let vencFiltroDiasMax = null; // null = todos, ou um dos valores dos botões — mostra pedidos com dias até a entrega <= esse valor (cumulativo: quanto maior o botão, mais pedidos entram)
 function renderVencimentoLista(){
   const resultado = document.getElementById('venc-resultado');
@@ -6121,8 +6114,6 @@ function renderVencimentoListaInterno(resultado){
   const semCalculo = elegiveis.length - comCalculo.length;
 
   let itens = comCalculo;
-  if(vencFiltroOrigem==='alteradas') itens = itens.filter(x=>x.p.entregaHistorico && x.p.entregaHistorico.length);
-  else if(vencFiltroOrigem==='naoAlteradas') itens = itens.filter(x=>!x.p.entregaHistorico || !x.p.entregaHistorico.length);
   if(vencFiltroDiasMax!=null) itens = itens.filter(x=>x.diasRestantes <= vencFiltroDiasMax);
 
   const label = vencFiltroDiasMax!=null
@@ -6143,7 +6134,7 @@ function renderVencimentoListaInterno(resultado){
         <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
         <td>${st ? `${st.id} — ${st.nome}` : '—'}</td>
         <td style="font-family:'IBM Plex Mono',monospace;">Ø ${info.diametro} (${info.leadTimeDias}d)</td>
-        <td>${entregaComHistoricoHTML(p)}</td>
+        <td>${p.entrega}</td>
         <td><span style="color:${dp.cor}; font-weight:700;">${dp.texto}</span></td>
         <td>${info.projetada.toLocaleDateString('pt-BR')}</td>
         <td><span style="color:${corAtraso}; font-weight:700;">${situacao}</span></td>
@@ -6188,14 +6179,6 @@ function scrollAteVencResultado(){
   if(!el) return;
   el.scrollIntoView({behavior:'smooth', block:'nearest'});
 }
-document.querySelectorAll('.venc-filtro-origem').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    vencFiltroOrigem = btn.dataset.origem;
-    document.querySelectorAll('.venc-filtro-origem').forEach(b=>b.classList.toggle('active', b===btn));
-    renderVencimentoLista();
-    scrollAteVencResultado();
-  });
-});
 document.querySelectorAll('.venc-filtro-dias').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     vencFiltroDiasMax = btn.dataset.dias ? Number(btn.dataset.dias) : null;
@@ -6205,9 +6188,7 @@ document.querySelectorAll('.venc-filtro-dias').forEach(btn=>{
   });
 });
 document.getElementById('home-card-vencimento').addEventListener('click', ()=>{
-  vencFiltroOrigem = 'todos';
   vencFiltroDiasMax = null;
-  document.querySelectorAll('.venc-filtro-origem').forEach(b=>b.classList.toggle('active', b.dataset.origem==='todos'));
   document.querySelectorAll('.venc-filtro-dias').forEach(b=>b.classList.toggle('active', !b.dataset.dias));
   renderVencimentoLista();
   scrollAteVencResultado();
