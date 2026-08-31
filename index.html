@@ -1119,7 +1119,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.90';
+const APP_VERSION = 'v8.91';
 const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
@@ -6106,7 +6106,14 @@ let vencFiltroDiasMax = null; // null = todos, ou um dos valores dos botões —
 function renderVencimentoLista(){
   const resultado = document.getElementById('venc-resultado');
   if(!resultado) return;
-
+  try{
+    renderVencimentoListaInterno(resultado);
+  }catch(err){
+    console.error('Erro ao renderizar Lead time por pedidos:', err);
+    resultado.innerHTML = `<div class="empty-alt" style="color:var(--red);">Erro ao carregar a lista: ${err.message || err}. Veja o console (F12) para detalhes.</div>`;
+  }
+}
+function renderVencimentoListaInterno(resultado){
   const hoje = new Date(); hoje.setHours(0,0,0,0);
   const elegiveis = pedidos.filter(p=>p.stage < STAGE_CLICHE_FABRICA);
   const comCalculo = elegiveis.map(p=>({p, info:atrasoProjetado(p)})).filter(x=>x.info!=null)
@@ -6176,11 +6183,17 @@ function renderVencimentoLista(){
     btn.addEventListener('click', ()=> openModal(btn.dataset.id));
   });
 }
+function scrollAteVencResultado(){
+  const el = document.getElementById('venc-resultado');
+  if(!el) return;
+  el.scrollIntoView({behavior:'smooth', block:'nearest'});
+}
 document.querySelectorAll('.venc-filtro-origem').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     vencFiltroOrigem = btn.dataset.origem;
     document.querySelectorAll('.venc-filtro-origem').forEach(b=>b.classList.toggle('active', b===btn));
     renderVencimentoLista();
+    scrollAteVencResultado();
   });
 });
 document.querySelectorAll('.venc-filtro-dias').forEach(btn=>{
@@ -6188,6 +6201,7 @@ document.querySelectorAll('.venc-filtro-dias').forEach(btn=>{
     vencFiltroDiasMax = btn.dataset.dias ? Number(btn.dataset.dias) : null;
     document.querySelectorAll('.venc-filtro-dias').forEach(b=>b.classList.toggle('active', b===btn));
     renderVencimentoLista();
+    scrollAteVencResultado();
   });
 });
 document.getElementById('home-card-vencimento').addEventListener('click', ()=>{
@@ -6196,6 +6210,7 @@ document.getElementById('home-card-vencimento').addEventListener('click', ()=>{
   document.querySelectorAll('.venc-filtro-origem').forEach(b=>b.classList.toggle('active', b.dataset.origem==='todos'));
   document.querySelectorAll('.venc-filtro-dias').forEach(b=>b.classList.toggle('active', !b.dataset.dias));
   renderVencimentoLista();
+  scrollAteVencResultado();
 });
 
 function parseDuracaoParaDias(str){
