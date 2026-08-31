@@ -1070,7 +1070,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.79';
+const APP_VERSION = 'v8.80';
 const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
@@ -5302,11 +5302,14 @@ function renderLeadTime(){
         const valFinal = isNaN(val) ? 0 : val;
         leadTimePorBoca[idx][field] = valFinal;
         if(field === 'atual'){
-          // mantém a proposta de "Produção" sempre igual ao lead time atual,
-          // atualizando junto sempre que o Atual for alterado
-          leadTimePorBoca[idx].producao = valFinal;
+          // Comercial, PCP, Artes e Logística são padrão (não mudam) — quem
+          // absorve a diferença é Produção, pra soma da Proposta sempre
+          // bater com o novo lead time Atual
+          const lt = leadTimePorBoca[idx];
+          const novaProducao = valFinal - (lt.comercial + lt.pcp + lt.artes + lt.logistica);
+          lt.producao = novaProducao;
           const producaoInput = wrap.querySelector(`.lt-input[data-idx="${idx}"][data-field="producao"]`);
-          if(producaoInput) producaoInput.value = valFinal;
+          if(producaoInput) producaoInput.value = novaProducao;
         }
         await saveState();
       });
