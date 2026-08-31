@@ -963,12 +963,20 @@
             <div class="hcm-breakdown">
               <span>de <b id="hcda-valor-total-a">0</b> pedido(s) ativo(s)</span>
             </div>
+            <div class="search-box" style="margin-top:10px; padding:6px 10px;">
+              <span style="color:var(--text-faint); font-size:12px;">&#128269;</span>
+              <input type="text" id="dal-busca-alteradas" class="busca-livre" placeholder="Pedido, cliente ou item...">
+            </div>
           </div>
           <div class="home-card home-card-live" id="home-card-datas-naoalteradas" title="Ver lista de pedidos com data original">
             <div class="hcm-label">DATAS DE ENTREGA — NÃO ALTERADAS</div>
             <div class="hcm-valor" id="hcda-valor-naoalteradas">0</div>
             <div class="hcm-breakdown">
               <span>de <b id="hcda-valor-total-n">0</b> pedido(s) ativo(s)</span>
+            </div>
+            <div class="search-box" style="margin-top:10px; padding:6px 10px;">
+              <span style="color:var(--text-faint); font-size:12px;">&#128269;</span>
+              <input type="text" id="dal-busca-naoalteradas" class="busca-livre" placeholder="Pedido, cliente ou item...">
             </div>
           </div>
           <div class="home-card home-card-live" id="home-card-vencimento" title="Ver detalhes em Lead time por pedidos">
@@ -1086,7 +1094,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.83';
+const APP_VERSION = 'v8.84';
 const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
@@ -5724,19 +5732,25 @@ function renderHomeCards(){
   document.getElementById('hcda-valor-total-a').textContent = pedidos.length;
   document.getElementById('hcda-valor-total-n').textContent = pedidos.length;
 
-  renderDatasAlteradasLista(alteradas, naoAlteradas);
+  renderDatasAlteradasLista();
 }
 let datasAlteradasFiltro = 'alteradas'; // 'alteradas' | 'naoAlteradas' — qual lista aparece na área abaixo dos cards
-function renderDatasAlteradasLista(alteradas, naoAlteradas){
+let datasAlteradasBusca = { alteradas: '', naoAlteradas: '' }; // busca independente por card (pedido, cliente ou item)
+function renderDatasAlteradasLista(){
   const titulo = document.getElementById('dal-titulo');
   const thead = document.getElementById('dal-thead');
   const tbody = document.querySelector('#dal-table tbody');
   if(!titulo || !thead || !tbody) return;
 
+  const alteradas = pedidos.filter(p=>p.entregaHistorico && p.entregaHistorico.length);
+  const naoAlteradas = pedidos.filter(p=>!p.entregaHistorico || !p.entregaHistorico.length);
+  const termo = datasAlteradasBusca[datasAlteradasFiltro];
+
   if(datasAlteradasFiltro === 'alteradas'){
-    titulo.innerHTML = `Data alterada (<span id="dal-count">${alteradas.length}</span>)`;
+    const lista = termo ? alteradas.filter(p=>matchesSearch(p, termo)) : alteradas;
+    titulo.innerHTML = `Data alterada (<span id="dal-count">${lista.length}</span>${termo ? ` de ${alteradas.length}` : ''})`;
     thead.innerHTML = `<tr><th>Pedido</th><th>Cliente</th><th>Entrega atual</th><th>Última alteração</th></tr>`;
-    tbody.innerHTML = alteradas.length ? alteradas.map(p=>{
+    tbody.innerHTML = lista.length ? lista.map(p=>{
       const ultimaAlteracao = p.entregaHistorico[p.entregaHistorico.length-1];
       const extra = `de ${ultimaAlteracao.de} para ${ultimaAlteracao.para}`;
       return `
@@ -5746,39 +5760,40 @@ function renderDatasAlteradasLista(alteradas, naoAlteradas){
         <td>${p.entrega}</td>
         <td style="font-size:12px; color:var(--text-dim);">${extra}</td>
       </tr>`;
-    }).join('') : `<tr><td colspan="4" class="hist-empty">Nenhum pedido com data alterada.</td></tr>`;
+    }).join('') : `<tr><td colspan="4" class="hist-empty">Nenhum pedido encontrado.</td></tr>`;
   } else {
-    titulo.innerHTML = `Data original — sem alteração (<span id="dal-count">${naoAlteradas.length}</span>)`;
+    const lista = termo ? naoAlteradas.filter(p=>matchesSearch(p, termo)) : naoAlteradas;
+    titulo.innerHTML = `Data original — sem alteração (<span id="dal-count">${lista.length}</span>${termo ? ` de ${naoAlteradas.length}` : ''})`;
     thead.innerHTML = `<tr><th>Pedido</th><th>Cliente</th><th>Entrega</th></tr>`;
-    tbody.innerHTML = naoAlteradas.length ? naoAlteradas.map(p=>`
+    tbody.innerHTML = lista.length ? lista.map(p=>`
       <tr>
         <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
         <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
         <td>${p.entrega}</td>
-      </tr>`).join('') : `<tr><td colspan="3" class="hist-empty">Nenhum pedido com data original.</td></tr>`;
+      </tr>`).join('') : `<tr><td colspan="3" class="hist-empty">Nenhum pedido encontrado.</td></tr>`;
   }
 
   tbody.querySelectorAll('.link-pedido-venc').forEach(btn=>{
     btn.addEventListener('click', ()=> openModal(btn.dataset.id));
   });
 }
-function scrollComDestaque(elId, cor){
-  const el = document.getElementById(elId);
-  if(!el) return;
-  el.scrollIntoView({behavior:'smooth', block:'center'});
-  el.style.outline = `2px solid ${cor}`;
-  el.style.outlineOffset = '2px';
-  setTimeout(()=>{ el.style.outline = 'none'; }, 1400);
-}
 document.getElementById('home-card-datas-alteradas').addEventListener('click', ()=>{
   datasAlteradasFiltro = 'alteradas';
-  renderHomeCards();
-  scrollComDestaque('dal-table', 'var(--gold)');
+  renderDatasAlteradasLista();
 });
 document.getElementById('home-card-datas-naoalteradas').addEventListener('click', ()=>{
   datasAlteradasFiltro = 'naoAlteradas';
-  renderHomeCards();
-  scrollComDestaque('dal-table', 'var(--green)');
+  renderDatasAlteradasLista();
+});
+document.getElementById('dal-busca-alteradas').addEventListener('input', (e)=>{
+  datasAlteradasBusca.alteradas = e.target.value.trim();
+  datasAlteradasFiltro = 'alteradas';
+  renderDatasAlteradasLista();
+});
+document.getElementById('dal-busca-naoalteradas').addEventListener('input', (e)=>{
+  datasAlteradasBusca.naoAlteradas = e.target.value.trim();
+  datasAlteradasFiltro = 'naoAlteradas';
+  renderDatasAlteradasLista();
 });
 function openClicheMesModal(){
   const agora = new Date();
