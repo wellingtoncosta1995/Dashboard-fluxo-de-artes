@@ -1113,7 +1113,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.97';
+const APP_VERSION = 'v8.98';
 const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
@@ -6076,7 +6076,7 @@ document.getElementById('home-card-fluxo').addEventListener('click', ()=>{
   openFluxoModal();
 });
 
-function exportarTabelaPDF({titulo, subtitulo, colunas, linhas, corLinhas, grupos}){
+function exportarTabelaPDF({titulo, subtitulo, colunas, linhas, corLinhas, grupos, extraHTML}){
   const printArea = document.getElementById('print-area');
   function tabelaHTML(linhas, corLinhas){
     const rows = linhas.map((l,i)=>{
@@ -6097,6 +6097,7 @@ function exportarTabelaPDF({titulo, subtitulo, colunas, linhas, corLinhas, grupo
     <h1>${titulo}</h1>
     <p>${subtitulo}</p>
     ${corpo}
+    ${extraHTML || ''}
   `;
   document.body.classList.add('printing');
   const limpar = ()=>{ document.body.classList.remove('printing'); window.removeEventListener('afterprint', limpar); };
@@ -6175,6 +6176,22 @@ function renderVencimentoListaInterno(resultado){
     </div>
   `;
   document.getElementById('btn-exportar-leadtime-pdf').addEventListener('click', ()=>{
+    // lista à parte, só no PDF, dos pedidos deste relatório que já tiveram
+    // a data de entrega alterada — ajuda a explicar situações como
+    // "entrega projetada não bate com a prometida" (a prometida mudou)
+    const alterados = itens.filter(x=>x.p.entregaHistorico && x.p.entregaHistorico.length);
+    const extraHTML = alterados.length ? `
+      <h2>Pedidos com data de entrega alterada (${alterados.length})</h2>
+      <table>
+        <thead><tr><th>Pedido</th><th>Cliente</th><th>Última alteração</th></tr></thead>
+        <tbody>
+          ${alterados.map(x=>{
+            const h = x.p.entregaHistorico[x.p.entregaHistorico.length-1];
+            return `<tr><td>${x.p.pedido}</td><td>${x.p.clienteNome}</td><td>de ${h.de} para ${h.para}</td></tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    ` : '';
     exportarTabelaPDF({
       titulo: 'Lead time por pedidos',
       subtitulo: `${label} — ${itens.length} pedido${itens.length===1?'':'s'} · gerado em ${new Date().toLocaleString('pt-BR')}`,
@@ -6189,6 +6206,7 @@ function renderVencimentoListaInterno(resultado){
           p.entrega, dp.texto, info.projetada.toLocaleDateString('pt-BR'), situacao
         ];
       }),
+      extraHTML,
     });
   });
   resultado.querySelectorAll('.link-pedido-venc').forEach(btn=>{
