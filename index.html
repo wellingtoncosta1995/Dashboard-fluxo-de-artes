@@ -1061,7 +1061,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.74';
+const APP_VERSION = 'v8.75';
 const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
@@ -2436,6 +2436,9 @@ function openModal(id, opts={}){
     </div>
     ` : '')}
 
+    ${isActive && p.stage === 0 ? `
+    <button id="st-repeticao" style="margin-top:16px; width:100%; padding:9px 0; border-radius:9px; border:1px solid var(--teal); background:var(--teal-bg); color:var(--teal); font-weight:700; font-size:13px; cursor:pointer;">&#8618; Enviar direto para Arte Repetição</button>
+    ` : ''}
     ${isActive && p.stage === STAGE_CONFERENCIA_LAYOUT ? `
     <div style="display:flex; flex-direction:column; gap:8px; margin-top:16px;">
       <button id="cl-repeticao" style="width:100%; padding:9px 0; border-radius:9px; border:1px solid var(--green); background:var(--green-bg); color:var(--green-dark); font-weight:700; font-size:13px; cursor:pointer;">&#10003; Layout confere — liberar para Arte Repetição</button>
@@ -2448,6 +2451,18 @@ function openModal(id, opts={}){
   `;
 
   document.getElementById('modal-voltar')?.addEventListener('click', ()=> opts.voltar());
+  document.getElementById('st-repeticao')?.addEventListener('click', async ()=>{
+    if(!confirm(`Enviar o pedido ${p.pedido} direto para Arte Repetição, sem passar pelo fluxo de tratativa?`)) return;
+    const idxNoQuadro = pedidos.findIndex(x=>x.id===p.id);
+    if(idxNoQuadro>-1) pedidos.splice(idxNoQuadro,1);
+    p.tag = 'ARTE REPETIÇÃO';
+    p.tipo = 'repeticao';
+    p.stage = null;
+    p.stageHistory = null;
+    closeModal();
+    saveState();
+    renderAll();
+  });
   document.getElementById('cl-repeticao')?.addEventListener('click', async ()=>{
     const idxNoQuadro = pedidos.findIndex(x=>x.id===p.id);
     if(idxNoQuadro>-1) pedidos.splice(idxNoQuadro,1);
