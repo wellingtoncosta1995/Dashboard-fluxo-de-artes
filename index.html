@@ -1061,7 +1061,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.73';
+const APP_VERSION = 'v8.74';
 const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
@@ -3313,7 +3313,11 @@ function parseRelatorioRVEN304(arrayBuffer){
 }
 
 function aplicarHistoricoExterno(parsed){
-  let aplicados = 0, semCorrespondencia = 0, semArtes = 0;
+  // só mexe na data de pedidos que ainda não tiveram histórico externo
+  // aplicado antes (p.historicoExterno vazio) — pedidos já importados numa
+  // rodada anterior são ignorados, pra não sobrescrever ajustes manuais
+  // feitos depois da primeira importação
+  let aplicados = 0, semCorrespondencia = 0, semArtes = 0, jaImportados = 0;
   const todosLocais = [...pedidos, ...historico];
   const porPedido = {};
   todosLocais.forEach(p=>{ porPedido[p.pedido] = p; });
@@ -3321,6 +3325,7 @@ function aplicarHistoricoExterno(parsed){
   parsed.pedidos.forEach(pp=>{
     const p = porPedido[pp.pedido];
     if(!p){ semCorrespondencia++; return; }
+    if(p.historicoExterno){ jaImportados++; return; }
 
     const linhasArtes = pp.historico.filter(h=>h.setor.toUpperCase().includes('ARTES'));
     if(linhasArtes.length===0){ semArtes++; return; }
@@ -3335,7 +3340,7 @@ function aplicarHistoricoExterno(parsed){
     aplicados++;
   });
 
-  return {aplicados, semCorrespondencia, semArtes};
+  return {aplicados, semCorrespondencia, semArtes, jaImportados};
 }
 
 function openHistoricoExternoModal(){
@@ -3344,7 +3349,7 @@ function openHistoricoExternoModal(){
 
   modal.innerHTML = `
     <div class="modal-head">
-      <div><h2 style="font-size:16px;">Importar histórico externo (RVEN304)</h2><p>Envie o arquivo XLSX do relatório. A data em que cada pedido entrou pela primeira vez em "ARTES" será usada como início da etapa "Sem tratativa".</p></div>
+      <div><h2 style="font-size:16px;">Importar histórico externo (RVEN304)</h2><p>Envie o arquivo XLSX do relatório. A data em que cada pedido entrou pela primeira vez em "ARTES" será usada como início da etapa "Sem tratativa". Pedidos que já tiveram essa data fixada numa importação anterior são ignorados.</p></div>
       <button class="close-x" id="modal-close">&times;</button>
     </div>
     <div class="export-row">
@@ -3377,10 +3382,11 @@ function openHistoricoExternoModal(){
       resultDiv.innerHTML = '<span style="color:var(--red);">Nenhum pedido reconhecido nesse arquivo. Confira se é o XLSX do relatório RVEN304.</span>';
       return;
     }
-    const {aplicados, semCorrespondencia, semArtes} = aplicarHistoricoExterno(parsed);
+    const {aplicados, semCorrespondencia, semArtes, jaImportados} = aplicarHistoricoExterno(parsed);
     if(aplicados>0) await saveState();
     resultDiv.innerHTML = `
-      <b style="color:var(--green-dark);">${aplicados} pedido(s) com a data de "Sem tratativa" fixada a partir do histórico.</b>
+      <b style="color:var(--green-dark);">${aplicados} pedido(s) novo(s) com a data de "Sem tratativa" fixada a partir do histórico.</b>
+      ${jaImportados ? `<br><span style="color:var(--text-dim);">${jaImportados} pedido(s) já tinham sido importados antes e foram ignorados (data não alterada).</span>` : ''}
       ${semCorrespondencia ? `<br><span style="color:var(--text-dim);">${semCorrespondencia} pedido(s) do relatório não foram encontrados no dashboard.</span>` : ''}
       ${semArtes ? `<br><span style="color:var(--text-dim);">${semArtes} pedido(s) não têm registro de "ARTES" no histórico e foram ignorados.</span>` : ''}
     `;
