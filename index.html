@@ -1113,7 +1113,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.92';
+const APP_VERSION = 'v8.93';
 const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
@@ -6174,24 +6174,17 @@ function renderVencimentoListaInterno(resultado){
     btn.addEventListener('click', ()=> openModal(btn.dataset.id));
   });
 }
-function scrollAteVencResultado(){
-  const el = document.getElementById('venc-resultado');
-  if(!el) return;
-  el.scrollIntoView({behavior:'smooth', block:'nearest'});
-}
 document.querySelectorAll('.venc-filtro-dias').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     vencFiltroDiasMax = btn.dataset.dias ? Number(btn.dataset.dias) : null;
     document.querySelectorAll('.venc-filtro-dias').forEach(b=>b.classList.toggle('active', b===btn));
     renderVencimentoLista();
-    scrollAteVencResultado();
   });
 });
 document.getElementById('home-card-vencimento').addEventListener('click', ()=>{
   vencFiltroDiasMax = null;
   document.querySelectorAll('.venc-filtro-dias').forEach(b=>b.classList.toggle('active', !b.dataset.dias));
   renderVencimentoLista();
-  scrollAteVencResultado();
 });
 
 function parseDuracaoParaDias(str){
