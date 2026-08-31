@@ -983,8 +983,8 @@
             <div class="hcm-label">LEAD TIME POR PEDIDOS</div>
             <div class="hcm-valor" id="hcv-valor-total">0</div>
             <div class="hcm-breakdown">
-              <span>Atraso de 1-7 dias: <b id="hcv-valor-vencidos">0</b></span>
-              <span>Atraso de 8+ dias: <b id="hcv-valor-proximos" style="color:var(--red);">0</b></span>
+              <span>Entrega em até 3 dias: <b id="hcv-valor-vencidos" style="color:var(--red);">0</b></span>
+              <span>Entrega em até 7 dias: <b id="hcv-valor-proximos" style="color:var(--gold-dark);">0</b></span>
               <span>Baseado no lead time por boca</span>
             </div>
           </div>
@@ -1094,7 +1094,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.87';
+const APP_VERSION = 'v8.88';
 const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
@@ -5691,15 +5691,19 @@ function renderHomeCards(){
   document.getElementById('hcf-valor-peso').textContent = fmtKg(pesoTotalFluxo);
   document.getElementById('hcf-valor-money').textContent = fmtBRL(valorTotalFluxo);
 
-  const acimaMedia = pedidos
-    .filter(p=>p.stage < STAGE_CLICHE_FABRICA)
-    .map(p=>({p, info:atrasoProjetado(p)}))
-    .filter(x=>x.info!=null && x.info.diasAtraso > 0);
-  const moderados = acimaMedia.filter(x=>x.info.diasAtraso<=7);
-  const criticos = acimaMedia.filter(x=>x.info.diasAtraso>7);
-  document.getElementById('hcv-valor-total').textContent = acimaMedia.length;
-  document.getElementById('hcv-valor-vencidos').textContent = moderados.length;
-  document.getElementById('hcv-valor-proximos').textContent = criticos.length;
+  {
+    const hojeVenc = new Date(); hojeVenc.setHours(0,0,0,0);
+    const comCalculoVenc = pedidos
+      .filter(p=>p.stage < STAGE_CLICHE_FABRICA)
+      .map(p=>({p, info:atrasoProjetado(p)}))
+      .filter(x=>x.info!=null)
+      .map(x=>({...x, diasRestantes: Math.round((parseDateBR(x.p.entrega) - hojeVenc) / 86400000)}));
+    const ateTresDias = comCalculoVenc.filter(x=>x.diasRestantes<=3).length;
+    const ateSeteDias = comCalculoVenc.filter(x=>x.diasRestantes<=7).length;
+    document.getElementById('hcv-valor-total').textContent = ateSeteDias;
+    document.getElementById('hcv-valor-vencidos').textContent = ateTresDias;
+    document.getElementById('hcv-valor-proximos').textContent = ateSeteDias;
+  }
 
   const pedidosSemana = pedidosAFinalizarEssaSemanaPendentes();
   document.getElementById('hcfs-valor-total').textContent = pedidosSemana.length;
