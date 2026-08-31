@@ -1113,7 +1113,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.99';
+const APP_VERSION = 'v9.00';
 const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
@@ -4729,7 +4729,9 @@ function imprimirRequisicaoCliche(p, d, valorTotalCliche){
   const printArea = document.getElementById('print-area');
   printArea.innerHTML = via;
   document.body.classList.add('printing');
-  const limpar = ()=>{ document.body.classList.remove('printing'); window.removeEventListener('afterprint', limpar); };
+  const tituloOriginal = document.title;
+  document.title = `Requisicao clichê - Pedido ${p.pedido}`;
+  const limpar = ()=>{ document.body.classList.remove('printing'); document.title = tituloOriginal; window.removeEventListener('afterprint', limpar); };
   window.addEventListener('afterprint', limpar);
   window.print();
 }
@@ -5294,6 +5296,10 @@ document.getElementById('codigos-editar-btn').addEventListener('click', async ()
 });
 document.getElementById('codigos-exportar-btn').addEventListener('click', ()=>{
   if(codigosEditando){ alert('Salve as alterações antes de exportar o PDF.'); return; }
+  const tituloOriginal = document.title;
+  document.title = 'Tabela de códigos internos';
+  const limpar = ()=>{ document.title = tituloOriginal; window.removeEventListener('afterprint', limpar); };
+  window.addEventListener('afterprint', limpar);
   window.print();
 });
 
@@ -6101,7 +6107,9 @@ function exportarTabelaPDF({titulo, subtitulo, colunas, linhas, corLinhas, grupo
     ${extraHTML || ''}
   `;
   document.body.classList.add('printing');
-  const limpar = ()=>{ document.body.classList.remove('printing'); window.removeEventListener('afterprint', limpar); };
+  const tituloOriginal = document.title;
+  document.title = `${titulo} - ${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}`;
+  const limpar = ()=>{ document.body.classList.remove('printing'); document.title = tituloOriginal; window.removeEventListener('afterprint', limpar); };
   window.addEventListener('afterprint', limpar);
   window.print();
 }
@@ -6798,7 +6806,9 @@ function sepcxImprimirLista(){
     </div>
   `;
   document.body.classList.add('printing');
-  const limpar = ()=>{ document.body.classList.remove('printing'); window.removeEventListener('afterprint', limpar); };
+  const tituloOriginal = document.title;
+  document.title = `Separação de caixas - ${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}`;
+  const limpar = ()=>{ document.body.classList.remove('printing'); document.title = tituloOriginal; window.removeEventListener('afterprint', limpar); };
   window.addEventListener('afterprint', limpar);
   window.print();
 }
