@@ -730,6 +730,15 @@
 
     <div id="view-cliche" style="display:none;">
       <div class="topics-card" style="margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+          <p class="topics-intro" style="margin:0; padding:0; border:none;"><span class="mono-label">CONFRONTO COM FORNECEDOR</span> <span class="link-text">confere a fatura de clichê (ex: Digital Flex) com o que está registrado no sistema, por OS</span></p>
+          <button class="btn small gold" id="btn-confronto-importar" style="flex-shrink:0; white-space:nowrap;">&#8613; Importar fatura</button>
+        </div>
+        <div id="confronto-fatura-resultado" style="margin-top:14px;">
+          <div class="empty-alt">Nenhuma fatura importada ainda nesta sessão. Clique em "Importar fatura" pra conferir uma planilha do fornecedor.</div>
+        </div>
+      </div>
+      <div class="topics-card" style="margin-bottom:16px;">
         <div style="display:flex; gap:24px; flex-wrap:wrap;">
           <div>
             <label style="display:block; font-size:11px; color:var(--text-dim); font-weight:600; margin-bottom:5px;">Filtrar por cliente</label>
@@ -1113,7 +1122,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.01';
+const APP_VERSION = 'v9.02';
 const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
@@ -3470,6 +3479,229 @@ document.getElementById('toggle-btn-repeticao').addEventListener('change', (e)=>
   botaoRepeticaoAtivo = e.target.checked;
   localStorage.setItem('artes_btn_repeticao_ativo', botaoRepeticaoAtivo ? '1' : '0');
 });
+
+/* ========================================================================
+   CONFRONTO DE FATURA DO FORNECEDOR (ex: Digital Flex) — lê a planilha
+   biquinzenal do fornecedor de clichê e confere, por OS, com o que já
+   está registrado no sistema (pedidos e regravações). Não é salvo no
+   estado compartilhado — é só um confronto pontual, refeito a cada import.
+   ======================================================================== */
+let confrontoFaturaResultado = null;
+
+function parseFaturaFornecedorCliche(arrayBuffer){
+  const wb = XLSX.read(arrayBuffer, {type:'array'});
+  const ws = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, {header:1, raw:false, defval:''});
+
+  let headerIdx = -1, colOS = -1, colValor = -1, colData = -1, colItem = -1, colNota = -1, colQtd = -1;
+  for(let i=0; i<rows.length; i++){
+    const upper = rows[i].map(c=>String(c||'').toUpperCase());
+    const iOS = upper.findIndex(c=>c.includes('OS'));
+    const iValor = upper.findIndex(c=>c.includes('VALOR'));
+    if(iOS!==-1 && iValor!==-1){
+      headerIdx = i; colOS = iOS; colValor = iValor;
+      colData = upper.findIndex(c=>c.includes('DATA'));
+      colItem = upper.findIndex(c=>c.includes('ITEM') || c.includes('DESCRI'));
+      if(colItem===-1 && colData===0 && upper.length>1) colItem = 1; // cabeçalho da coluna de descrição às vezes vem mascarado/sem texto reconhecível
+      colNota = upper.findIndex(c=>c.includes('NOTA'));
+      colQtd = upper.findIndex(c=>c.includes('QUANT'));
+      break;
+    }
+  }
+  if(headerIdx===-1) return [];
+
+  const itens = [];
+  for(let i=headerIdx+1; i<rows.length; i++){
+    const row = rows[i];
+    const osRaw = String(row[colOS] || '').trim();
+    if(!/^\d+\/\d+$/.test(osRaw)) continue; // pula linhas de período, total, em branco
+    itens.push({
+      data: colData>=0 ? String(row[colData]||'').trim() : '',
+      item: colItem>=0 ? String(row[colItem]||'').trim() : '',
+      qtd: colQtd>=0 ? String(row[colQtd]||'').trim() : '',
+      os: osRaw,
+      nota: colNota>=0 ? String(row[colNota]||'').trim() : '',
+      valorCobrado: parseValorBRL(row[colValor]),
+    });
+  }
+  return itens;
+}
+
+function conferirFaturaComSistema(itensFatura){
+  const todosPedidos = [...pedidos, ...historico];
+  const regravacoesPorOs = {};
+  regravacoes.forEach(r=>{ if(r.os) regravacoesPorOs[r.os.trim()] = r; });
+
+  const regravacaoResultados = [];
+  const pedidoGrupos = {}; // pedido.id -> { pedido, itensFatura, totalFatura }
+  const naoEncontrados = [];
+
+  itensFatura.forEach(it=>{
+    const regrav = regravacoesPorOs[it.os];
+    if(regrav){
+      const valorSistema = regrav.valorCliche;
+      regravacaoResultados.push({
+        item: it, regrav,
+        diferenca: (valorSistema!=null && it.valorCobrado!=null) ? (it.valorCobrado - valorSistema) : null,
+      });
+      return;
+    }
+    const pedido = todosPedidos.find(p => p.itens && p.itens.some(x => (x.os||'').trim() === it.os));
+    if(pedido){
+      if(!pedidoGrupos[pedido.id]) pedidoGrupos[pedido.id] = { pedido, itensFatura: [], totalFatura: 0 };
+      pedidoGrupos[pedido.id].itensFatura.push(it);
+      pedidoGrupos[pedido.id].totalFatura += (it.valorCobrado || 0);
+      return;
+    }
+    naoEncontrados.push(it);
+  });
+
+  const pedidoResultados = Object.values(pedidoGrupos).map(g=>{
+    const valorSistema = g.pedido.valorClicheTotal;
+    return { ...g, diferenca: (valorSistema!=null) ? (g.totalFatura - valorSistema) : null };
+  });
+
+  return { regravacaoResultados, pedidoResultados, naoEncontrados };
+}
+
+function fmtDiferenca(dif){
+  if(dif==null) return '<span style="color:var(--text-faint);">sem valor no sistema</span>';
+  const abs = Math.abs(dif);
+  if(abs < 0.01) return '<span style="color:var(--green-dark); font-weight:700;">bate</span>';
+  const cor = dif > 0 ? 'var(--red)' : 'var(--gold-dark)';
+  const sinal = dif > 0 ? '+' : '−';
+  return `<span style="color:${cor}; font-weight:700;">${sinal}${fmtBRL(abs)}</span>`;
+}
+
+function renderConfrontoFaturaResultado(){
+  const wrap = document.getElementById('confronto-fatura-resultado');
+  if(!wrap) return;
+  if(!confrontoFaturaResultado){
+    wrap.innerHTML = `<div class="empty-alt">Nenhuma fatura importada ainda nesta sessão. Clique em "Importar fatura" pra conferir uma planilha do fornecedor.</div>`;
+    return;
+  }
+  const { regravacaoResultados, pedidoResultados, naoEncontrados } = confrontoFaturaResultado;
+  const totalFatura = [
+    ...regravacaoResultados.map(r=>r.item.valorCobrado||0),
+    ...pedidoResultados.flatMap(g=>g.itensFatura.map(i=>i.valorCobrado||0)),
+    ...naoEncontrados.map(i=>i.valorCobrado||0),
+  ].reduce((s,v)=>s+v,0);
+  const conferidos = [...regravacaoResultados, ...pedidoResultados];
+  const divergentes = conferidos.filter(r=>r.diferenca!=null && Math.abs(r.diferenca)>=0.01).length;
+  const batendo = conferidos.filter(r=>r.diferenca!=null && Math.abs(r.diferenca)<0.01).length;
+
+  wrap.innerHTML = `
+    <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:16px;">
+      <div class="modal-row" style="margin:0;"><span class="k">Total da fatura</span><span class="v">${fmtBRL(totalFatura)}</span></div>
+      <div class="modal-row" style="margin:0;"><span class="k">Batendo com o sistema</span><span class="v" style="color:var(--green-dark);">${batendo}</span></div>
+      <div class="modal-row" style="margin:0;"><span class="k">Divergentes</span><span class="v" style="color:var(--red);">${divergentes}</span></div>
+      <div class="modal-row" style="margin:0;"><span class="k">Não encontradas</span><span class="v" style="color:var(--gold-dark);">${naoEncontrados.length}</span></div>
+    </div>
+
+    ${pedidoResultados.length ? `
+    <div class="k" style="font-size:12.5px; margin-bottom:8px;">Pedidos (${pedidoResultados.length})</div>
+    <div class="hist-table-wrap" style="margin-bottom:20px;">
+      <table class="hist">
+        <thead><tr><th>Pedido</th><th>Cliente</th><th>OS na fatura</th><th style="text-align:right;">Valor fatura</th><th style="text-align:right;">Valor total do clichê (sistema)</th><th style="text-align:right;">Diferença</th></tr></thead>
+        <tbody>
+          ${pedidoResultados.map(g=>`
+          <tr>
+            <td class="pedido"><button class="link-pedido-venc" data-id="${g.pedido.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${g.pedido.pedido}</button></td>
+            <td>${g.pedido.clienteNome}</td>
+            <td>${g.itensFatura.map(i=>i.os).join(', ')}</td>
+            <td class="val">${fmtBRL(g.totalFatura)}</td>
+            <td class="val">${g.pedido.valorClicheTotal!=null ? fmtBRL(g.pedido.valorClicheTotal) : '—'}</td>
+            <td class="val">${fmtDiferenca(g.diferenca)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>` : ''}
+
+    ${regravacaoResultados.length ? `
+    <div class="k" style="font-size:12.5px; margin-bottom:8px;">Regravações (${regravacaoResultados.length})</div>
+    <div class="hist-table-wrap" style="margin-bottom:20px;">
+      <table class="hist">
+        <thead><tr><th>OS</th><th>Item</th><th style="text-align:right;">Valor fatura</th><th style="text-align:right;">Valor do clichê (sistema)</th><th style="text-align:right;">Diferença</th></tr></thead>
+        <tbody>
+          ${regravacaoResultados.map(r=>`
+          <tr>
+            <td class="pedido">${r.item.os}</td>
+            <td>${r.regrav.item || r.item.item || '—'}</td>
+            <td class="val">${fmtBRL(r.item.valorCobrado||0)}</td>
+            <td class="val">${r.regrav.valorCliche!=null ? fmtBRL(r.regrav.valorCliche) : '—'}</td>
+            <td class="val">${fmtDiferenca(r.diferenca)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>` : ''}
+
+    ${naoEncontrados.length ? `
+    <div class="k" style="font-size:12.5px; margin-bottom:8px;">Não encontradas no sistema (${naoEncontrados.length}) — conferir manualmente</div>
+    <div class="hist-table-wrap">
+      <table class="hist">
+        <thead><tr><th>OS</th><th>Item</th><th>Data</th><th style="text-align:right;">Valor fatura</th></tr></thead>
+        <tbody>
+          ${naoEncontrados.map(i=>`
+          <tr>
+            <td class="pedido">${i.os}</td>
+            <td>${i.item || '—'}</td>
+            <td>${i.data || '—'}</td>
+            <td class="val">${fmtBRL(i.valorCobrado||0)}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>` : ''}
+  `;
+  wrap.querySelectorAll('.link-pedido-venc').forEach(btn=>{
+    btn.addEventListener('click', ()=> openModal(btn.dataset.id));
+  });
+}
+
+function openConfrontoFaturaModal(){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div><h2 style="font-size:16px;">Importar fatura do fornecedor</h2><p>Envie a planilha (XLSX ou ODS) da fatura de clichê do fornecedor (ex: Digital Flex). Cada linha com OS é confrontada com pedidos e regravações já registrados no sistema.</p></div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <div class="export-row">
+      <label>Arquivo da fatura</label>
+      <input type="file" id="confronto-fatura-file" accept=".xlsx,.xls,.ods" style="width:100%; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:8px; padding:8px 10px; font-size:12.5px; font-family:'Plus Jakarta Sans',sans-serif;">
+    </div>
+    <div id="confronto-fatura-modal-result" style="font-size:12.5px; margin-bottom:10px;"></div>
+    <div class="export-actions">
+      <button class="btn ghost" id="confronto-fatura-cancel">Cancelar</button>
+      <button class="btn gold" id="confronto-fatura-confirm">Processar e conferir</button>
+    </div>
+  `;
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('confronto-fatura-cancel').addEventListener('click', closeModal);
+  document.getElementById('confronto-fatura-confirm').addEventListener('click', async ()=>{
+    const fileInput = document.getElementById('confronto-fatura-file');
+    const resultDiv = document.getElementById('confronto-fatura-modal-result');
+    const arquivo = fileInput.files[0];
+    if(!arquivo){
+      resultDiv.innerHTML = '<span style="color:var(--red);">Selecione o arquivo antes de processar.</span>';
+      return;
+    }
+    resultDiv.innerHTML = '<span style="color:var(--text-dim);">Lendo arquivo...</span>';
+    const buffer = await arquivo.arrayBuffer();
+    let itensFatura;
+    try{ itensFatura = parseFaturaFornecedorCliche(buffer); }
+    catch(e){ resultDiv.innerHTML = `<span style="color:var(--red);">Erro ao ler o arquivo: ${e.message}</span>`; return; }
+
+    if(!itensFatura.length){
+      resultDiv.innerHTML = '<span style="color:var(--red);">Não encontrei nenhuma linha com OS reconhecível nessa planilha. Confira o formato do arquivo.</span>';
+      return;
+    }
+    confrontoFaturaResultado = conferirFaturaComSistema(itensFatura);
+    renderConfrontoFaturaResultado();
+    closeModal();
+  });
+  overlay.classList.add('open');
+}
+document.getElementById('btn-confronto-importar').addEventListener('click', openConfrontoFaturaModal);
 
 /* ========================================================================
    ZERAR PEDIDOS
