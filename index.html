@@ -1113,7 +1113,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v8.95';
+const APP_VERSION = 'v8.96';
 const APP_VERSION_DATE = '31/08/2026';
 
 /* ========================================================================
@@ -5637,7 +5637,13 @@ function atrasoProjetado(p){
   if(!info) return null;
   const entregaPrometida = parseDateBR(p.entrega);
   entregaPrometida.setHours(0,0,0,0);
-  const dias = Math.round((info.projetada - entregaPrometida) / 86400000);
+  // se a projeção (entrada na etapa + lead time) já ficou no passado e o
+  // pedido ainda não terminou, usa hoje como piso — senão um pedido parado
+  // há meses na mesma etapa aparece como "no prazo" só porque a projeção
+  // (baseada numa data de entrada antiga) calhou de cair antes da entrega
+  const hoje = new Date(); hoje.setHours(0,0,0,0);
+  const projetadaEfetiva = info.projetada > hoje ? info.projetada : hoje;
+  const dias = Math.round((projetadaEfetiva - entregaPrometida) / 86400000);
   return { ...info, entregaPrometida, diasAtraso: dias };
 }
 
