@@ -1109,7 +1109,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.14';
+const APP_VERSION = 'v9.15';
 const APP_VERSION_DATE = '01/09/2026';
 
 /* ========================================================================
@@ -4505,21 +4505,16 @@ function renderClicheHistoricoPeriodos(){
     const resultadoConfronto = confrontoFaturaResultadosPorMes[chave];
     const detalhe = `
     <div class="topics-card" style="grid-column:1 / -1; margin:0;">
-      <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:8px;">
-        <div class="k" style="font-size:12.5px;">Pedidos e regravações com clichê finalizado em ${NOMES_MESES[parseInt(mes)-1]}/${ano} (${itensMes.length})</div>
+      <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
         <button class="btn small gold btn-confronto-mes" data-mes-chave="${chave}" style="flex-shrink:0; white-space:nowrap;">&#8613; Importar fatura</button>
       </div>
-      <div class="hist-table-wrap" style="margin-bottom:18px;">
+      <div class="hist-table-wrap" style="${resultadoConfronto ? 'margin-bottom:18px;' : ''}">
         <table class="hist">
           <thead><tr><th>Pedido/OS</th><th>Cliente</th><th style="text-align:right;">Valor</th></tr></thead>
           <tbody>${itensMes.length ? itensMes.map(linhaClicheMensalDetalhe).join('') : `<tr><td colspan="3" class="hist-empty">Nenhum registro encontrado.</td></tr>`}</tbody>
         </table>
       </div>
-
-      <div class="k" style="font-size:12.5px; margin-bottom:8px;">Confronto com fornecedor — confere a fatura de clichê contra os pedidos e regravações finalizados desse mês, por OS</div>
-      ${resultadoConfronto
-        ? htmlConfrontoFaturaResultado(resultadoConfronto)
-        : `<div class="empty-alt">Nenhuma fatura importada ainda pra ${NOMES_MESES[parseInt(mes)-1]}/${ano}.</div>`}
+      ${resultadoConfronto ? htmlConfrontoFaturaResultado(resultadoConfronto) : ''}
     </div>`;
     return cardMes + detalhe;
   }).join('') : `<div class="placeholder-card" style="grid-column:1 / -1;">Nenhum valor de clichê registrado ainda.</div>`;
