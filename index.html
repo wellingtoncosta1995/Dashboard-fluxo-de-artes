@@ -1109,7 +1109,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.15';
+const APP_VERSION = 'v9.16';
 const APP_VERSION_DATE = '01/09/2026';
 
 /* ========================================================================
@@ -4389,7 +4389,7 @@ function calcularHistoricoClichePorPeriodo(){
   const anos = {};  // chave "YYYY" -> {cliente, rioplastic, regrav}
 
   function acumular(mapa, chave, campo, valor){
-    if(!mapa[chave]) mapa[chave] = { cliente:0, rioplastic:0, regrav:0 };
+    if(!mapa[chave]) mapa[chave] = { cliente:0, rioplastic:0, regrav:0, qtdPedidos:0 };
     mapa[chave][campo] += valor;
   }
 
@@ -4409,8 +4409,10 @@ function calcularHistoricoClichePorPeriodo(){
 
     acumular(meses, chaveMes, 'cliente', cobradoCliente);
     acumular(meses, chaveMes, 'rioplastic', parteRioplastic);
+    acumular(meses, chaveMes, 'qtdPedidos', 1);
     acumular(anos, chaveAno, 'cliente', cobradoCliente);
     acumular(anos, chaveAno, 'rioplastic', parteRioplastic);
+    acumular(anos, chaveAno, 'qtdPedidos', 1);
   });
 
   // Idem pras regravações: só as que já tiveram a chegada marcada (r.dataChegada).
@@ -4495,6 +4497,7 @@ function renderClicheHistoricoPeriodos(){
       </div>
       <div class="hcm-valor">${fmtBRL(total)}</div>
       <div class="hcm-breakdown">
+        <span>Pedidos: <b>${v.qtdPedidos}</b></span>
         <span>Cliente: <b>${fmtBRL(v.cliente)}</b></span>
         <span>Rioplastic: <b>${fmtBRL(v.rioplastic)}</b></span>
         <span>Regravações: <b>${fmtBRL(v.regrav)}</b></span>
