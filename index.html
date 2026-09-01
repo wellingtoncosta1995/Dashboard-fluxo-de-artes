@@ -744,7 +744,7 @@
 
     <div id="view-sleeve-estoque" style="display:none;">
       <div class="topics-card">
-        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">SALDO DE ESTOQUE</span> <span class="link-text">matéria-prima disponível por item, em unidades — informe o saldo pra saber o que já dá pra produzir</span></p>
+        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">SALDO DE ESTOQUE</span> <span class="link-text">matéria-prima disponível por item, em unidades — atualizado automaticamente conforme os recebimentos registrados abaixo</span></p>
         <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;">
           <div class="search-box" style="max-width:340px;">
             <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
@@ -758,6 +758,51 @@
           <table class="hist" id="sleeve-estoque-table">
             <thead>
               <tr><th>Item</th><th>Cliente</th><th style="text-align:center;">Pendente (caixas)</th><th style="text-align:center;">Pendente (unid.)</th><th style="text-align:center;">Saldo (unid.)</th><th style="text-align:center;">Sobra (unid.)</th><th style="text-align:center;">Situação</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="topics-card" style="margin-top:16px;">
+        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">RECEBIMENTO DE SLEEVE</span> <span class="link-text">registre cada recebimento — o saldo acima é a soma automática das quantidades recebidas por item</span></p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; align-items:flex-end;">
+          <div style="display:flex; flex-direction:column; gap:4px; flex:1; min-width:260px;">
+            <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">Item</label>
+            <input type="text" id="sleeve-receb-item-input" list="sleeve-receb-item-list" placeholder="Código ou nome do item..." style="padding:9px 12px; border:1px solid var(--border-soft); border-radius:8px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif; background:var(--panel-alt); color:var(--text);">
+            <datalist id="sleeve-receb-item-list"></datalist>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px; min-width:140px;">
+            <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">Gráfica</label>
+            <input type="text" id="sleeve-receb-grafica-input" style="padding:9px 12px; border:1px solid var(--border-soft); border-radius:8px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif; background:var(--panel-alt); color:var(--text);">
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px; min-width:120px;">
+            <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">NF</label>
+            <input type="text" id="sleeve-receb-nf-input" style="padding:9px 12px; border:1px solid var(--border-soft); border-radius:8px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif; background:var(--panel-alt); color:var(--text);">
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px; min-width:120px;">
+            <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">Lote</label>
+            <input type="text" id="sleeve-receb-lote-input" style="padding:9px 12px; border:1px solid var(--border-soft); border-radius:8px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif; background:var(--panel-alt); color:var(--text);">
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px; min-width:150px;">
+            <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">Fabricação</label>
+            <input type="date" id="sleeve-receb-fabricacao-input" style="padding:8px 10px; border:1px solid var(--border-soft); border-radius:8px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif; background:var(--panel-alt); color:var(--text);">
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px; min-width:150px;">
+            <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">Validade</label>
+            <input type="date" id="sleeve-receb-validade-input" style="padding:8px 10px; border:1px solid var(--border-soft); border-radius:8px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif; background:var(--panel-alt); color:var(--text);">
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px; min-width:110px;">
+            <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">Quantidade</label>
+            <input type="text" id="sleeve-receb-qtd-input" placeholder="0" style="padding:9px 12px; border:1px solid var(--border-soft); border-radius:8px; font-size:13px; text-align:right; font-family:'IBM Plex Mono',monospace; background:var(--panel-alt); color:var(--text);">
+          </div>
+          <button class="btn gold" id="sleeve-receb-add-btn">Adicionar</button>
+        </div>
+        <div id="sleeve-receb-erro" style="font-size:12.5px; color:var(--red); margin-top:8px;"></div>
+        <div class="hist-table-wrap" style="margin-top:14px;">
+          <table class="hist" id="sleeve-receb-table">
+            <thead>
+              <tr><th>Item</th><th>Gráfica</th><th>NF</th><th>Lote</th><th>Fabricação</th><th>Validade</th><th style="text-align:center;">Quantidade</th><th></th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -1157,7 +1202,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.30';
+const APP_VERSION = 'v9.31';
 const APP_VERSION_DATE = '01/09/2026';
 
 /* ========================================================================
@@ -1766,7 +1811,7 @@ const DIAMETROS_CONHECIDOS = [68,75,79,93,101,120,150,185];
 let diametrosManual = {}; // {codigo: diametro} — identificação manual, quando não dá pra detectar pelo nome
 let clicheItensInfo = {}; // {codigo: {osCliche, numeroCliche, qtdCores}} — ficha do clichê de cada item do catálogo
 let sleeveOPs = []; // fila de produção importada do relatório RGER339 (ou parecido) — uma entrada por OP, ver parseSleeveRGER339
-let sleeveEstoque = {}; // {codigo: {saldoUnidades}} — saldo de matéria-prima disponível pra produzir (em unidades), editado manualmente na tela Saldo de estoque
+let sleeveRecebimentos = []; // { id, codigo, nome, grafica, nf, lote, fabricacao, validade, quantidade, criadoEm } — cada entrada de matéria-prima registrada no card "Recebimento de sleeve"; o saldo em "Saldo de estoque" é a soma das quantidades por código
 function extrairDiametro(nome){
   const n = String(nome||'');
   // Potes/copos/embalagens costumam trazer a boca no formato "(101X82,5)" —
@@ -1857,7 +1902,7 @@ async function loadState(){
     if(saved.diametrosManual) diametrosManual = saved.diametrosManual;
     if(saved.clicheItensInfo) clicheItensInfo = saved.clicheItensInfo;
     if(saved.sleeveOPs) sleeveOPs = saved.sleeveOPs;
-    if(saved.sleeveEstoque) sleeveEstoque = saved.sleeveEstoque;
+    if(saved.sleeveRecebimentos) sleeveRecebimentos = saved.sleeveRecebimentos;
     if(saved.leadTimePorBoca) leadTimePorBoca = saved.leadTimePorBoca;
     tarefasDiarias = saved.tarefasDiarias || [];
     valoresChapa = saved.valoresChapa || JSON.parse(JSON.stringify(VALORES_CHAPA_SEED));
@@ -1932,7 +1977,7 @@ async function saveState(){
     return;
   }
   try{
-    await window.storage.set('artes-pedidos-v3', JSON.stringify({pedidos, historico, regravacoes, nomeRelatorioAtual, lastImportTime, seedDescartada, tabelaCodigosInternos: TABELA_CODIGOS_INTERNOS, codigosUltimaAtualizacao, diametrosManual, clicheItensInfo, leadTimePorBoca, valoresChapa, valorClicheReferencia, tarefasDiarias, sleeveOPs, sleeveEstoque, stageOrderV2:true}), false);
+    await window.storage.set('artes-pedidos-v3', JSON.stringify({pedidos, historico, regravacoes, nomeRelatorioAtual, lastImportTime, seedDescartada, tabelaCodigosInternos: TABELA_CODIGOS_INTERNOS, codigosUltimaAtualizacao, diametrosManual, clicheItensInfo, leadTimePorBoca, valoresChapa, valorClicheReferencia, tarefasDiarias, sleeveOPs, sleeveRecebimentos, stageOrderV2:true}), false);
   }catch(e){ console.error('Falha ao salvar', e); }
 }
 
@@ -1944,6 +1989,7 @@ function fmtBRL(n){ return 'R$ ' + n.toLocaleString('pt-BR',{minimumFractionDigi
 function fmtKg(n){ return n.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2}) + ' kg'; }
 function fmtMilhar2(n){ return n.toLocaleString('pt-BR',{minimumFractionDigits:2, maximumFractionDigits:2}); }
 function fmtMilhar0(n){ return n.toLocaleString('pt-BR',{maximumFractionDigits:0}); }
+function fmtDataInput(s){ if(!s) return '—'; const [y,m,d] = s.split('-'); return `${d}/${m}/${y}`; }
 function parseDateBR(s){ const [d,m,y] = s.split('/').map(Number); return new Date(y,m-1,d); }
 function fmtDateTime(iso){
   const d = new Date(iso);
@@ -5877,7 +5923,7 @@ function switchView(view){
   if(view==='regravacao') renderRegravacao();
   if(view==='catalogo') renderCatalogo();
   if(view==='fluxo-sleeve') renderSleeveFila();
-  if(view==='sleeve-estoque') renderSleeveEstoque();
+  if(view==='sleeve-estoque'){ renderSleeveEstoque(); renderSleeveRecebimentos(); }
   if(view==='sleeve-validar') renderSleeveValidar();
   if(view==='codigos') renderCodigosInternos();
   if(view==='leadtime') renderLeadTime();
@@ -7350,8 +7396,10 @@ document.getElementById('sepcx-resultado').addEventListener('change', sepcxHandl
    Importa o relatório de fila de produção do ERP (rotina RGER339 — "Fila de
    Produção p/ Data - Pedido"; a mesma estrutura serve pra outras máquinas,
    ex: rotulagem). Mantém uma fila (sleeveOPs, upsert por OP — nunca apaga,
-   pra dar tempo de validar OPs que já saíram da fila do ERP) e um saldo de
-   matéria-prima editável por item (sleeveEstoque, em kg).
+   pra dar tempo de validar OPs que já saíram da fila do ERP) e um histórico
+   de recebimentos de matéria-prima por item (sleeveRecebimentos, em
+   unidades) — o saldo em estoque é sempre a soma automática desses
+   recebimentos.
    ======================================================================== */
 function parseDataHoraBR(str){
   if(!str) return null;
@@ -7434,10 +7482,11 @@ function linhaSleeveOP(o){
   </tr>`;
 }
 // Tela "Fluxo de sleeve": fila de produção por máquina, só dos itens que já
-// têm saldo de estoque informado (sleeveEstoque[codigo] existir) — ordenada
-// pelo término dentro de cada máquina.
+// tiveram algum recebimento registrado — ordenada pelo término dentro de
+// cada máquina.
 function renderSleeveFila(){
-  const pendentes = sleeveOPs.filter(o=>!o.validado && sleeveEstoque[o.codigo]!=null);
+  const codigosComRecebimento = new Set(sleeveRecebimentos.map(r=>r.codigo));
+  const pendentes = sleeveOPs.filter(o=>!o.validado && codigosComRecebimento.has(o.codigo));
   const porMaquina = {};
   pendentes.forEach(o=>{ (porMaquina[o.maquina] = porMaquina[o.maquina] || []).push(o); });
   const wrapMaquinas = document.getElementById('sleeve-maquinas-wrap');
@@ -7454,13 +7503,13 @@ function renderSleeveFila(){
         </table>
       </div>
     </div>`;
-  }).join('') : `<div class="placeholder-card">Nenhum item com saldo de estoque informado ainda — cadastre o saldo em "Saldo de estoque".</div>`;
+  }).join('') : `<div class="placeholder-card">Nenhum item com recebimento registrado ainda — registre em "Saldo de estoque" &gt; Recebimento de sleeve.</div>`;
 }
 // Tela "Saldo de estoque": um item (código) por linha, com o saldo (em
-// unidades) editável e o quanto ainda está pendente de produzir daquele
-// código (qtdCaixas × unidPorCaixa). Mostra TODOS os itens já vistos em
-// algum relatório importado
-// (com ou sem saldo ainda), pra dar pra cadastrar os que faltam.
+// unidades — soma automática dos recebimentos registrados no card
+// "Recebimento de sleeve") e o quanto ainda está pendente de produzir
+// daquele código (qtdCaixas × unidPorCaixa). Mostra TODOS os itens já
+// vistos em algum relatório importado (com ou sem recebimento ainda).
 function renderSleeveEstoque(){
   const itensPorCodigo = {};
   sleeveOPs.forEach(o=>{
@@ -7492,27 +7541,21 @@ function renderSleeveEstoque(){
     .sort((a,b)=> itensPorCodigo[a].clienteNome.localeCompare(itensPorCodigo[b].clienteNome));
   tbodyEstoque.innerHTML = codigosEstoque.length ? codigosEstoque.map(cod=>{
     const it = itensPorCodigo[cod];
-    const saldoUnidades = sleeveEstoque[cod] ? sleeveEstoque[cod].saldoUnidades : null;
-    const cobre = saldoUnidades!=null && saldoUnidades >= it.pendenteUnidades;
+    const recebimentosDoItem = sleeveRecebimentos.filter(r=>r.codigo===cod);
+    const temRecebimento = recebimentosDoItem.length > 0;
+    const saldoUnidades = recebimentosDoItem.reduce((s,r)=>s+(r.quantidade||0),0);
+    const cobre = temRecebimento && saldoUnidades >= it.pendenteUnidades;
     return `
     <tr>
       <td class="pedido"><button class="sleeve-item-link" data-codigo="${cod}" style="background:none; border:none; padding:0; text-align:left; cursor:pointer; color:inherit; font:inherit;">${cod}<br><small style="color:var(--text-faint); text-decoration:underline;">${it.nome}</small></button></td>
       <td>${it.clienteNome}</td>
       <td class="val" style="text-align:center;">${fmtMilhar0(it.pendenteCaixas)}</td>
       <td class="val" style="text-align:center;">${fmtMilhar0(it.pendenteUnidades)}</td>
-      <td class="val" style="text-align:center;"><input type="text" class="sleeve-saldo-input" data-codigo="${cod}" value="${saldoUnidades!=null?fmtMilhar0(saldoUnidades):''}" placeholder="0" style="width:90px; text-align:center; background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:6px; padding:5px 7px; font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--text);"></td>
+      <td class="val" style="text-align:center;">${temRecebimento ? fmtMilhar0(saldoUnidades) : '—'}</td>
       <td class="val" style="text-align:center;">${cobre ? fmtMilhar0(saldoUnidades-it.pendenteUnidades) : '—'}</td>
-      <td style="text-align:center;">${saldoUnidades==null ? '<span style="color:var(--text-faint);">—</span>' : (cobre ? '<span class="tag tag-repeticao">✓ COBRE</span>' : `<span class="tag tag-alterada">FALTAM ${fmtMilhar0(it.pendenteUnidades-saldoUnidades)} UNID.</span>`)}</td>
+      <td style="text-align:center;">${!temRecebimento ? '<span style="color:var(--text-faint);">—</span>' : (cobre ? '<span class="tag tag-repeticao">✓ COBRE</span>' : `<span class="tag tag-alterada">FALTAM ${fmtMilhar0(it.pendenteUnidades-saldoUnidades)} UNID.</span>`)}</td>
     </tr>`;
   }).join('') : `<tr><td colspan="7" class="hist-empty">${termo ? 'Nenhum item encontrado pra essa busca.' : 'Nenhum item importado ainda.'}</td></tr>`;
-  tbodyEstoque.querySelectorAll('.sleeve-saldo-input').forEach(input=>{
-    input.addEventListener('change', ()=>{
-      const cod = input.dataset.codigo;
-      sleeveEstoque[cod] = { saldoUnidades: parseNumeroBR(input.value) };
-      saveState();
-      renderTudoSleeve();
-    });
-  });
   tbodyEstoque.querySelectorAll('.sleeve-item-link').forEach(btn=>{
     btn.addEventListener('click', ()=> abrirSleeveOPsModal(btn.dataset.codigo));
   });
@@ -7548,6 +7591,74 @@ function abrirSleeveOPsModal(codigo){
   document.getElementById('modal-close').addEventListener('click', closeModal);
   overlay.classList.add('open');
 }
+// Card "Recebimento de sleeve": registra cada entrada de matéria-prima
+// (gráfica, NF, lote, fabricação, validade, quantidade) por item. O saldo
+// mostrado em "Saldo de estoque" é sempre a soma das quantidades daqui —
+// não existe mais edição direta do saldo.
+function itensSleeveConhecidos(){
+  const mapa = {};
+  sleeveOPs.forEach(o=>{ if(o.codigo) mapa[o.codigo] = o.nome; });
+  return mapa;
+}
+function renderSleeveRecebimentos(){
+  const itensConhecidos = itensSleeveConhecidos();
+  const datalist = document.getElementById('sleeve-receb-item-list');
+  datalist.innerHTML = Object.keys(itensConhecidos).sort().map(cod=>`<option value="${cod} — ${itensConhecidos[cod]}">`).join('');
+
+  const tbody = document.querySelector('#sleeve-receb-table tbody');
+  const lista = sleeveRecebimentos.slice().sort((a,b)=> new Date(b.criadoEm) - new Date(a.criadoEm));
+  tbody.innerHTML = lista.length ? lista.map(r=>`
+    <tr>
+      <td class="pedido">${r.codigo}<br><small style="color:var(--text-faint);">${r.nome}</small></td>
+      <td>${r.grafica || '—'}</td>
+      <td>${r.nf || '—'}</td>
+      <td>${r.lote || '—'}</td>
+      <td>${fmtDataInput(r.fabricacao)}</td>
+      <td>${fmtDataInput(r.validade)}</td>
+      <td class="val" style="text-align:center;">${fmtMilhar0(r.quantidade)}</td>
+      <td style="text-align:right;"><button class="sleeve-receb-del" data-id="${r.id}" title="Remover" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:16px; line-height:1; padding:2px 4px;">&times;</button></td>
+    </tr>`).join('') : `<tr><td colspan="8" class="hist-empty">Nenhum recebimento registrado ainda.</td></tr>`;
+
+  tbody.querySelectorAll('.sleeve-receb-del').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      sleeveRecebimentos = sleeveRecebimentos.filter(r=>r.id!==btn.dataset.id);
+      await saveState();
+      renderTudoSleeve();
+    });
+  });
+}
+document.getElementById('sleeve-receb-add-btn').addEventListener('click', async ()=>{
+  const itemInput = document.getElementById('sleeve-receb-item-input');
+  const erroDiv = document.getElementById('sleeve-receb-erro');
+  const itensConhecidos = itensSleeveConhecidos();
+  const match = itemInput.value.trim().match(/^(\S+)\s+—/);
+  const codigo = match ? match[1] : itemInput.value.trim();
+  if(!codigo || !itensConhecidos[codigo]){
+    erroDiv.textContent = 'Selecione um item válido da lista (comece a digitar o código ou nome).';
+    return;
+  }
+  const quantidade = parseNumeroBR(document.getElementById('sleeve-receb-qtd-input').value);
+  if(!quantidade || quantidade <= 0){
+    erroDiv.textContent = 'Informe uma quantidade válida.';
+    return;
+  }
+  erroDiv.textContent = '';
+  sleeveRecebimentos.push({
+    id: Date.now() + '-' + Math.random().toString(36).slice(2),
+    codigo,
+    nome: itensConhecidos[codigo],
+    grafica: document.getElementById('sleeve-receb-grafica-input').value.trim(),
+    nf: document.getElementById('sleeve-receb-nf-input').value.trim(),
+    lote: document.getElementById('sleeve-receb-lote-input').value.trim(),
+    fabricacao: document.getElementById('sleeve-receb-fabricacao-input').value,
+    validade: document.getElementById('sleeve-receb-validade-input').value,
+    quantidade,
+    criadoEm: new Date().toISOString(),
+  });
+  await saveState();
+  renderTudoSleeve();
+  ['sleeve-receb-item-input','sleeve-receb-grafica-input','sleeve-receb-nf-input','sleeve-receb-lote-input','sleeve-receb-fabricacao-input','sleeve-receb-validade-input','sleeve-receb-qtd-input'].forEach(id=>{ document.getElementById(id).value=''; });
+});
 // Tela "Pedidos finalizados": OPs cujo Término já passou e ainda não foram
 // validadas — o usuário confirma a quantidade produzida.
 function renderSleeveValidar(){
@@ -7590,6 +7701,7 @@ function renderSleeveValidar(){
 function renderTudoSleeve(){
   renderSleeveFila();
   renderSleeveEstoque();
+  renderSleeveRecebimentos();
   renderSleeveValidar();
 }
 function abrirImportarSleeveModal(){
