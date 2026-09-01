@@ -608,6 +608,7 @@
         <button class="nav-item nav-panel-head" data-view="fluxo-sleeve"><span class="icon"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3.5" width="8" height="13" rx="3"/><path d="M6 8h8"/></svg></span> Fluxo de sleeve<span class="nav-chevron"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5 7 9l3.5-3.5"/></svg></span></button>
         <div id="sleeve-submenu" style="display:none;">
           <button class="nav-item nav-sub-item" data-view="sleeve-estoque">Saldo de estoque</button>
+          <button class="nav-item nav-sub-item" data-view="sleeve-recebimento">Recebimento de sleeve</button>
           <button class="nav-item nav-sub-item" data-view="sleeve-validar">Pedidos finalizados</button>
         </div>
       </div>
@@ -763,9 +764,11 @@
           </table>
         </div>
       </div>
+    </div>
 
-      <div class="topics-card" style="margin-top:16px;">
-        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">RECEBIMENTO DE SLEEVE</span> <span class="link-text">registre cada recebimento — o saldo acima é a soma automática das quantidades recebidas por item</span></p>
+    <div id="view-sleeve-recebimento" style="display:none;">
+      <div class="topics-card">
+        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">RECEBIMENTO DE SLEEVE</span> <span class="link-text">registre cada recebimento — o saldo em "Saldo de estoque" é a soma automática das quantidades recebidas por item</span></p>
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; align-items:flex-end;">
           <div style="display:flex; flex-direction:column; gap:4px; flex:1; min-width:260px;">
             <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">Item</label>
@@ -1202,7 +1205,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.31';
+const APP_VERSION = 'v9.32';
 const APP_VERSION_DATE = '01/09/2026';
 
 /* ========================================================================
@@ -5855,6 +5858,7 @@ const VIEW_TITULOS = {
   board: "Fluxo interno",
   'fluxo-sleeve': "Fluxo de sleeve",
   'sleeve-estoque': "Saldo de estoque",
+  'sleeve-recebimento': "Recebimento de sleeve",
   'sleeve-validar': "Pedidos finalizados",
   cliche: "Custo de clichê",
   'custo-mensal': "Custo mensal",
@@ -5882,12 +5886,13 @@ function switchView(view){
   if(view!=='cliche' && view!=='custo-mensal' && view!=='custo-anual' && view!=='valores-chapa') clicheSubmenuOpen = false;
   if(view!=='analise-entrega' && view!=='analise-entrega-historico') analiseEntregaSubmenuOpen = false;
   if(view!=='history') historySubmenuOpen = false;
-  if(view!=='fluxo-sleeve' && view!=='sleeve-estoque' && view!=='sleeve-validar') sleeveSubmenuOpen = false;
+  if(view!=='fluxo-sleeve' && view!=='sleeve-estoque' && view!=='sleeve-recebimento' && view!=='sleeve-validar') sleeveSubmenuOpen = false;
   if(BOARD_GROUP_VIEWS.includes(view)) boardSubmenuOpen = true;
   document.getElementById('view-home').style.display = view==='home' ? 'block' : 'none';
   document.getElementById('view-board').style.display = view==='board' ? 'block' : 'none';
   document.getElementById('view-fluxo-sleeve').style.display = view==='fluxo-sleeve' ? 'block' : 'none';
   document.getElementById('view-sleeve-estoque').style.display = view==='sleeve-estoque' ? 'block' : 'none';
+  document.getElementById('view-sleeve-recebimento').style.display = view==='sleeve-recebimento' ? 'block' : 'none';
   document.getElementById('view-sleeve-validar').style.display = view==='sleeve-validar' ? 'block' : 'none';
   document.getElementById('sleeve-submenu').style.display = sleeveSubmenuOpen ? 'block' : 'none';
   syncGroupChevron('fluxo-sleeve', sleeveSubmenuOpen);
@@ -5923,7 +5928,8 @@ function switchView(view){
   if(view==='regravacao') renderRegravacao();
   if(view==='catalogo') renderCatalogo();
   if(view==='fluxo-sleeve') renderSleeveFila();
-  if(view==='sleeve-estoque'){ renderSleeveEstoque(); renderSleeveRecebimentos(); }
+  if(view==='sleeve-estoque') renderSleeveEstoque();
+  if(view==='sleeve-recebimento') renderSleeveRecebimentos();
   if(view==='sleeve-validar') renderSleeveValidar();
   if(view==='codigos') renderCodigosInternos();
   if(view==='leadtime') renderLeadTime();
