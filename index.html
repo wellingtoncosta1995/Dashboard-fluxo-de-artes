@@ -1109,7 +1109,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.16';
+const APP_VERSION = 'v9.17';
 const APP_VERSION_DATE = '01/09/2026';
 
 /* ========================================================================
@@ -3515,8 +3515,11 @@ function parseFaturaFornecedorCliche(arrayBuffer){
   return itens;
 }
 
-// pedidosDisponiveis/regravacoesDisponiveis escopam o confronto (só aos pedidos e
-// regravações finalizados de um mês específico, no Custo mensal).
+// pedidosDisponiveis/regravacoesDisponiveis escopam o confronto a um mês
+// específico (pedidos com clichê registrado / regravações solicitadas naquele
+// mês) — inclui também os que ainda não foram finalizados/tiveram a chegada
+// marcada, pra cobrir o caso da fatura da 2ª quinzena trazer clichês que só
+// serão liberados no mês seguinte (eles aparecem marcados como pendentes).
 function conferirFaturaComSistema(itensFatura, pedidosDisponiveis, regravacoesDisponiveis){
   const todosPedidos = pedidosDisponiveis;
   const regravacoesPorOs = {};
@@ -3533,6 +3536,7 @@ function conferirFaturaComSistema(itensFatura, pedidosDisponiveis, regravacoesDi
       regravacaoResultados.push({
         item: it, regrav,
         diferenca: (valorSistema!=null && it.valorCobrado!=null) ? (it.valorCobrado - valorSistema) : null,
+        aindaNaoFinalizado: !regrav.dataChegada,
       });
       return;
     }
@@ -3548,7 +3552,7 @@ function conferirFaturaComSistema(itensFatura, pedidosDisponiveis, regravacoesDi
 
   const pedidoResultados = Object.values(pedidoGrupos).map(g=>{
     const valorSistema = g.pedido.valorClicheTotal;
-    return { ...g, diferenca: (valorSistema!=null) ? (g.totalFatura - valorSistema) : null };
+    return { ...g, diferenca: (valorSistema!=null) ? (g.totalFatura - valorSistema) : null, aindaNaoFinalizado: g.pedido.tipo!=='finalizado' };
   });
 
   return { regravacaoResultados, pedidoResultados, naoEncontrados };
@@ -3575,6 +3579,8 @@ function htmlConfrontoFaturaResultado(resultado){
   const conferidos = [...regravacaoResultados, ...pedidoResultados];
   const divergentes = conferidos.filter(r=>r.diferenca!=null && Math.abs(r.diferenca)>=0.01).length;
   const batendo = conferidos.filter(r=>r.diferenca!=null && Math.abs(r.diferenca)<0.01).length;
+  const pendentes = conferidos.filter(r=>r.aindaNaoFinalizado).length;
+  const tagPendente = `<span class="tag tag-nova" title="Ainda não foi finalizado/teve a chegada marcada no sistema — só vai entrar no Custo mensal quando isso acontecer">EM TRÂMITE</span>`;
 
   return `
     <div style="display:flex; gap:16px; flex-wrap:wrap; margin-bottom:16px;">
@@ -3582,6 +3588,7 @@ function htmlConfrontoFaturaResultado(resultado){
       <div class="modal-row" style="margin:0;"><span class="k">Batendo com o sistema</span><span class="v" style="color:var(--green-dark);">${batendo}</span></div>
       <div class="modal-row" style="margin:0;"><span class="k">Divergentes</span><span class="v" style="color:var(--red);">${divergentes}</span></div>
       <div class="modal-row" style="margin:0;"><span class="k">Não encontradas</span><span class="v" style="color:var(--gold-dark);">${naoEncontrados.length}</span></div>
+      ${pendentes ? `<div class="modal-row" style="margin:0;"><span class="k">Ainda em trâmite</span><span class="v" style="color:var(--blue-dark);">${pendentes}</span></div>` : ''}
     </div>
 
     ${pedidoResultados.length ? `
@@ -3592,7 +3599,7 @@ function htmlConfrontoFaturaResultado(resultado){
         <tbody>
           ${pedidoResultados.map(g=>`
           <tr>
-            <td class="pedido"><button class="link-pedido-venc" data-id="${g.pedido.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${g.pedido.pedido}</button></td>
+            <td class="pedido"><button class="link-pedido-venc" data-id="${g.pedido.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${g.pedido.pedido}</button> ${g.aindaNaoFinalizado ? tagPendente : ''}</td>
             <td>${g.pedido.clienteNome}</td>
             <td>${g.itensFatura.map(i=>i.os).join(', ')}</td>
             <td class="val">${fmtBRL(g.totalFatura)}</td>
@@ -3611,7 +3618,7 @@ function htmlConfrontoFaturaResultado(resultado){
         <tbody>
           ${regravacaoResultados.map(r=>`
           <tr>
-            <td class="pedido">${r.item.os}</td>
+            <td class="pedido">${r.item.os} ${r.aindaNaoFinalizado ? tagPendente : ''}</td>
             <td>${r.regrav.item || r.item.item || '—'}</td>
             <td class="val">${fmtBRL(r.item.valorCobrado||0)}</td>
             <td class="val">${r.regrav.valorCliche!=null ? fmtBRL(r.regrav.valorCliche) : '—'}</td>
@@ -3647,7 +3654,7 @@ function openConfrontoFaturaModal({ chaveDoMes, pedidosDoMes, regravacoesDoMes, 
   const modal = document.getElementById('modal');
   modal.innerHTML = `
     <div class="modal-head">
-      <div><h2 style="font-size:16px;">Importar fatura do fornecedor</h2><p>Envie a planilha (XLSX ou ODS) da fatura de clichê do fornecedor (ex: Digital Flex). Cada linha com OS é confrontada só com os pedidos e regravações finalizados de ${labelMes}.</p></div>
+      <div><h2 style="font-size:16px;">Importar fatura do fornecedor</h2><p>Envie a planilha (XLSX ou ODS) da fatura de clichê do fornecedor (ex: Digital Flex). Cada linha com OS é confrontada com os pedidos e regravações registrados/solicitados em ${labelMes} — inclusive os que ainda não foram finalizados/tiveram a chegada marcada (aparecem como "EM TRÂMITE").</p></div>
       <button class="close-x" id="modal-close">&times;</button>
     </div>
     <div class="export-row">
@@ -4458,6 +4465,27 @@ function pedidosERegravDoMes(chave){
 
   return itens.sort((a,b)=> b.data - a.data);
 }
+// Pool de pedidos/regravações usado no confronto com fornecedor de um mês: inclui
+// também os que ainda NÃO foram finalizados/tiveram chegada marcada — cobre o
+// caso da fatura da 2ª quinzena trazer clichês que só vão ser liberados no mês
+// seguinte (eles aparecem no confronto marcados como "EM TRÂMITE").
+function poolConfrontoDoMes(chave){
+  const [ano, mes] = chave.split('-').map(Number);
+  const pedidosDoMes = [...pedidos, ...historico.filter(p=>p.tipo!=='cancelado')].filter(p=>{
+    if(!p.clicheRegistradoEm) return false;
+    if(p.valorClicheTotal==null && p.valorClichePedido==null) return false;
+    const d = new Date(p.clicheRegistradoEm);
+    return d.getFullYear()===ano && (d.getMonth()+1)===mes;
+  });
+  const regravacoesDoMes = regravacoes.filter(r=>{
+    if(r.valorCliche==null) return false;
+    const dataRef = r.dataSolicitacao || r.criadoEm;
+    if(!dataRef) return false;
+    const d = new Date(dataRef);
+    return d.getFullYear()===ano && (d.getMonth()+1)===mes;
+  });
+  return { pedidosDoMes, regravacoesDoMes };
+}
 function linhaClicheMensalDetalhe(item){
   if(item.tipo==='regravacao'){
     const r = item.r;
@@ -4540,12 +4568,12 @@ function renderClicheHistoricoPeriodos(){
       e.stopPropagation();
       const chave = btn.dataset.mesChave;
       const [ano, mes] = chave.split('-');
-      const itensMes = pedidosERegravDoMes(chave);
+      const { pedidosDoMes, regravacoesDoMes } = poolConfrontoDoMes(chave);
       openConfrontoFaturaModal({
         chaveDoMes: chave,
         labelMes: `${NOMES_MESES[parseInt(mes)-1]}/${ano}`,
-        pedidosDoMes: itensMes.filter(i=>i.tipo==='pedido').map(i=>i.p),
-        regravacoesDoMes: itensMes.filter(i=>i.tipo==='regravacao').map(i=>i.r),
+        pedidosDoMes,
+        regravacoesDoMes,
       });
     });
   });
