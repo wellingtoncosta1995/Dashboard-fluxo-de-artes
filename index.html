@@ -1157,7 +1157,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.26';
+const APP_VERSION = 'v9.27';
 const APP_VERSION_DATE = '01/09/2026';
 
 /* ========================================================================
@@ -7495,7 +7495,7 @@ function renderSleeveEstoque(){
     const cobre = saldoMilheiro!=null && saldoMilheiro >= it.pendenteMilheiro;
     return `
     <tr>
-      <td class="pedido">${cod}<br><small style="color:var(--text-faint);">${it.nome}</small></td>
+      <td class="pedido"><button class="sleeve-item-link" data-codigo="${cod}" style="background:none; border:none; padding:0; text-align:left; cursor:pointer; color:inherit; font:inherit;">${cod}<br><small style="color:var(--text-faint); text-decoration:underline;">${it.nome}</small></button></td>
       <td>${it.clienteNome}</td>
       <td class="val">${fmtMilhar2(it.pendenteCaixas)}</td>
       <td class="val">${fmtMilhar2(it.pendenteMilheiro)}</td>
@@ -7511,6 +7511,40 @@ function renderSleeveEstoque(){
       renderTudoSleeve();
     });
   });
+  tbodyEstoque.querySelectorAll('.sleeve-item-link').forEach(btn=>{
+    btn.addEventListener('click', ()=> abrirSleeveOPsModal(btn.dataset.codigo));
+  });
+}
+// Modal "quais OPs vão fazer": lista as OPs pendentes (não validadas) de um
+// código, aberta ao clicar no item na tela "Saldo de estoque".
+function abrirSleeveOPsModal(codigo){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  const ops = sleeveOPs.filter(o=>o.codigo===codigo && !o.validado)
+    .sort((a,b)=> new Date(a.termino||0) - new Date(b.termino||0));
+  const nome = ops.length ? ops[0].nome : '';
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div><h2 style="font-size:16px;">${codigo}</h2><p>${nome}</p></div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <div class="hist-table-wrap">
+      <table class="hist">
+        <thead><tr><th>OP</th><th>Máquina</th><th>Pedido</th><th>Cliente</th><th style="text-align:right;">Qtd caixas</th><th>Término</th></tr></thead>
+        <tbody>${ops.length ? ops.map(o=>`
+          <tr>
+            <td class="pedido">${o.op}</td>
+            <td>${o.maquina}</td>
+            <td>${o.pedido}</td>
+            <td>${o.clienteNome}</td>
+            <td class="val">${fmtMilhar2(o.qtdCaixas)}</td>
+            <td>${o.termino ? fmtDateTime(o.termino) : '—'}</td>
+          </tr>`).join('') : `<tr><td colspan="6" class="hist-empty">Nenhuma OP pendente pra esse item.</td></tr>`}</tbody>
+      </table>
+    </div>
+  `;
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  overlay.classList.add('open');
 }
 // Tela "Pedidos finalizados": OPs cujo Término já passou e ainda não foram
 // validadas — o usuário confirma a quantidade produzida.
