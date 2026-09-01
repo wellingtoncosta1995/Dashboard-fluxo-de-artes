@@ -1125,7 +1125,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.09';
+const APP_VERSION = 'v9.10';
 const APP_VERSION_DATE = '01/09/2026';
 
 /* ========================================================================
@@ -4342,7 +4342,8 @@ function renderClicheHistory(){
   const table = document.getElementById('cliche-table');
   const tbody = table.querySelector('tbody');
 
-  const todos = [...pedidos, ...historico.filter(p=>p.tipo==='finalizado')];
+  // Só entram pedidos com clichê já finalizado (chegou na fábrica e foi liberado).
+  const todos = historico.filter(p=>p.tipo==='finalizado');
   const comCliche = todos.filter(p=> p.valorClicheTotal!=null || p.clicheBonificado);
 
   // popular seletor de clientes
@@ -5899,8 +5900,10 @@ function estaNoMesAtual(dataStr){
   return d.getFullYear()===agora.getFullYear() && d.getMonth()===agora.getMonth();
 }
 function listaClicheMesAtual(){
+  // Só entram pedidos com clichê já finalizado (chegou na fábrica e foi liberado)
+  // e regravações que já tiveram a chegada marcada.
   const pedidosMes = [];
-  [...pedidos, ...historico.filter(p=>p.tipo==='finalizado')].forEach(p=>{
+  historico.filter(p=>p.tipo==='finalizado').forEach(p=>{
     if(!estaNoMesAtual(p.clicheRegistradoEm)) return;
     if(p.valorClicheTotal==null && p.valorClichePedido==null) return;
 
@@ -5909,7 +5912,7 @@ function listaClicheMesAtual(){
     const parteRioplastic = Math.max(0, totalEfetivo - cobradoCliente);
     pedidosMes.push({ p, totalEfetivo, cobradoCliente, parteRioplastic });
   });
-  const regravMes = regravacoes.filter(r=> r.valorCliche!=null && estaNoMesAtual(r.dataSolicitacao || r.criadoEm));
+  const regravMes = regravacoes.filter(r=> r.dataChegada && r.valorCliche!=null && estaNoMesAtual(r.dataSolicitacao || r.criadoEm));
   return { pedidosMes, regravMes };
 }
 function calcularClicheMesAtual(){
@@ -6221,7 +6224,7 @@ function openClicheMesModal(){
     <div class="modal-head">
       <div>
         <h2 style="font-size:18px;">Custo de clichê — ${NOMES_MESES[agora.getMonth()]}/${agora.getFullYear()}</h2>
-        <p>Pedidos cobrados e regravações registradas neste mês</p>
+        <p>Pedidos e regravações com clichê finalizado neste mês</p>
       </div>
       <button class="close-x" id="modal-close">&times;</button>
     </div>
