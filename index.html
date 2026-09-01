@@ -1125,7 +1125,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.07';
+const APP_VERSION = 'v9.08';
 const APP_VERSION_DATE = '01/09/2026';
 
 /* ========================================================================
@@ -1784,6 +1784,7 @@ let boardSubmenuOpen = false; // controla se o submenu de Fluxo de artes está e
 let modoEdicaoLiberado = localStorage.getItem('artes_edicao_ok') === '1'; // trava de interface: só quem sabe a senha de edição consegue salvar alterações
 let botaoRepeticaoAtivo = localStorage.getItem('artes_btn_repeticao_ativo') !== '0'; // liga/desliga (por navegador) o botão "Enviar direto para Arte Repetição" no modal do pedido em Sem tratativa
 let analiseEntregaSubmenuOpen = false; // controla se o submenu de Análise data de entrega está expandido no menu lateral
+let clicheMesDetalheAberto = null; // chave "YYYY-MM" do mês expandido na tabela de Custo mensal (mostra pedidos + regravações daquele mês)
 let nomeRelatorioAtual = '';
 let multiSelectMode = false;
 let selectedIds = new Set();
@@ -4441,6 +4442,53 @@ function calcularHistoricoClichePorPeriodo(){
 
   return { meses, anos };
 }
+// Lista combinada (pedidos + regravações juntos, ordenados por data) de tudo que
+// compôs o custo de clichê de um mês específico (chave "YYYY-MM"), pra exibir
+// no histórico expandido da tabela de Custo mensal.
+function pedidosERegravDoMes(chave){
+  const [ano, mes] = chave.split('-').map(Number);
+  const itens = [];
+
+  [...pedidos, ...historico.filter(p=>p.tipo==='finalizado')].forEach(p=>{
+    if(!p.clicheRegistradoEm) return;
+    if(p.valorClicheTotal==null && p.valorClichePedido==null) return;
+    const d = new Date(p.clicheRegistradoEm);
+    if(d.getFullYear()!==ano || (d.getMonth()+1)!==mes) return;
+
+    const totalEfetivo = p.valorClicheTotal!=null ? p.valorClicheTotal : p.valorClichePedido;
+    const cobradoCliente = p.clicheBonificado ? 0 : (p.valorClichePedido!=null ? p.valorClichePedido : totalEfetivo);
+    itens.push({ tipo:'pedido', data:d, p, valor:totalEfetivo, cobradoCliente });
+  });
+
+  regravacoes.forEach(r=>{
+    if(r.valorCliche==null) return;
+    const dataRef = r.dataSolicitacao || r.criadoEm;
+    if(!dataRef) return;
+    const d = new Date(dataRef);
+    if(d.getFullYear()!==ano || (d.getMonth()+1)!==mes) return;
+    itens.push({ tipo:'regravacao', data:d, r, valor:r.valorCliche });
+  });
+
+  return itens.sort((a,b)=> b.data - a.data);
+}
+function linhaClicheMensalDetalhe(item){
+  if(item.tipo==='regravacao'){
+    const r = item.r;
+    return `
+    <tr>
+      <td class="pedido">${r.os || '—'} <span class="tag tag-repeticao">REGRAVAÇÃO</span></td>
+      <td>${fmtCodigo(r.codigo) || '—'}<br><small style="color:var(--text-faint);">${r.item || ''}</small></td>
+      <td class="val">${fmtBRL(item.valor)}</td>
+    </tr>`;
+  }
+  const p = item.p;
+  return `
+  <tr>
+    <td class="pedido"><button class="link-pedido-hist" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
+    <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
+    <td class="val">${p.clicheBonificado ? `<span class="tag tag-repeticao">BONIFICADO</span>` : fmtBRL(item.valor)}</td>
+  </tr>`;
+}
 function renderClicheHistoricoPeriodos(){
   const { meses, anos } = calcularHistoricoClichePorPeriodo();
 
@@ -4450,15 +4498,45 @@ function renderClicheHistoricoPeriodos(){
     const [ano,mes] = chave.split('-');
     const v = meses[chave];
     const total = v.cliente + v.rioplastic + v.regrav;
-    return `
-    <tr>
-      <td class="pedido">${NOMES_MESES[parseInt(mes)-1]}/${ano}</td>
+    const aberto = clicheMesDetalheAberto === chave;
+    const linhaMes = `
+    <tr class="cliche-mes-row" data-mes-chave="${chave}" style="cursor:pointer;">
+      <td class="pedido">${aberto?'▾':'▸'} ${NOMES_MESES[parseInt(mes)-1]}/${ano}</td>
       <td class="val">${fmtBRL(v.cliente)}</td>
       <td class="val">${fmtBRL(v.rioplastic)}</td>
       <td class="val">${fmtBRL(v.regrav)}</td>
       <td class="val" style="font-weight:700;">${fmtBRL(total)}</td>
     </tr>`;
+    if(!aberto) return linhaMes;
+    const itensMes = pedidosERegravDoMes(chave);
+    const detalhe = `
+    <tr>
+      <td colspan="5" style="background:var(--panel-alt); padding:14px;">
+        <div class="k" style="font-size:12.5px; margin-bottom:8px;">Pedidos e regravações com clichê em ${NOMES_MESES[parseInt(mes)-1]}/${ano} (${itensMes.length})</div>
+        <div class="hist-table-wrap">
+          <table class="hist">
+            <thead><tr><th>Pedido/OS</th><th>Cliente</th><th style="text-align:right;">Valor</th></tr></thead>
+            <tbody>${itensMes.length ? itensMes.map(linhaClicheMensalDetalhe).join('') : `<tr><td colspan="3" class="hist-empty">Nenhum registro encontrado.</td></tr>`}</tbody>
+          </table>
+        </div>
+      </td>
+    </tr>`;
+    return linhaMes + detalhe;
   }).join('') : `<tr><td colspan="5" class="hist-empty">Nenhum valor de clichê registrado ainda.</td></tr>`;
+
+  tbodyMensal.querySelectorAll('.cliche-mes-row').forEach(row=>{
+    row.addEventListener('click', ()=>{
+      const chave = row.dataset.mesChave;
+      clicheMesDetalheAberto = (clicheMesDetalheAberto === chave) ? null : chave;
+      renderClicheHistoricoPeriodos();
+    });
+  });
+  tbodyMensal.querySelectorAll('.link-pedido-hist').forEach(btn=>{
+    btn.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      openModal(btn.dataset.id);
+    });
+  });
 
   const tbodyAnual = document.querySelector('#cliche-anual-table tbody');
   const chavesAnos = Object.keys(anos).sort((a,b)=> b.localeCompare(a));
