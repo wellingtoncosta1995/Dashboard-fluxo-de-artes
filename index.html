@@ -745,6 +745,10 @@
     <div id="view-sleeve-estoque" style="display:none;">
       <div class="topics-card">
         <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">SALDO DE ESTOQUE</span> <span class="link-text">matéria-prima disponível por item — informe o saldo (kg) pra saber o que já dá pra produzir</span></p>
+        <div class="search-box" style="max-width:340px; margin-top:12px;">
+          <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
+          <input type="text" id="sleeve-estoque-search-input" class="busca-livre" placeholder="Buscar por item, código ou cliente...">
+        </div>
         <div class="hist-table-wrap" style="margin-top:12px;">
           <table class="hist" id="sleeve-estoque-table">
             <thead>
@@ -1148,7 +1152,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.19';
+const APP_VERSION = 'v9.20';
 const APP_VERSION_DATE = '01/09/2026';
 
 /* ========================================================================
@@ -1797,6 +1801,7 @@ const LEAD_TIME_INICIAL = [
 let leadTimePorBoca = JSON.parse(JSON.stringify(LEAD_TIME_INICIAL));
 
 let catalogoSearchTerm = '';
+let sleeveEstoqueSearchTerm = '';
 let currentHistTab = 'finalizados';
 let currentView = 'board'; // board | leadtime | history
 let searchTerm = '';
@@ -7463,7 +7468,14 @@ function renderSleeveEstoque(){
     if(!o.validado) itensPorCodigo[o.codigo].pendenteKg += (o.peso||0);
   });
   const tbodyEstoque = document.querySelector('#sleeve-estoque-table tbody');
-  const codigosEstoque = Object.keys(itensPorCodigo).sort((a,b)=> itensPorCodigo[a].clienteNome.localeCompare(itensPorCodigo[b].clienteNome));
+  const termo = sleeveEstoqueSearchTerm.trim().toLowerCase();
+  const codigosEstoque = Object.keys(itensPorCodigo)
+    .filter(cod=>{
+      if(!termo) return true;
+      const it = itensPorCodigo[cod];
+      return cod.toLowerCase().includes(termo) || it.nome.toLowerCase().includes(termo) || it.clienteNome.toLowerCase().includes(termo);
+    })
+    .sort((a,b)=> itensPorCodigo[a].clienteNome.localeCompare(itensPorCodigo[b].clienteNome));
   tbodyEstoque.innerHTML = codigosEstoque.length ? codigosEstoque.map(cod=>{
     const it = itensPorCodigo[cod];
     const saldoKg = sleeveEstoque[cod] ? sleeveEstoque[cod].saldoKg : null;
@@ -7476,7 +7488,7 @@ function renderSleeveEstoque(){
       <td class="val"><input type="text" class="sleeve-saldo-input" data-codigo="${cod}" value="${saldoKg!=null?String(saldoKg).replace('.',','):''}" placeholder="0,00" style="width:90px; text-align:right; background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:6px; padding:5px 7px; font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:var(--text);"></td>
       <td>${saldoKg==null ? '<span style="color:var(--text-faint);">—</span>' : (cobre ? '<span class="tag tag-repeticao">✓ COBRE</span>' : `<span class="tag tag-alterada">FALTAM ${(it.pendenteKg-saldoKg).toFixed(2).replace('.',',')} KG</span>`)}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="5" class="hist-empty">Nenhum item importado ainda.</td></tr>`;
+  }).join('') : `<tr><td colspan="5" class="hist-empty">${termo ? 'Nenhum item encontrado pra essa busca.' : 'Nenhum item importado ainda.'}</td></tr>`;
   tbodyEstoque.querySelectorAll('.sleeve-saldo-input').forEach(input=>{
     input.addEventListener('change', ()=>{
       const cod = input.dataset.codigo;
@@ -7575,6 +7587,10 @@ function abrirImportarSleeveModal(){
   overlay.classList.add('open');
 }
 document.getElementById('btn-sleeve-importar').addEventListener('click', abrirImportarSleeveModal);
+document.getElementById('sleeve-estoque-search-input').addEventListener('input', (e)=>{
+  sleeveEstoqueSearchTerm = e.target.value;
+  renderSleeveEstoque();
+});
 
 /* ========================================================================
    INIT
