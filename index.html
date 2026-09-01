@@ -573,7 +573,6 @@
         <button class="nav-item nav-panel-head active" data-view="home" id="nav-fluxo-artes"><span class="icon"><svg width="18" height="18" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3a7 7 0 1 0 0 14h1.2c.9 0 1.5-.8 1.2-1.6l-.2-.5c-.3-.8.3-1.6 1.1-1.6H14a3 3 0 0 0 3-3A7 7 0 0 0 10 3Z"/><circle cx="7" cy="9" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="7" r=".9" fill="currentColor" stroke="none"/><circle cx="13" cy="9" r=".9" fill="currentColor" stroke="none"/></svg></span> Fluxo de artes<span class="nav-chevron"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5 7 9l3.5-3.5"/></svg></span></button>
         <div id="board-submenu" style="display:none;">
           <button class="nav-item" data-view="board"><span class="icon"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3a7 7 0 1 0 0 14h1.2c.9 0 1.5-.8 1.2-1.6l-.2-.5c-.3-.8.3-1.6 1.1-1.6H14a3 3 0 0 0 3-3A7 7 0 0 0 10 3Z"/><circle cx="7" cy="9" r=".9" fill="currentColor" stroke="none"/><circle cx="10" cy="7" r=".9" fill="currentColor" stroke="none"/><circle cx="13" cy="9" r=".9" fill="currentColor" stroke="none"/></svg></span> Fluxo interno</button>
-          <button class="nav-item" data-view="fluxo-sleeve"><span class="icon"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3.5" width="8" height="13" rx="3"/><path d="M6 8h8"/></svg></span> Fluxo de sleeve</button>
           <button class="nav-item nav-sub-item" data-view="separacao-caixas">Separação de caixas</button>
 
           <div class="nav-panel-label" style="margin-top:6px;">Clichê</div>
@@ -603,6 +602,10 @@
             <button class="nav-item nav-sub-item hist-submenu-item" data-histtab="cancelados">Pedidos Cancelados</button>
           </div>
         </div>
+      </div>
+
+      <div class="nav-panel">
+        <button class="nav-item" data-view="fluxo-sleeve"><span class="icon"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3.5" width="8" height="13" rx="3"/><path d="M6 8h8"/></svg></span> Fluxo de sleeve</button>
       </div>
     </nav>
   </aside>
@@ -1122,7 +1125,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.06';
+const APP_VERSION = 'v9.07';
 const APP_VERSION_DATE = '01/09/2026';
 
 /* ========================================================================
@@ -5646,7 +5649,7 @@ const VIEW_TITULOS = {
 };
 // Telas que ficam aninhadas dentro do submenu de "Fluxo de artes" no menu lateral:
 // ao entrar em qualquer uma delas o submenu do board é mantido aberto.
-const BOARD_GROUP_VIEWS = ['board','fluxo-sleeve','separacao-caixas','cliche','custo-mensal','custo-anual','valores-chapa','requisicao-cliche','regravacao','catalogo','codigos','leadtime','analise-entrega','analise-entrega-historico','history'];
+const BOARD_GROUP_VIEWS = ['board','separacao-caixas','cliche','custo-mensal','custo-anual','valores-chapa','requisicao-cliche','regravacao','catalogo','codigos','leadtime','analise-entrega','analise-entrega-historico','history'];
 function syncGroupChevron(dataView, open){
   const btn = document.querySelector(`.nav-panel-head[data-view="${dataView}"]`);
   if(btn) btn.classList.toggle('group-open', open);
