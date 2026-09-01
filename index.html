@@ -1157,7 +1157,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.23';
+const APP_VERSION = 'v9.24';
 const APP_VERSION_DATE = '01/09/2026';
 
 /* ========================================================================
@@ -7388,7 +7388,7 @@ function parseSleeveRGER339(texto){
     const versao = (campos[6]||'').trim();
     const mUnid = versao.match(/(\d+)\s*UNID/i);
     const unidPorCaixa = mUnid ? parseInt(mUnid[1],10) : null;
-    const qtdCaixas = parseNumeroBR(campos[12]);
+    const qtdCaixas = parseNumeroBR(campos[10]);
 
     ops.push({
       op: opRaw,
@@ -7399,9 +7399,6 @@ function parseSleeveRGER339(texto){
       qtdUnidades: unidPorCaixa!=null ? qtdCaixas*unidPorCaixa : null,
       pedido: (campos[7]||'').trim(),
       clienteNome: (campos[8]||'').trim(),
-      entregaOP: (campos[10]||'').trim(),
-      peso: parseNumeroBR(campos[13]),
-      inicio: parseDataHoraBR(campos[14]),
       termino: parseDataHoraBR(campos[16]),
       maquina: maquinaAtual || '—',
       validado: false,
@@ -7431,15 +7428,12 @@ function linhaSleeveOP(o){
     <td class="val">${o.qtdCaixas}</td>
     <td class="val">${o.unidPorCaixa!=null ? o.unidPorCaixa : '—'}</td>
     <td class="val">${o.qtdUnidades!=null ? o.qtdUnidades : '—'}</td>
-    <td class="val">${o.peso.toFixed(2).replace('.',',')}</td>
-    <td>${o.entregaOP}</td>
-    <td>${o.inicio ? fmtDateTime(o.inicio) : '—'}</td>
     <td>${o.termino ? fmtDateTime(o.termino) : '—'}</td>
   </tr>`;
 }
 // Tela "Fluxo de sleeve": fila de produção por máquina, só dos itens que já
 // têm saldo de estoque informado (sleeveEstoque[codigo] existir) — ordenada
-// pela data de entrega (Entr. OP) dentro de cada máquina.
+// pelo término dentro de cada máquina.
 function renderSleeveFila(){
   const pendentes = sleeveOPs.filter(o=>!o.validado && sleeveEstoque[o.codigo]!=null);
   const porMaquina = {};
@@ -7447,13 +7441,13 @@ function renderSleeveFila(){
   const wrapMaquinas = document.getElementById('sleeve-maquinas-wrap');
   const maquinas = Object.keys(porMaquina).sort();
   wrapMaquinas.innerHTML = maquinas.length ? maquinas.map(maq=>{
-    const itens = porMaquina[maq].slice().sort((a,b)=> parseDateBR(a.entregaOP) - parseDateBR(b.entregaOP));
+    const itens = porMaquina[maq].slice().sort((a,b)=> new Date(a.termino||0) - new Date(b.termino||0));
     return `
     <div class="topics-card" style="margin-bottom:16px;">
       <div class="k" style="font-size:12.5px; margin-bottom:8px;">${maq} (${itens.length})</div>
       <div class="hist-table-wrap">
         <table class="hist">
-          <thead><tr><th>OP</th><th>Item</th><th>Pedido</th><th>Cliente</th><th style="text-align:right;">Qtd caixas</th><th style="text-align:right;">Unid./caixa</th><th style="text-align:right;">Total unid.</th><th style="text-align:right;">Peso (kg)</th><th>Entr. OP</th><th>Início</th><th>Término</th></tr></thead>
+          <thead><tr><th>OP</th><th>Item</th><th>Pedido</th><th>Cliente</th><th style="text-align:right;">Qtd caixas</th><th style="text-align:right;">Unid./caixa</th><th style="text-align:right;">Total unid.</th><th>Término</th></tr></thead>
           <tbody>${itens.map(linhaSleeveOP).join('')}</tbody>
         </table>
       </div>
