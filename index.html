@@ -745,9 +745,14 @@
     <div id="view-sleeve-estoque" style="display:none;">
       <div class="topics-card">
         <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">SALDO DE ESTOQUE</span> <span class="link-text">matéria-prima disponível por item, em milheiro — informe o saldo pra saber o que já dá pra produzir</span></p>
-        <div class="search-box" style="max-width:340px; margin-top:12px;">
-          <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
-          <input type="text" id="sleeve-estoque-search-input" class="busca-livre" placeholder="Buscar por item, código ou cliente...">
+        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;">
+          <div class="search-box" style="max-width:340px;">
+            <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
+            <input type="text" id="sleeve-estoque-search-input" class="busca-livre" placeholder="Buscar por item, código ou cliente...">
+          </div>
+          <select id="sleeve-estoque-cliente-filter" style="background:var(--panel-alt); border:1.5px solid var(--gold); color:var(--text); padding:9px 11px; border-radius:9px; font-size:13px; font-weight:600; font-family:'Plus Jakarta Sans',sans-serif; min-width:240px; cursor:pointer;">
+            <option value="">Todos os clientes</option>
+          </select>
         </div>
         <div class="hist-table-wrap" style="margin-top:12px;">
           <table class="hist" id="sleeve-estoque-table">
@@ -1152,7 +1157,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.22';
+const APP_VERSION = 'v9.23';
 const APP_VERSION_DATE = '01/09/2026';
 
 /* ========================================================================
@@ -1802,6 +1807,7 @@ let leadTimePorBoca = JSON.parse(JSON.stringify(LEAD_TIME_INICIAL));
 
 let catalogoSearchTerm = '';
 let sleeveEstoqueSearchTerm = '';
+let sleeveEstoqueClienteFiltro = '';
 let currentHistTab = 'finalizados';
 let currentView = 'board'; // board | leadtime | history
 let searchTerm = '';
@@ -7471,12 +7477,20 @@ function renderSleeveEstoque(){
       if(o.qtdUnidades!=null) itensPorCodigo[o.codigo].pendenteMilheiro += o.qtdUnidades/1000;
     }
   });
+  // popular o seletor de clientes
+  const selectCliente = document.getElementById('sleeve-estoque-cliente-filter');
+  const clientesUnicos = [...new Set(Object.values(itensPorCodigo).map(it=>it.clienteNome))].sort((a,b)=>a.localeCompare(b));
+  if(sleeveEstoqueClienteFiltro && !clientesUnicos.includes(sleeveEstoqueClienteFiltro)) sleeveEstoqueClienteFiltro = '';
+  selectCliente.innerHTML = `<option value="">Todos os clientes</option>` + clientesUnicos.map(c=>`<option value="${c}">${c}</option>`).join('');
+  selectCliente.value = sleeveEstoqueClienteFiltro;
+
   const tbodyEstoque = document.querySelector('#sleeve-estoque-table tbody');
   const termo = sleeveEstoqueSearchTerm.trim().toLowerCase();
   const codigosEstoque = Object.keys(itensPorCodigo)
     .filter(cod=>{
-      if(!termo) return true;
       const it = itensPorCodigo[cod];
+      if(sleeveEstoqueClienteFiltro && it.clienteNome !== sleeveEstoqueClienteFiltro) return false;
+      if(!termo) return true;
       return cod.toLowerCase().includes(termo) || it.nome.toLowerCase().includes(termo) || it.clienteNome.toLowerCase().includes(termo);
     })
     .sort((a,b)=> itensPorCodigo[a].clienteNome.localeCompare(itensPorCodigo[b].clienteNome));
@@ -7594,6 +7608,10 @@ function abrirImportarSleeveModal(){
 document.getElementById('btn-sleeve-importar').addEventListener('click', abrirImportarSleeveModal);
 document.getElementById('sleeve-estoque-search-input').addEventListener('input', (e)=>{
   sleeveEstoqueSearchTerm = e.target.value;
+  renderSleeveEstoque();
+});
+document.getElementById('sleeve-estoque-cliente-filter').addEventListener('change', (e)=>{
+  sleeveEstoqueClienteFiltro = e.target.value;
   renderSleeveEstoque();
 });
 
