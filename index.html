@@ -605,7 +605,11 @@
       </div>
 
       <div class="nav-panel">
-        <button class="nav-item" data-view="fluxo-sleeve"><span class="icon"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3.5" width="8" height="13" rx="3"/><path d="M6 8h8"/></svg></span> Fluxo de sleeve</button>
+        <button class="nav-item nav-panel-head" data-view="fluxo-sleeve"><span class="icon"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3.5" width="8" height="13" rx="3"/><path d="M6 8h8"/></svg></span> Fluxo de sleeve<span class="nav-chevron"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5 7 9l3.5-3.5"/></svg></span></button>
+        <div id="sleeve-submenu" style="display:none;">
+          <button class="nav-item nav-sub-item" data-view="sleeve-estoque">Saldo de estoque</button>
+          <button class="nav-item nav-sub-item" data-view="sleeve-validar">Pedidos finalizados</button>
+        </div>
       </div>
     </nav>
   </aside>
@@ -730,17 +734,16 @@
     <div id="view-fluxo-sleeve" style="display:none;">
       <div class="topics-card" style="margin-bottom:16px;">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
-          <p class="topics-intro" style="margin:0; padding:0; border:none;"><span class="mono-label">FLUXO DE SLEEVE</span> <span class="link-text">fila de produção das máquinas, saldo de estoque e validação de pedidos finalizados</span></p>
+          <p class="topics-intro" style="margin:0; padding:0; border:none;"><span class="mono-label">FLUXO DE SLEEVE</span> <span class="link-text">fila de produção por máquina, só dos itens que já têm saldo de estoque informado</span></p>
           <button class="btn small gold" id="btn-sleeve-importar" style="flex-shrink:0; white-space:nowrap;">&#8613; Importar relatório</button>
         </div>
       </div>
 
-      <div class="topics-card" style="margin-bottom:16px;">
-        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">ITENS POR MÁQUINA</span> <span class="link-text">fila de produção de cada máquina, ordenada pela data de entrega</span></p>
-        <div id="sleeve-maquinas-wrap" style="margin-top:12px;"></div>
-      </div>
+      <div id="sleeve-maquinas-wrap"></div>
+    </div>
 
-      <div class="topics-card" style="margin-bottom:16px;">
+    <div id="view-sleeve-estoque" style="display:none;">
+      <div class="topics-card">
         <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">SALDO DE ESTOQUE</span> <span class="link-text">matéria-prima disponível por item — informe o saldo (kg) pra saber o que já dá pra produzir</span></p>
         <div class="hist-table-wrap" style="margin-top:12px;">
           <table class="hist" id="sleeve-estoque-table">
@@ -751,7 +754,9 @@
           </table>
         </div>
       </div>
+    </div>
 
+    <div id="view-sleeve-validar" style="display:none;">
       <div class="topics-card">
         <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">PEDIDOS FINALIZADOS</span> <span class="link-text">produção com término já passado — valide a quantidade produzida</span></p>
         <div class="hist-table-wrap" style="margin-top:12px;">
@@ -1143,7 +1148,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.18';
+const APP_VERSION = 'v9.19';
 const APP_VERSION_DATE = '01/09/2026';
 
 /* ========================================================================
@@ -1804,6 +1809,7 @@ let boardSubmenuOpen = false; // controla se o submenu de Fluxo de artes está e
 let modoEdicaoLiberado = localStorage.getItem('artes_edicao_ok') === '1'; // trava de interface: só quem sabe a senha de edição consegue salvar alterações
 let botaoRepeticaoAtivo = localStorage.getItem('artes_btn_repeticao_ativo') !== '0'; // liga/desliga (por navegador) o botão "Enviar direto para Arte Repetição" no modal do pedido em Sem tratativa
 let analiseEntregaSubmenuOpen = false; // controla se o submenu de Análise data de entrega está expandido no menu lateral
+let sleeveSubmenuOpen = false; // controla se o submenu de Fluxo de sleeve está expandido no menu lateral
 let clicheMesDetalheAberto = null; // chave "YYYY-MM" do mês expandido na tabela de Custo mensal (mostra pedidos + regravações daquele mês)
 let nomeRelatorioAtual = '';
 let multiSelectMode = false;
@@ -5789,6 +5795,8 @@ const VIEW_TITULOS = {
   home: "Controle de fluxo de artes",
   board: "Fluxo interno",
   'fluxo-sleeve': "Fluxo de sleeve",
+  'sleeve-estoque': "Saldo de estoque",
+  'sleeve-validar': "Pedidos finalizados",
   cliche: "Custo de clichê",
   'custo-mensal': "Custo mensal",
   'custo-anual': "Custo anual",
@@ -5815,10 +5823,15 @@ function switchView(view){
   if(view!=='cliche' && view!=='custo-mensal' && view!=='custo-anual' && view!=='valores-chapa') clicheSubmenuOpen = false;
   if(view!=='analise-entrega' && view!=='analise-entrega-historico') analiseEntregaSubmenuOpen = false;
   if(view!=='history') historySubmenuOpen = false;
+  if(view!=='fluxo-sleeve' && view!=='sleeve-estoque' && view!=='sleeve-validar') sleeveSubmenuOpen = false;
   if(BOARD_GROUP_VIEWS.includes(view)) boardSubmenuOpen = true;
   document.getElementById('view-home').style.display = view==='home' ? 'block' : 'none';
   document.getElementById('view-board').style.display = view==='board' ? 'block' : 'none';
   document.getElementById('view-fluxo-sleeve').style.display = view==='fluxo-sleeve' ? 'block' : 'none';
+  document.getElementById('view-sleeve-estoque').style.display = view==='sleeve-estoque' ? 'block' : 'none';
+  document.getElementById('view-sleeve-validar').style.display = view==='sleeve-validar' ? 'block' : 'none';
+  document.getElementById('sleeve-submenu').style.display = sleeveSubmenuOpen ? 'block' : 'none';
+  syncGroupChevron('fluxo-sleeve', sleeveSubmenuOpen);
   document.getElementById('view-cliche').style.display = view==='cliche' ? 'block' : 'none';
   document.getElementById('view-custo-mensal').style.display = view==='custo-mensal' ? 'block' : 'none';
   document.getElementById('view-custo-anual').style.display = view==='custo-anual' ? 'block' : 'none';
@@ -5850,7 +5863,9 @@ function switchView(view){
   if(view==='requisicao-cliche'){ renderRequisicaoClichePendentes(); renderRequisicaoClicheResultados(); }
   if(view==='regravacao') renderRegravacao();
   if(view==='catalogo') renderCatalogo();
-  if(view==='fluxo-sleeve') renderFluxoSleeve();
+  if(view==='fluxo-sleeve') renderSleeveFila();
+  if(view==='sleeve-estoque') renderSleeveEstoque();
+  if(view==='sleeve-validar') renderSleeveValidar();
   if(view==='codigos') renderCodigosInternos();
   if(view==='leadtime') renderLeadTime();
   if(view==='analise-entrega') renderHomeCards();
@@ -5886,6 +5901,16 @@ document.querySelectorAll('.nav-item').forEach(btn=>{
         return;
       }
       clicheSubmenuOpen = true;
+    }
+    if(btn.dataset.view === 'fluxo-sleeve'){
+      if(currentView === 'fluxo-sleeve'){
+        // já está na tela de Fluxo de sleeve: apenas abre/fecha o submenu
+        sleeveSubmenuOpen = !sleeveSubmenuOpen;
+        document.getElementById('sleeve-submenu').style.display = sleeveSubmenuOpen ? 'block' : 'none';
+        syncGroupChevron('fluxo-sleeve', sleeveSubmenuOpen);
+        return;
+      }
+      sleeveSubmenuOpen = true;
     }
     if(btn.dataset.view === 'home'){
       if(currentView === 'home'){
@@ -7401,10 +7426,11 @@ function linhaSleeveOP(o){
     <td>${o.termino ? fmtDateTime(o.termino) : '—'}</td>
   </tr>`;
 }
-function renderFluxoSleeve(){
-  // Card "Itens por máquina": só as OPs ainda não validadas, agrupadas por
-  // máquina, ordenadas pela data de entrega (Entr. OP) dentro de cada uma.
-  const pendentes = sleeveOPs.filter(o=>!o.validado);
+// Tela "Fluxo de sleeve": fila de produção por máquina, só dos itens que já
+// têm saldo de estoque informado (sleeveEstoque[codigo] existir) — ordenada
+// pela data de entrega (Entr. OP) dentro de cada máquina.
+function renderSleeveFila(){
+  const pendentes = sleeveOPs.filter(o=>!o.validado && sleeveEstoque[o.codigo]!=null);
   const porMaquina = {};
   pendentes.forEach(o=>{ (porMaquina[o.maquina] = porMaquina[o.maquina] || []).push(o); });
   const wrapMaquinas = document.getElementById('sleeve-maquinas-wrap');
@@ -7412,7 +7438,7 @@ function renderFluxoSleeve(){
   wrapMaquinas.innerHTML = maquinas.length ? maquinas.map(maq=>{
     const itens = porMaquina[maq].slice().sort((a,b)=> parseDateBR(a.entregaOP) - parseDateBR(b.entregaOP));
     return `
-    <div style="margin-bottom:18px;">
+    <div class="topics-card" style="margin-bottom:16px;">
       <div class="k" style="font-size:12.5px; margin-bottom:8px;">${maq} (${itens.length})</div>
       <div class="hist-table-wrap">
         <table class="hist">
@@ -7421,10 +7447,13 @@ function renderFluxoSleeve(){
         </table>
       </div>
     </div>`;
-  }).join('') : `<div class="placeholder-card">Nenhum relatório importado ainda.</div>`;
-
-  // Card "Saldo de estoque": um item (código) por linha, com o saldo (kg)
-  // editável e o quanto ainda está pendente de produzir daquele código.
+  }).join('') : `<div class="placeholder-card">Nenhum item com saldo de estoque informado ainda — cadastre o saldo em "Saldo de estoque".</div>`;
+}
+// Tela "Saldo de estoque": um item (código) por linha, com o saldo (kg)
+// editável e o quanto ainda está pendente de produzir daquele código. Mostra
+// TODOS os itens já vistos em algum relatório importado (com ou sem saldo
+// ainda), pra dar pra cadastrar os que faltam.
+function renderSleeveEstoque(){
   const itensPorCodigo = {};
   sleeveOPs.forEach(o=>{
     if(!o.codigo) return;
@@ -7453,12 +7482,13 @@ function renderFluxoSleeve(){
       const cod = input.dataset.codigo;
       sleeveEstoque[cod] = { saldoKg: parseNumeroBR(input.value) };
       saveState();
-      renderFluxoSleeve();
+      renderTudoSleeve();
     });
   });
-
-  // Card "Pedidos finalizados": OPs cujo Término já passou e ainda não foram
-  // validadas — o usuário confirma a quantidade produzida.
+}
+// Tela "Pedidos finalizados": OPs cujo Término já passou e ainda não foram
+// validadas — o usuário confirma a quantidade produzida.
+function renderSleeveValidar(){
   const agora = new Date();
   const aValidar = sleeveOPs.filter(o=>!o.validado && o.termino && new Date(o.termino) < agora)
     .sort((a,b)=> new Date(a.termino) - new Date(b.termino));
@@ -7487,10 +7517,18 @@ function renderFluxoSleeve(){
         registro.validado = true;
         registro.qtdValidada = valor;
         saveState();
-        renderFluxoSleeve();
+        renderTudoSleeve();
       });
     });
   });
+}
+// Reconstrói as 3 telas de sleeve de uma vez (usado sempre que os dados
+// mudam: importar relatório, editar saldo, validar quantidade), independente
+// de qual delas está visível no momento.
+function renderTudoSleeve(){
+  renderSleeveFila();
+  renderSleeveEstoque();
+  renderSleeveValidar();
 }
 function abrirImportarSleeveModal(){
   const overlay = document.getElementById('overlay');
@@ -7531,7 +7569,7 @@ function abrirImportarSleeveModal(){
     }
     mergeSleeveOPs(novasOPs);
     saveState();
-    renderFluxoSleeve();
+    renderTudoSleeve();
     closeModal();
   });
   overlay.classList.add('open');
