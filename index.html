@@ -777,7 +777,7 @@
 
     <div id="view-custo-mensal" style="display:none;">
       <div class="topics-card">
-        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">CUSTO MENSAL</span> <span class="link-text">total de clichê lançado em cada mês</span></p>
+        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">CUSTO MENSAL</span> <span class="link-text">total de clichê finalizado (chegou na fábrica e foi liberado) em cada mês</span></p>
       </div>
       <div class="hist-table-wrap" style="margin-top:12px;">
         <table class="hist" id="cliche-mensal-table">
@@ -791,7 +791,7 @@
 
     <div id="view-custo-anual" style="display:none;">
       <div class="topics-card">
-        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">CUSTO ANUAL</span> <span class="link-text">total de clichê lançado em cada ano</span></p>
+        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">CUSTO ANUAL</span> <span class="link-text">total de clichê finalizado (chegou na fábrica e foi liberado) em cada ano</span></p>
       </div>
       <div class="hist-table-wrap" style="margin-top:12px;">
         <table class="hist" id="cliche-anual-table">
@@ -1125,7 +1125,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.08';
+const APP_VERSION = 'v9.09';
 const APP_VERSION_DATE = '01/09/2026';
 
 /* ========================================================================
@@ -4412,7 +4412,10 @@ function calcularHistoricoClichePorPeriodo(){
     mapa[chave][campo] += valor;
   }
 
-  [...pedidos, ...historico.filter(p=>p.tipo==='finalizado')].forEach(p=>{
+  // Só entram aqui os pedidos com clichê já FINALIZADO (chegou na fábrica e foi
+  // liberado — p.tipo==='finalizado'). Pedidos ainda em andamento (array `pedidos`)
+  // não contam pro Custo mensal/anual, mesmo já tendo valor de clichê lançado.
+  historico.filter(p=>p.tipo==='finalizado').forEach(p=>{
     if(!p.clicheRegistradoEm) return;
     if(p.valorClicheTotal==null && p.valorClichePedido==null) return;
     const d = new Date(p.clicheRegistradoEm);
@@ -4429,7 +4432,8 @@ function calcularHistoricoClichePorPeriodo(){
     acumular(anos, chaveAno, 'rioplastic', parteRioplastic);
   });
 
-  regravacoes.forEach(r=>{
+  // Idem pras regravações: só as que já tiveram a chegada marcada (r.dataChegada).
+  regravacoes.filter(r=>r.dataChegada).forEach(r=>{
     if(r.valorCliche==null) return;
     const dataRef = r.dataSolicitacao || r.criadoEm;
     if(!dataRef) return;
@@ -4449,7 +4453,7 @@ function pedidosERegravDoMes(chave){
   const [ano, mes] = chave.split('-').map(Number);
   const itens = [];
 
-  [...pedidos, ...historico.filter(p=>p.tipo==='finalizado')].forEach(p=>{
+  historico.filter(p=>p.tipo==='finalizado').forEach(p=>{
     if(!p.clicheRegistradoEm) return;
     if(p.valorClicheTotal==null && p.valorClichePedido==null) return;
     const d = new Date(p.clicheRegistradoEm);
@@ -4460,7 +4464,7 @@ function pedidosERegravDoMes(chave){
     itens.push({ tipo:'pedido', data:d, p, valor:totalEfetivo, cobradoCliente });
   });
 
-  regravacoes.forEach(r=>{
+  regravacoes.filter(r=>r.dataChegada).forEach(r=>{
     if(r.valorCliche==null) return;
     const dataRef = r.dataSolicitacao || r.criadoEm;
     if(!dataRef) return;
@@ -4512,7 +4516,7 @@ function renderClicheHistoricoPeriodos(){
     const detalhe = `
     <tr>
       <td colspan="5" style="background:var(--panel-alt); padding:14px;">
-        <div class="k" style="font-size:12.5px; margin-bottom:8px;">Pedidos e regravações com clichê em ${NOMES_MESES[parseInt(mes)-1]}/${ano} (${itensMes.length})</div>
+        <div class="k" style="font-size:12.5px; margin-bottom:8px;">Pedidos e regravações com clichê finalizado em ${NOMES_MESES[parseInt(mes)-1]}/${ano} (${itensMes.length})</div>
         <div class="hist-table-wrap">
           <table class="hist">
             <thead><tr><th>Pedido/OS</th><th>Cliente</th><th style="text-align:right;">Valor</th></tr></thead>
