@@ -1157,7 +1157,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.24';
+const APP_VERSION = 'v9.25';
 const APP_VERSION_DATE = '01/09/2026';
 
 /* ========================================================================
@@ -7427,7 +7427,7 @@ function linhaSleeveOP(o){
     <td>${o.clienteNome}</td>
     <td class="val">${o.qtdCaixas}</td>
     <td class="val">${o.unidPorCaixa!=null ? o.unidPorCaixa : '—'}</td>
-    <td class="val">${o.qtdUnidades!=null ? o.qtdUnidades : '—'}</td>
+    <td class="val">${o.qtdUnidades!=null ? o.qtdUnidades.toLocaleString('pt-BR') : '—'}</td>
     <td>${o.termino ? fmtDateTime(o.termino) : '—'}</td>
   </tr>`;
 }
