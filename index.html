@@ -733,15 +733,6 @@
 
     <div id="view-cliche" style="display:none;">
       <div class="topics-card" style="margin-bottom:16px;">
-        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
-          <p class="topics-intro" style="margin:0; padding:0; border:none;"><span class="mono-label">CONFRONTO COM FORNECEDOR</span> <span class="link-text">confere a fatura de clichê (ex: Digital Flex) com o que está registrado no sistema, por OS</span></p>
-          <button class="btn small gold" id="btn-confronto-importar" style="flex-shrink:0; white-space:nowrap;">&#8613; Importar fatura</button>
-        </div>
-        <div id="confronto-fatura-resultado" style="margin-top:14px;">
-          <div class="empty-alt">Nenhuma fatura importada ainda nesta sessão. Clique em "Importar fatura" pra conferir uma planilha do fornecedor.</div>
-        </div>
-      </div>
-      <div class="topics-card" style="margin-bottom:16px;">
         <div style="display:flex; gap:24px; flex-wrap:wrap;">
           <div>
             <label style="display:block; font-size:11px; color:var(--text-dim); font-weight:600; margin-bottom:5px;">Filtrar por cliente</label>
@@ -1125,7 +1116,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.11';
+const APP_VERSION = 'v9.12';
 const APP_VERSION_DATE = '01/09/2026';
 
 /* ========================================================================
@@ -3490,7 +3481,6 @@ document.getElementById('toggle-btn-repeticao').addEventListener('change', (e)=>
    está registrado no sistema (pedidos e regravações). Não é salvo no
    estado compartilhado — é só um confronto pontual, refeito a cada import.
    ======================================================================== */
-let confrontoFaturaResultado = null;
 let confrontoFaturaResultadosPorMes = {}; // chave "YYYY-MM" -> resultado do confronto feito dentro do Custo mensal, escopado só aos pedidos/regravações finalizados daquele mês
 
 function parseFaturaFornecedorCliche(arrayBuffer){
@@ -3532,13 +3522,12 @@ function parseFaturaFornecedorCliche(arrayBuffer){
   return itens;
 }
 
+// pedidosDisponiveis/regravacoesDisponiveis escopam o confronto (só aos pedidos e
+// regravações finalizados de um mês específico, no Custo mensal).
 function conferirFaturaComSistema(itensFatura, pedidosDisponiveis, regravacoesDisponiveis){
-  // pedidosDisponiveis/regravacoesDisponiveis permitem escopar o confronto (ex: só
-  // aos pedidos e regravações finalizados de um mês específico, no Custo mensal).
-  // Sem eles, confere contra todo o sistema — comportamento do confronto geral.
-  const todosPedidos = pedidosDisponiveis || [...pedidos, ...historico];
+  const todosPedidos = pedidosDisponiveis;
   const regravacoesPorOs = {};
-  (regravacoesDisponiveis || regravacoes).forEach(r=>{ if(r.os) regravacoesPorOs[r.os.trim()] = r; });
+  regravacoesDisponiveis.forEach(r=>{ if(r.os) regravacoesPorOs[r.os.trim()] = r; });
 
   const regravacaoResultados = [];
   const pedidoGrupos = {}; // pedido.id -> { pedido, itensFatura, totalFatura }
@@ -3657,31 +3646,15 @@ function htmlConfrontoFaturaResultado(resultado){
     </div>` : ''}
   `;
 }
-function renderConfrontoFaturaResultado(){
-  const wrap = document.getElementById('confronto-fatura-resultado');
-  if(!wrap) return;
-  if(!confrontoFaturaResultado){
-    wrap.innerHTML = `<div class="empty-alt">Nenhuma fatura importada ainda nesta sessão. Clique em "Importar fatura" pra conferir uma planilha do fornecedor.</div>`;
-    return;
-  }
-  wrap.innerHTML = htmlConfrontoFaturaResultado(confrontoFaturaResultado);
-  wrap.querySelectorAll('.link-pedido-venc').forEach(btn=>{
-    btn.addEventListener('click', ()=> openModal(btn.dataset.id));
-  });
-}
-
-// pedidosDoMes/regravacoesDoMes escopam o confronto a um mês específico do Custo
-// mensal, chaveDoMes indica onde guardar/atualizar o resultado quando é o caso.
-function openConfrontoFaturaModal(opts){
-  const { chaveDoMes, pedidosDoMes, regravacoesDoMes, labelMes } = opts || {};
+// Abre o modal de importar fatura do fornecedor, escopado a um mês específico
+// do Custo mensal: pedidosDoMes/regravacoesDoMes limitam o confronto aos
+// pedidos/regravações finalizados daquele mês, chaveDoMes indica onde guardar o resultado.
+function openConfrontoFaturaModal({ chaveDoMes, pedidosDoMes, regravacoesDoMes, labelMes }){
   const overlay = document.getElementById('overlay');
   const modal = document.getElementById('modal');
-  const descricao = chaveDoMes
-    ? `Envie a planilha (XLSX ou ODS) da fatura de clichê do fornecedor (ex: Digital Flex). Cada linha com OS é confrontada só com os pedidos e regravações finalizados de ${labelMes}.`
-    : `Envie a planilha (XLSX ou ODS) da fatura de clichê do fornecedor (ex: Digital Flex). Cada linha com OS é confrontada com pedidos e regravações já registrados no sistema.`;
   modal.innerHTML = `
     <div class="modal-head">
-      <div><h2 style="font-size:16px;">Importar fatura do fornecedor</h2><p>${descricao}</p></div>
+      <div><h2 style="font-size:16px;">Importar fatura do fornecedor</h2><p>Envie a planilha (XLSX ou ODS) da fatura de clichê do fornecedor (ex: Digital Flex). Cada linha com OS é confrontada só com os pedidos e regravações finalizados de ${labelMes}.</p></div>
       <button class="close-x" id="modal-close">&times;</button>
     </div>
     <div class="export-row">
@@ -3714,18 +3687,12 @@ function openConfrontoFaturaModal(opts){
       resultDiv.innerHTML = '<span style="color:var(--red);">Não encontrei nenhuma linha com OS reconhecível nessa planilha. Confira o formato do arquivo.</span>';
       return;
     }
-    if(chaveDoMes){
-      confrontoFaturaResultadosPorMes[chaveDoMes] = conferirFaturaComSistema(itensFatura, pedidosDoMes, regravacoesDoMes);
-      renderClicheHistoricoPeriodos();
-    }else{
-      confrontoFaturaResultado = conferirFaturaComSistema(itensFatura);
-      renderConfrontoFaturaResultado();
-    }
+    confrontoFaturaResultadosPorMes[chaveDoMes] = conferirFaturaComSistema(itensFatura, pedidosDoMes, regravacoesDoMes);
+    renderClicheHistoricoPeriodos();
     closeModal();
   });
   overlay.classList.add('open');
 }
-document.getElementById('btn-confronto-importar').addEventListener('click', ()=> openConfrontoFaturaModal());
 
 /* ========================================================================
    ZERAR PEDIDOS
