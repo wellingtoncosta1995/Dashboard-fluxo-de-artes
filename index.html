@@ -1334,7 +1334,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.57';
+const APP_VERSION = 'v9.58';
 const APP_VERSION_DATE = '02/09/2026';
 
 /* ========================================================================
@@ -7771,8 +7771,12 @@ function renderSleeveFila(){
     });
   });
 
+  // As tabelas por máquina mostram só quem já está coberto — quem entrou no
+  // card "Sem estoque suficiente" acima não aparece de novo aqui embaixo.
+  const opsSemCobertura = new Set(semCobertura.map(o=>o.op));
+  const pendentesComEstoque = pendentes.filter(o=> !opsSemCobertura.has(o.op));
   const porMaquina = {};
-  pendentes.forEach(o=>{ (porMaquina[o.maquina] = porMaquina[o.maquina] || []).push(o); });
+  pendentesComEstoque.forEach(o=>{ (porMaquina[o.maquina] = porMaquina[o.maquina] || []).push(o); });
   const todasMaquinas = Object.keys(porMaquina).sort();
   if(filtroMaquinaSleeve && !todasMaquinas.includes(filtroMaquinaSleeve)) filtroMaquinaSleeve = null;
 
