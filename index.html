@@ -877,11 +877,11 @@
 
     <div id="view-sleeve-validar" style="display:none;">
       <div class="topics-card">
-        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">PEDIDOS FINALIZADOS</span> <span class="link-text">produção com término já passado — valide a quantidade produzida</span></p>
+        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">PEDIDOS FINALIZADOS</span> <span class="link-text">modo de confronto — pedidos que sumiram da fila no último relatório reimportado; valide a quantidade produzida de verdade</span></p>
         <div class="hist-table-wrap" style="margin-top:12px;">
           <table class="hist" id="sleeve-validar-table">
             <thead>
-              <tr><th>OP</th><th>Item</th><th>Pedido</th><th>Cliente</th><th style="text-align:right;">Qtd caixas</th><th>Término</th><th></th></tr>
+              <tr><th>OP</th><th>Item</th><th>Pedido</th><th>Cliente</th><th style="text-align:right;">Qtd caixas (planejado)</th><th>Saiu da fila em</th><th></th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -1267,7 +1267,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.36';
+const APP_VERSION = 'v9.37';
 const APP_VERSION_DATE = '02/09/2026';
 
 /* ========================================================================
@@ -7572,18 +7572,33 @@ function parseSleeveRGER339(texto){
       maquina: maquinaAtual || '—',
       validado: false,
       qtdValidada: null,
+      saiuDaFila: false,
+      saiuDaFilaEm: null,
     });
   });
   return ops;
 }
+// Confronto: uma OP some da fila quando o relatório reimportado não traz
+// mais o número dela — nesse momento ela é marcada saiuDaFila (fica
+// disponível pra validar em "Pedidos finalizados"), sem mexer em validado/
+// qtdValidada (quem confirma a quantidade de verdade é o usuário). Se a OP
+// reaparecer num import seguinte, a marcação é desfeita.
 function mergeSleeveOPs(novasOPs){
+  const opsNoRelatorio = new Set(novasOPs.map(o=>o.op));
   novasOPs.forEach(nova=>{
     const existente = sleeveOPs.find(o=>o.op===nova.op);
     if(existente){
       const {validado, qtdValidada} = existente;
-      Object.assign(existente, nova, {validado, qtdValidada});
+      Object.assign(existente, nova, {validado, qtdValidada, saiuDaFila:false, saiuDaFilaEm:null});
     }else{
       sleeveOPs.push(nova);
+    }
+  });
+  sleeveOPs.forEach(o=>{
+    if(o.validado || opsNoRelatorio.has(o.op)) return;
+    if(!o.saiuDaFila){
+      o.saiuDaFila = true;
+      o.saiuDaFilaEm = new Date().toISOString();
     }
   });
 }
@@ -7605,7 +7620,7 @@ function linhaSleeveOP(o){
 // cada máquina.
 function renderSleeveFila(){
   const codigosComRecebimento = new Set(sleeveRecebimentos.map(r=>r.codigo));
-  const pendentes = sleeveOPs.filter(o=>!o.validado && codigosComRecebimento.has(o.codigo));
+  const pendentes = sleeveOPs.filter(o=>!o.validado && !o.saiuDaFila && codigosComRecebimento.has(o.codigo));
   const porMaquina = {};
   pendentes.forEach(o=>{ (porMaquina[o.maquina] = porMaquina[o.maquina] || []).push(o); });
   const wrapMaquinas = document.getElementById('sleeve-maquinas-wrap');
@@ -7636,7 +7651,7 @@ function renderSleeveEstoque(){
     if(!itensPorCodigo[o.codigo]) itensPorCodigo[o.codigo] = { nome:o.nome, clienteNome:o.clienteNome, pendenteCaixas:0, pendenteUnidades:0 };
     itensPorCodigo[o.codigo].nome = o.nome;
     itensPorCodigo[o.codigo].clienteNome = o.clienteNome;
-    if(!o.validado){
+    if(!o.validado && !o.saiuDaFila){
       itensPorCodigo[o.codigo].pendenteCaixas += (o.qtdCaixas||0);
       if(o.qtdUnidades!=null) itensPorCodigo[o.codigo].pendenteUnidades += o.qtdUnidades;
     }
@@ -7717,7 +7732,7 @@ function renderSleevePedidos(){
 function abrirSleeveOPsModal(codigo){
   const overlay = document.getElementById('overlay');
   const modal = document.getElementById('modal');
-  const ops = sleeveOPs.filter(o=>o.codigo===codigo && !o.validado)
+  const ops = sleeveOPs.filter(o=>o.codigo===codigo && !o.validado && !o.saiuDaFila)
     .sort((a,b)=> new Date(a.termino||0) - new Date(b.termino||0));
   const nome = ops.length ? ops[0].nome : '';
   modal.innerHTML = `
@@ -7933,12 +7948,13 @@ document.getElementById('sleeve-segregado-add-btn').addEventListener('click', as
   document.getElementById('sleeve-segregado-qtd-input').value = '';
   atualizarLotesSegregado();
 });
-// Tela "Pedidos finalizados": OPs cujo Término já passou e ainda não foram
-// validadas — o usuário confirma a quantidade produzida.
+// Tela "Pedidos finalizados": modo de confronto — OPs que sumiram da fila
+// no último relatório reimportado (ver mergeSleeveOPs/saiuDaFila) e ainda
+// não foram validadas — o usuário confirma a quantidade produzida de
+// verdade (pode ser maior ou menor que o planejado por perda/sobra de bobina).
 function renderSleeveValidar(){
-  const agora = new Date();
-  const aValidar = sleeveOPs.filter(o=>!o.validado && o.termino && new Date(o.termino) < agora)
-    .sort((a,b)=> new Date(a.termino) - new Date(b.termino));
+  const aValidar = sleeveOPs.filter(o=>!o.validado && o.saiuDaFila)
+    .sort((a,b)=> new Date(a.saiuDaFilaEm||0) - new Date(b.saiuDaFilaEm||0));
   const tbodyValidar = document.querySelector('#sleeve-validar-table tbody');
   tbodyValidar.innerHTML = aValidar.length ? aValidar.map(o=>`
     <tr>
@@ -7947,7 +7963,7 @@ function renderSleeveValidar(){
       <td>${o.pedido}</td>
       <td>${o.clienteNome}</td>
       <td class="val">${o.qtdCaixas}</td>
-      <td>${fmtDateTime(o.termino)}</td>
+      <td>${o.saiuDaFilaEm ? fmtDateTime(o.saiuDaFilaEm) : '—'}</td>
       <td id="sleeve-validar-cell-${o.op}" style="text-align:right;"><button class="btn small ghost btn-sleeve-validar" data-op="${o.op}">Validar</button></td>
     </tr>`).join('') : `<tr><td colspan="7" class="hist-empty">Nenhum pedido pendente de validação.</td></tr>`;
   tbodyValidar.querySelectorAll('.btn-sleeve-validar').forEach(btn=>{
