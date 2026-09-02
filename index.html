@@ -266,6 +266,9 @@
   .btn.gold:hover{background:var(--gold-dark); border-color:var(--gold-dark); color:#fff;}
   .btn.small{padding:6px 11px; font-size:11.5px;}
   .btn.ghost{background:transparent;}
+  .btn:disabled{opacity:.4; cursor:not-allowed;}
+  .btn:disabled:hover{border-color:var(--border); color:var(--text);}
+  .btn.gold:disabled:hover{background:var(--gold); border-color:var(--gold); color:#fff;}
 
   .search-box{
     background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:9px;
@@ -619,6 +622,7 @@
           <button class="nav-item nav-sub-item" data-view="sleeve-recebimento">Recebimento de sleeve</button>
           <button class="nav-item nav-sub-item" data-view="sleeve-segregado">Estoque segregado</button>
           <button class="nav-item nav-sub-item" data-view="sleeve-validar">Pedidos finalizados</button>
+          <button class="nav-item nav-sub-item" data-view="sleeve-pedidos-historico">Histórico de pedidos</button>
         </div>
       </div>
     </nav>
@@ -778,7 +782,10 @@
 
     <div id="view-sleeve-pedidos" style="display:none;">
       <div class="topics-card">
-        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">PEDIDOS</span> <span class="link-text">todos os números de pedido já vistos nos relatórios importados, com o cliente</span></p>
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+          <p class="topics-intro" style="margin:0; padding:0; border:none;"><span class="mono-label">PEDIDOS</span> <span class="link-text">todos os números de pedido já vistos nos relatórios importados, com o cliente — clique num pedido pra ver a situação de cada item</span></p>
+          <button class="btn small gold" id="sleeve-pedidos-validar-todos-btn" style="flex-shrink:0; white-space:nowrap;">Validar todos</button>
+        </div>
         <div class="stage-cards" id="sleeve-pedidos-status-cards" style="margin-top:12px;"></div>
         <div class="stage-cards" id="sleeve-pedidos-maquina-cards" style="margin-top:8px;"></div>
         <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:4px;">
@@ -895,6 +902,24 @@
           <table class="hist" id="sleeve-validar-table">
             <thead>
               <tr><th>OP</th><th>Item</th><th>Pedido</th><th>Cliente</th><th style="text-align:right;">Qtd caixas (planejado)</th><th>Saiu da fila em</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-sleeve-pedidos-historico" style="display:none;">
+      <div class="topics-card">
+        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">HISTÓRICO DE PEDIDOS</span> <span class="link-text">pedidos novos já validados na tela "Pedidos", com a situação de estoque no momento da validação</span></p>
+        <div class="search-box" style="max-width:340px; margin-top:12px;">
+          <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
+          <input type="text" id="sleeve-pedidos-historico-search-input" class="busca-livre" placeholder="Buscar por pedido ou cliente...">
+        </div>
+        <div class="hist-table-wrap" style="margin-top:12px;">
+          <table class="hist" id="sleeve-pedidos-historico-table">
+            <thead>
+              <tr><th>Pedido</th><th>Cliente</th><th style="text-align:center;">Situação na validação</th><th>Validado em</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -1280,7 +1305,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.44';
+const APP_VERSION = 'v9.45';
 const APP_VERSION_DATE = '02/09/2026';
 
 /* ========================================================================
@@ -1891,6 +1916,8 @@ let clicheItensInfo = {}; // {codigo: {osCliche, numeroCliche, qtdCores}} — fi
 let sleeveOPs = []; // fila de produção importada do relatório RGER339 (ou parecido) — uma entrada por OP, ver parseSleeveRGER339
 let sleeveRecebimentos = []; // { id, codigo, nome, grafica, nf, lote, recebimento, fabricacao, validade (meses), quantidade, criadoEm } — cada entrada de matéria-prima registrada no card "Recebimento de sleeve"; o saldo em "Saldo de estoque" é a soma das quantidades por código
 let sleeveSegregados = []; // { id, codigo, nome, lote, grafica, nf, fabricacao, validade (meses), quantidade, criadoEm } — quantidade de um lote separada em "Estoque segregado"; descontada do saldo em "Saldo de estoque"
+let sleevePedidosConhecidos = []; // números de pedido já vistos/validados na tela "Pedidos" — um pedido cujo número não está aqui é "novo" e cai no card "Pedidos a validar" até o usuário validar
+let sleevePedidosHistorico = []; // { pedido, clienteNome, status, itens:[{codigo,nome,pendenteUnidades,saldoUnidades,temRecebimento,cobre}], validadoEm } — snapshot de cada pedido no momento em que foi validado, pra tela "Histórico de pedidos"
 function extrairDiametro(nome){
   const n = String(nome||'');
   // Potes/copos/embalagens costumam trazer a boca no formato "(101X82,5)" —
@@ -1935,6 +1962,7 @@ let sleeveEstoqueClienteFiltro = '';
 let filtroMaquinaSleeve = null; // máquina selecionada nos cards de "Fluxo de sleeve" (clique alterna, null = mostra todas)
 let filtroStatusPedidoSleeve = null; // status selecionado nos cards de "Pedidos" (completo/incompleto/sem-estoque; clique alterna, null = mostra todos)
 let filtroMaquinaPedidoSleeve = null; // máquina selecionada nos cards de máquina de "Pedidos" (clique alterna, null = mostra todas)
+let sleevePedidosHistoricoSearchTerm = '';
 let sleevePedidosSearchTerm = '';
 let sleevePedidosClienteFiltro = '';
 let currentHistTab = 'finalizados';
@@ -1988,6 +2016,9 @@ async function loadState(){
     if(saved.sleeveOPs) sleeveOPs = saved.sleeveOPs;
     if(saved.sleeveRecebimentos) sleeveRecebimentos = saved.sleeveRecebimentos;
     if(saved.sleeveSegregados) sleeveSegregados = saved.sleeveSegregados;
+    if(saved.sleevePedidosConhecidos) sleevePedidosConhecidos = saved.sleevePedidosConhecidos;
+    else sleevePedidosConhecidos = [...new Set(sleeveOPs.filter(o=>o.pedido).map(o=>o.pedido))]; // migração: pedidos já existentes antes desse recurso não entram retroativamente em "a validar"
+    if(saved.sleevePedidosHistorico) sleevePedidosHistorico = saved.sleevePedidosHistorico;
     if(saved.leadTimePorBoca) leadTimePorBoca = saved.leadTimePorBoca;
     tarefasDiarias = saved.tarefasDiarias || [];
     valoresChapa = saved.valoresChapa || JSON.parse(JSON.stringify(VALORES_CHAPA_SEED));
@@ -2062,7 +2093,7 @@ async function saveState(){
     return;
   }
   try{
-    await window.storage.set('artes-pedidos-v3', JSON.stringify({pedidos, historico, regravacoes, nomeRelatorioAtual, lastImportTime, seedDescartada, tabelaCodigosInternos: TABELA_CODIGOS_INTERNOS, codigosUltimaAtualizacao, diametrosManual, clicheItensInfo, leadTimePorBoca, valoresChapa, valorClicheReferencia, tarefasDiarias, sleeveOPs, sleeveRecebimentos, sleeveSegregados, stageOrderV2:true}), false);
+    await window.storage.set('artes-pedidos-v3', JSON.stringify({pedidos, historico, regravacoes, nomeRelatorioAtual, lastImportTime, seedDescartada, tabelaCodigosInternos: TABELA_CODIGOS_INTERNOS, codigosUltimaAtualizacao, diametrosManual, clicheItensInfo, leadTimePorBoca, valoresChapa, valorClicheReferencia, tarefasDiarias, sleeveOPs, sleeveRecebimentos, sleeveSegregados, sleevePedidosConhecidos, sleevePedidosHistorico, stageOrderV2:true}), false);
   }catch(e){ console.error('Falha ao salvar', e); }
 }
 
@@ -5985,6 +6016,7 @@ const VIEW_TITULOS = {
   'sleeve-recebimento': "Recebimento de sleeve",
   'sleeve-segregado': "Estoque segregado",
   'sleeve-validar': "Pedidos finalizados",
+  'sleeve-pedidos-historico': "Histórico de pedidos",
   cliche: "Custo de clichê",
   'custo-mensal': "Custo mensal",
   'custo-anual': "Custo anual",
@@ -6011,7 +6043,7 @@ function switchView(view){
   if(view!=='cliche' && view!=='custo-mensal' && view!=='custo-anual' && view!=='valores-chapa') clicheSubmenuOpen = false;
   if(view!=='analise-entrega' && view!=='analise-entrega-historico') analiseEntregaSubmenuOpen = false;
   if(view!=='history') historySubmenuOpen = false;
-  if(view!=='fluxo-sleeve' && view!=='sleeve-estoque' && view!=='sleeve-pedidos' && view!=='sleeve-recebimento' && view!=='sleeve-segregado' && view!=='sleeve-validar') sleeveSubmenuOpen = false;
+  if(view!=='fluxo-sleeve' && view!=='sleeve-estoque' && view!=='sleeve-pedidos' && view!=='sleeve-recebimento' && view!=='sleeve-segregado' && view!=='sleeve-validar' && view!=='sleeve-pedidos-historico') sleeveSubmenuOpen = false;
   if(BOARD_GROUP_VIEWS.includes(view)) boardSubmenuOpen = true;
   document.getElementById('view-home').style.display = view==='home' ? 'block' : 'none';
   document.getElementById('view-board').style.display = view==='board' ? 'block' : 'none';
@@ -6021,6 +6053,7 @@ function switchView(view){
   document.getElementById('view-sleeve-recebimento').style.display = view==='sleeve-recebimento' ? 'block' : 'none';
   document.getElementById('view-sleeve-segregado').style.display = view==='sleeve-segregado' ? 'block' : 'none';
   document.getElementById('view-sleeve-validar').style.display = view==='sleeve-validar' ? 'block' : 'none';
+  document.getElementById('view-sleeve-pedidos-historico').style.display = view==='sleeve-pedidos-historico' ? 'block' : 'none';
   document.getElementById('sleeve-submenu').style.display = sleeveSubmenuOpen ? 'block' : 'none';
   syncGroupChevron('fluxo-sleeve', sleeveSubmenuOpen);
   document.getElementById('view-cliche').style.display = view==='cliche' ? 'block' : 'none';
@@ -6060,6 +6093,7 @@ function switchView(view){
   if(view==='sleeve-recebimento') renderSleeveRecebimentos();
   if(view==='sleeve-segregado') renderSleeveSegregados();
   if(view==='sleeve-validar') renderSleeveValidar();
+  if(view==='sleeve-pedidos-historico') renderSleevePedidosHistorico();
   if(view==='codigos') renderCodigosInternos();
   if(view==='leadtime') renderLeadTime();
   if(view==='analise-entrega') renderHomeCards();
@@ -7752,15 +7786,36 @@ function renderSleeveEstoque(){
 // base de "Saldo de estoque"): completo (todos os itens cobrem), sem
 // estoque (nenhum item tem qualquer recebimento) ou incompleto (o resto —
 // mistura de itens cobertos, faltando ou sem recebimento). Pedido sem
-// nenhum item mais pendente (já produzido/validado) fica sem status.
-const SLEEVE_PEDIDO_STATUS_LABEL = { completo:'Pedidos completos', incompleto:'Pedidos incompletos', 'sem-estoque':'Pedidos sem estoque' };
+// nenhum item mais pendente (já produzido/validado) fica sem status. Um
+// número de pedido nunca visto antes (fora de sleevePedidosConhecidos) cai
+// em "a validar" até o usuário confirmar — só então passa a contar no card
+// da classificação real e um snapshot vai pro "Histórico de pedidos".
+const SLEEVE_PEDIDO_STATUS_LABEL = { 'a-validar':'Pedidos a validar', completo:'Pedidos completos', incompleto:'Pedidos incompletos', 'sem-estoque':'Pedidos sem estoque' };
+function sleevePedidoItensInfo(p, coberturaPorCodigo){
+  const cods = p.codigosPendentes.size ? [...p.codigosPendentes] : [...p.codigosTodos];
+  return cods.map(c=>{
+    const info = coberturaPorCodigo[c] || {};
+    return { codigo:c, nome:info.nome||'', pendenteUnidades:info.pendenteUnidades||0, saldoUnidades:info.saldoUnidades||0, temRecebimento:!!info.temRecebimento, cobre:!!info.cobre };
+  });
+}
+function validarSleevePedido(ped, p, coberturaPorCodigo){
+  if(!sleevePedidosConhecidos.includes(ped)) sleevePedidosConhecidos.push(ped);
+  sleevePedidosHistorico.push({
+    pedido: ped,
+    clienteNome: p.clienteNome,
+    status: p.status,
+    itens: sleevePedidoItensInfo(p, coberturaPorCodigo),
+    validadoEm: new Date().toISOString(),
+  });
+}
 function renderSleevePedidos(){
   const coberturaPorCodigo = sleeveCoberturaPorCodigo();
   const pedidosPorNumero = {};
   sleeveOPs.forEach(o=>{
     if(!o.pedido) return;
-    if(!pedidosPorNumero[o.pedido]) pedidosPorNumero[o.pedido] = { clienteNome: o.clienteNome, codigosPendentes: new Set(), maquinas: new Set() };
+    if(!pedidosPorNumero[o.pedido]) pedidosPorNumero[o.pedido] = { clienteNome: o.clienteNome, codigosPendentes: new Set(), codigosTodos: new Set(), maquinas: new Set() };
     pedidosPorNumero[o.pedido].clienteNome = o.clienteNome;
+    if(o.codigo) pedidosPorNumero[o.pedido].codigosTodos.add(o.codigo);
     if(!o.validado && !o.saiuDaFila){
       if(o.codigo) pedidosPorNumero[o.pedido].codigosPendentes.add(o.codigo);
       pedidosPorNumero[o.pedido].maquinas.add(o.maquina || '—');
@@ -7768,10 +7823,13 @@ function renderSleevePedidos(){
   });
   Object.values(pedidosPorNumero).forEach(p=>{
     const cods = [...p.codigosPendentes];
-    if(!cods.length){ p.status = null; return; }
+    if(!cods.length){ p.status = null; p.statusFinal = null; return; }
     const todosCobrem = cods.every(c=> coberturaPorCodigo[c] && coberturaPorCodigo[c].cobre);
     const nenhumTemEstoque = cods.every(c=> !coberturaPorCodigo[c] || !coberturaPorCodigo[c].temRecebimento);
     p.status = todosCobrem ? 'completo' : (nenhumTemEstoque ? 'sem-estoque' : 'incompleto');
+  });
+  Object.entries(pedidosPorNumero).forEach(([ped,p])=>{
+    p.statusFinal = (p.status && !sleevePedidosConhecidos.includes(ped)) ? 'a-validar' : p.status;
   });
 
   // Filtro combinado (status + máquina + cliente + busca). "ignorar" deixa
@@ -7782,7 +7840,7 @@ function renderSleevePedidos(){
   const termoAtual = sleevePedidosSearchTerm.trim().toLowerCase();
   function pedidoPassaFiltros(ped, p, ignorar){
     ignorar = ignorar || {};
-    if(!ignorar.status && filtroStatusPedidoSleeve && p.status !== filtroStatusPedidoSleeve) return false;
+    if(!ignorar.status && filtroStatusPedidoSleeve && p.statusFinal !== filtroStatusPedidoSleeve) return false;
     if(!ignorar.maquina && filtroMaquinaPedidoSleeve && !p.maquinas.has(filtroMaquinaPedidoSleeve)) return false;
     if(sleevePedidosClienteFiltro && p.clienteNome !== sleevePedidosClienteFiltro) return false;
     if(termoAtual && !(ped.toLowerCase().includes(termoAtual) || p.clienteNome.toLowerCase().includes(termoAtual))) return false;
@@ -7790,9 +7848,9 @@ function renderSleevePedidos(){
   }
 
   const wrapStatus = document.getElementById('sleeve-pedidos-status-cards');
-  const contagens = { completo:0, incompleto:0, 'sem-estoque':0 };
+  const contagens = { 'a-validar':0, completo:0, incompleto:0, 'sem-estoque':0 };
   Object.entries(pedidosPorNumero).forEach(([ped,p])=>{
-    if(p.status && pedidoPassaFiltros(ped, p, {status:true})) contagens[p.status]++;
+    if(p.statusFinal && pedidoPassaFiltros(ped, p, {status:true})) contagens[p.statusFinal]++;
   });
   if(filtroStatusPedidoSleeve && !contagens.hasOwnProperty(filtroStatusPedidoSleeve)) filtroStatusPedidoSleeve = null;
   wrapStatus.innerHTML = Object.keys(SLEEVE_PEDIDO_STATUS_LABEL).map(st=>{
@@ -7852,12 +7910,99 @@ function renderSleevePedidos(){
     incompleto: '<span class="tag tag-confirmacao">INCOMPLETO</span>',
     'sem-estoque': '<span class="tag tag-alterada">SEM ESTOQUE</span>',
   };
-  tbody.innerHTML = pedidosLista.length ? pedidosLista.map(ped=>`
+  tbody.innerHTML = pedidosLista.length ? pedidosLista.map(ped=>{
+    const p = pedidosPorNumero[ped];
+    const situacao = p.statusFinal === 'a-validar'
+      ? `<button class="btn small gold sleeve-pedido-validar-btn" data-pedido="${ped}">Validar</button>`
+      : (SITUACAO_TAG[p.status] || '<span style="color:var(--text-faint);">—</span>');
+    return `
     <tr>
-      <td class="pedido">${ped}</td>
-      <td>${pedidosPorNumero[ped].clienteNome}</td>
-      <td style="text-align:center;">${SITUACAO_TAG[pedidosPorNumero[ped].status] || '<span style="color:var(--text-faint);">—</span>'}</td>
-    </tr>`).join('') : `<tr><td colspan="3" class="hist-empty">${termoAtual || sleevePedidosClienteFiltro || filtroStatusPedidoSleeve || filtroMaquinaPedidoSleeve ? 'Nenhum pedido encontrado.' : 'Nenhum pedido importado ainda.'}</td></tr>`;
+      <td class="pedido"><button class="sleeve-item-link" data-pedido="${ped}" style="background:none; border:none; padding:0; text-align:left; cursor:pointer; color:inherit; font:inherit; text-decoration:underline;">${ped}</button></td>
+      <td>${p.clienteNome}</td>
+      <td style="text-align:center;">${situacao}</td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="3" class="hist-empty">${termoAtual || sleevePedidosClienteFiltro || filtroStatusPedidoSleeve || filtroMaquinaPedidoSleeve ? 'Nenhum pedido encontrado.' : 'Nenhum pedido importado ainda.'}</td></tr>`;
+
+  tbody.querySelectorAll('.sleeve-item-link').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const ped = btn.dataset.pedido;
+      const p = pedidosPorNumero[ped];
+      abrirSleevePedidoItensModal(ped, p.clienteNome, sleevePedidoItensInfo(p, coberturaPorCodigo));
+    });
+  });
+  tbody.querySelectorAll('.sleeve-pedido-validar-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const ped = btn.dataset.pedido;
+      validarSleevePedido(ped, pedidosPorNumero[ped], coberturaPorCodigo);
+      await saveState();
+      renderTudoSleeve();
+    });
+  });
+
+  const btnValidarTodos = document.getElementById('sleeve-pedidos-validar-todos-btn');
+  const pendentesDeValidar = pedidosLista.filter(ped=> pedidosPorNumero[ped].statusFinal === 'a-validar');
+  btnValidarTodos.textContent = pendentesDeValidar.length ? `Validar todos (${pendentesDeValidar.length})` : 'Validar todos';
+  btnValidarTodos.disabled = !pendentesDeValidar.length;
+  btnValidarTodos.onclick = async ()=>{
+    pendentesDeValidar.forEach(ped=> validarSleevePedido(ped, pedidosPorNumero[ped], coberturaPorCodigo));
+    await saveState();
+    renderTudoSleeve();
+  };
+}
+// Tela "Histórico de pedidos": snapshot de cada pedido no momento em que
+// foi validado no card "Pedidos" (situação de estoque item a item na hora).
+function renderSleevePedidosHistorico(){
+  const tbody = document.querySelector('#sleeve-pedidos-historico-table tbody');
+  const termo = sleevePedidosHistoricoSearchTerm.trim().toLowerCase();
+  const SITUACAO_TAG = {
+    completo: '<span class="tag tag-repeticao">✓ COMPLETO</span>',
+    incompleto: '<span class="tag tag-confirmacao">INCOMPLETO</span>',
+    'sem-estoque': '<span class="tag tag-alterada">SEM ESTOQUE</span>',
+  };
+  const lista = sleevePedidosHistorico
+    .filter(h=> !termo || h.pedido.toLowerCase().includes(termo) || h.clienteNome.toLowerCase().includes(termo))
+    .sort((a,b)=> new Date(b.validadoEm) - new Date(a.validadoEm));
+  tbody.innerHTML = lista.length ? lista.map((h,idx)=>`
+    <tr>
+      <td class="pedido"><button class="sleeve-pedidos-hist-link" data-idx="${idx}" style="background:none; border:none; padding:0; text-align:left; cursor:pointer; color:inherit; font:inherit; text-decoration:underline;">${h.pedido}</button></td>
+      <td>${h.clienteNome}</td>
+      <td style="text-align:center;">${SITUACAO_TAG[h.status] || '<span style="color:var(--text-faint);">—</span>'}</td>
+      <td>${fmtDateTime(h.validadoEm)}</td>
+    </tr>`).join('') : `<tr><td colspan="4" class="hist-empty">${termo ? 'Nenhum pedido encontrado.' : 'Nenhum pedido validado ainda.'}</td></tr>`;
+  tbody.querySelectorAll('.sleeve-pedidos-hist-link').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const h = lista[parseInt(btn.dataset.idx,10)];
+      abrirSleevePedidoItensModal(h.pedido, h.clienteNome, h.itens);
+    });
+  });
+}
+// Modal "itens do pedido": mostra, item por item, o pendente/saldo/situação
+// de estoque — aberto ao clicar no número do pedido em "Pedidos" ou
+// "Histórico de pedidos" (nesse caso com o snapshot salvo na validação).
+function abrirSleevePedidoItensModal(pedido, clienteNome, itens){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  const linhas = itens.length ? itens.map(it=>`
+    <tr>
+      <td class="pedido">${it.codigo}<br><small style="color:var(--text-faint);">${it.nome}</small></td>
+      <td class="val" style="text-align:center;">${fmtMilhar0(it.pendenteUnidades)}</td>
+      <td class="val" style="text-align:center;">${it.temRecebimento ? fmtMilhar0(it.saldoUnidades) : '—'}</td>
+      <td style="text-align:center;">${!it.temRecebimento ? '<span style="color:var(--text-faint);">—</span>' : (it.cobre ? '<span class="tag tag-repeticao">✓ COBRE</span>' : `<span class="tag tag-alterada">FALTAM ${fmtMilhar0(it.pendenteUnidades-it.saldoUnidades)} UNID.</span>`)}</td>
+    </tr>`).join('') : `<tr><td colspan="4" class="hist-empty">Nenhum item pendente pra esse pedido.</td></tr>`;
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div><h2 style="font-size:16px;">Pedido ${pedido}</h2><p>${clienteNome || ''}</p></div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <div class="hist-table-wrap">
+      <table class="hist">
+        <thead><tr><th>Item</th><th style="text-align:center;">Pendente (unid.)</th><th style="text-align:center;">Saldo (unid.)</th><th style="text-align:center;">Situação</th></tr></thead>
+        <tbody>${linhas}</tbody>
+      </table>
+    </div>
+  `;
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  overlay.classList.add('open');
 }
 // Modal "quais OPs vão fazer": lista as OPs pendentes (não validadas) de um
 // código, aberta ao clicar no item na tela "Saldo de estoque".
@@ -8127,6 +8272,7 @@ function renderTudoSleeve(){
   renderSleeveRecebimentos();
   renderSleeveSegregados();
   renderSleeveValidar();
+  renderSleevePedidosHistorico();
 }
 function abrirImportarSleeveModal(){
   const overlay = document.getElementById('overlay');
@@ -8189,6 +8335,10 @@ document.getElementById('sleeve-pedidos-search-input').addEventListener('input',
 document.getElementById('sleeve-pedidos-cliente-filter').addEventListener('change', (e)=>{
   sleevePedidosClienteFiltro = e.target.value;
   renderSleevePedidos();
+});
+document.getElementById('sleeve-pedidos-historico-search-input').addEventListener('input', (e)=>{
+  sleevePedidosHistoricoSearchTerm = e.target.value;
+  renderSleevePedidosHistorico();
 });
 
 /* ========================================================================
