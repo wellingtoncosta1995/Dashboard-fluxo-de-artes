@@ -1334,7 +1334,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.56';
+const APP_VERSION = 'v9.57';
 const APP_VERSION_DATE = '02/09/2026';
 
 /* ========================================================================
@@ -7727,15 +7727,16 @@ function linhaSleeveOP(o){
 // (RPCP264) dentro de cada máquina.
 function renderSleeveFila(){
   const coberturaPorCodigo = sleeveCoberturaPorCodigo();
+  const alocacaoPorOP = sleeveAlocacaoPorCodigo(coberturaPorCodigo);
   const codigosComRecebimento = new Set(sleeveRecebimentos.map(r=>r.codigo));
   const pendentes = sleeveOPs.filter(o=>!o.validado && !o.saiuDaFila && codigosComRecebimento.has(o.codigo));
 
   // Card "Sem estoque suficiente": junta as OPs de todas as máquinas cujo
-  // item não cobre (zero saldo ou saldo parcial) — a demanda real é
-  // quantidade + data de entrega, não a máquina, então aparece à parte,
-  // ordenado pela entrega mais próxima primeiro.
+  // item não cobre, já considerando a alocação por data de entrega — se o
+  // saldo só dá pra cobrir as OPs mais próximas do prazo, só as de trás
+  // aparecem aqui, com a falta real de cada uma (não o total agregado).
   const semCobertura = pendentes
-    .filter(o=> !(coberturaPorCodigo[o.codigo] && coberturaPorCodigo[o.codigo].cobre))
+    .filter(o=> alocacaoPorOP[o.op] && !alocacaoPorOP[o.op].cobre)
     .sort((a,b)=> new Date(a.entrega||a.termino||0) - new Date(b.entrega||b.termino||0));
   const wrapSemCobertura = document.getElementById('sleeve-sem-cobertura-wrap');
   wrapSemCobertura.innerHTML = semCobertura.length ? `
@@ -7748,7 +7749,7 @@ function renderSleeveFila(){
             const cob = coberturaPorCodigo[o.codigo];
             const tag = (!cob || !cob.temRecebimento)
               ? '<span class="tag tag-alterada">SEM ESTOQUE</span>'
-              : `<span class="tag tag-alterada">FALTAM ${fmtMilhar0(cob.pendenteUnidades-cob.saldoUnidades)} UNID.</span>`;
+              : `<span class="tag tag-alterada">FALTAM ${fmtMilhar0(alocacaoPorOP[o.op].faltam)} UNID.</span>`;
             return `
             <tr>
               <td class="pedido">${o.op}</td>
@@ -7846,6 +7847,35 @@ function sleeveCoberturaPorCodigo(){
     porCodigo[cod].cobre = temRecebimento && saldoUnidades >= porCodigo[cod].pendenteUnidades;
   });
   return porCodigo;
+}
+// Aloca o saldo de cada código entre as OPs pendentes que precisam dele,
+// priorizando quem tem a data de entrega mais próxima (a demanda real é
+// quantidade + prazo, não a máquina) — assim, quando o saldo só dá pra
+// cobrir os primeiros pedidos da fila, só os que vêm depois aparecem sem
+// estoque, em vez de todo mundo aparecer com a mesma falta agregada.
+function sleeveAlocacaoPorCodigo(coberturaPorCodigo){
+  const porOP = {}; // op -> { cobre, faltam }
+  const opsPorCodigo = {};
+  sleeveOPs.forEach(o=>{
+    if(!o.codigo || o.validado || o.saiuDaFila) return;
+    (opsPorCodigo[o.codigo] = opsPorCodigo[o.codigo] || []).push(o);
+  });
+  const dataOrdenacao = o=> o.entrega ? new Date(o.entrega) : (o.termino ? new Date(o.termino) : new Date('9999-12-31'));
+  Object.keys(opsPorCodigo).forEach(cod=>{
+    const ops = opsPorCodigo[cod].slice().sort((a,b)=> dataOrdenacao(a) - dataOrdenacao(b));
+    let saldoRestante = (coberturaPorCodigo[cod] && coberturaPorCodigo[cod].saldoUnidades) || 0;
+    ops.forEach(o=>{
+      const necessario = o.qtdUnidades || 0;
+      if(saldoRestante >= necessario){
+        porOP[o.op] = { cobre:true, faltam:0 };
+        saldoRestante -= necessario;
+      }else{
+        porOP[o.op] = { cobre:false, faltam: necessario - saldoRestante };
+        saldoRestante = 0;
+      }
+    });
+  });
+  return porOP;
 }
 // Tela "Saldo de estoque": um item (código) por linha, com o saldo (em
 // unidades — soma automática dos recebimentos registrados no card
