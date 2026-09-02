@@ -742,6 +742,7 @@
         </div>
       </div>
 
+      <div class="stage-cards" id="sleeve-maquina-cards"></div>
       <div id="sleeve-maquinas-wrap"></div>
     </div>
 
@@ -1270,7 +1271,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.38';
+const APP_VERSION = 'v9.39';
 const APP_VERSION_DATE = '02/09/2026';
 
 /* ========================================================================
@@ -1922,6 +1923,7 @@ let leadTimePorBoca = JSON.parse(JSON.stringify(LEAD_TIME_INICIAL));
 let catalogoSearchTerm = '';
 let sleeveEstoqueSearchTerm = '';
 let sleeveEstoqueClienteFiltro = '';
+let filtroMaquinaSleeve = null; // máquina selecionada nos cards de "Fluxo de sleeve" (clique alterna, null = mostra todas)
 let sleevePedidosSearchTerm = '';
 let sleevePedidosClienteFiltro = '';
 let currentHistTab = 'finalizados';
@@ -7626,8 +7628,29 @@ function renderSleeveFila(){
   const pendentes = sleeveOPs.filter(o=>!o.validado && !o.saiuDaFila && codigosComRecebimento.has(o.codigo));
   const porMaquina = {};
   pendentes.forEach(o=>{ (porMaquina[o.maquina] = porMaquina[o.maquina] || []).push(o); });
+  const todasMaquinas = Object.keys(porMaquina).sort();
+  if(filtroMaquinaSleeve && !todasMaquinas.includes(filtroMaquinaSleeve)) filtroMaquinaSleeve = null;
+
+  const wrapCards = document.getElementById('sleeve-maquina-cards');
+  wrapCards.innerHTML = todasMaquinas.map(maq=>{
+    const count = porMaquina[maq].length;
+    const isActive = filtroMaquinaSleeve === maq;
+    return `
+      <div class="stage-mini-card ${isActive?'active':''}" data-maquina="${maq}">
+        <div class="smc-nome">${maq}</div>
+        <div class="smc-count ${count===0?'zero':''}">${count}</div>
+      </div>`;
+  }).join('');
+  wrapCards.querySelectorAll('.stage-mini-card').forEach(card=>{
+    card.addEventListener('click', ()=>{
+      const maq = card.dataset.maquina;
+      filtroMaquinaSleeve = (filtroMaquinaSleeve === maq) ? null : maq;
+      renderSleeveFila();
+    });
+  });
+
   const wrapMaquinas = document.getElementById('sleeve-maquinas-wrap');
-  const maquinas = Object.keys(porMaquina).sort();
+  const maquinas = filtroMaquinaSleeve ? [filtroMaquinaSleeve] : todasMaquinas;
   wrapMaquinas.innerHTML = maquinas.length ? maquinas.map(maq=>{
     const itens = porMaquina[maq].slice().sort((a,b)=> new Date(a.termino||0) - new Date(b.termino||0));
     return `
