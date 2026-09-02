@@ -1209,7 +1209,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.33';
+const APP_VERSION = 'v9.34';
 const APP_VERSION_DATE = '02/09/2026';
 
 /* ========================================================================
@@ -2038,6 +2038,47 @@ function entregaProgressoHTML(entregaStr){
   return `
     <div class="entrega-progress-wrap">
       <div class="entrega-progress-label">${entregaStr}</div>
+      <div class="entrega-progress-bar"><div class="entrega-progress-fill ${classe}" data-pct="${pct.toFixed(1)}" style="width:0%"></div></div>
+      <div class="entrega-progress-text ${classe}">${texto}</div>
+    </div>`;
+}
+// Data de vencimento = fabricação + validade (meses). Usada no card "Recebimento
+// de sleeve" para desenhar uma barra de dias igual à do fluxo interno de pedidos.
+function sleeveDataVencimento(fabricacaoStr, meses){
+  const [y,m,d] = fabricacaoStr.split('-').map(Number);
+  return new Date(y, (m-1)+meses, d);
+}
+const SLEEVE_VALIDADE_URGENTE_DIAS = 30;
+const SLEEVE_VALIDADE_ATENCAO_DIAS = 60;
+function sleeveValidadeProgressoHTML(fabricacaoStr, meses){
+  if(!meses) return '—';
+  if(!fabricacaoStr) return `${meses} meses`;
+  const fabricacao = new Date(...fabricacaoStr.split('-').map((v,i)=> i===1 ? Number(v)-1 : Number(v)));
+  const vencimento = sleeveDataVencimento(fabricacaoStr, meses);
+  vencimento.setHours(23,59,59,999);
+  const agora = new Date();
+  const totalDias = (vencimento - fabricacao) / 86400000;
+  const diasRestantes = (vencimento - agora) / 86400000;
+  const vencido = diasRestantes < 0;
+  const diasInt = Math.ceil(Math.abs(diasRestantes));
+  const pct = Math.max(6, Math.min(100, ((totalDias - diasRestantes) / totalDias) * 100));
+  let classe, texto;
+  if(vencido){
+    classe = 'atrasado';
+    texto = `Vencido há ${diasInt} dia${diasInt===1?'':'s'}`;
+  } else if(diasRestantes <= SLEEVE_VALIDADE_URGENTE_DIAS){
+    classe = 'urgente';
+    texto = `Vence em ${diasInt} dia${diasInt===1?'':'s'}`;
+  } else if(diasRestantes <= SLEEVE_VALIDADE_ATENCAO_DIAS){
+    classe = 'atencao';
+    texto = `Vence em ${diasInt} dia${diasInt===1?'':'s'}`;
+  } else {
+    classe = 'ok';
+    texto = `Vence em ${diasInt} dia${diasInt===1?'':'s'}`;
+  }
+  return `
+    <div class="entrega-progress-wrap">
+      <div class="entrega-progress-label">${vencimento.toLocaleDateString('pt-BR')}</div>
       <div class="entrega-progress-bar"><div class="entrega-progress-fill ${classe}" data-pct="${pct.toFixed(1)}" style="width:0%"></div></div>
       <div class="entrega-progress-text ${classe}">${texto}</div>
     </div>`;
@@ -7625,10 +7666,16 @@ function renderSleeveRecebimentos(){
       <td>${r.lote || '—'}</td>
       <td>${fmtDataInput(r.recebimento)}</td>
       <td>${fmtDataInput(r.fabricacao)}</td>
-      <td>${r.validade ? r.validade + ' meses' : '—'}</td>
+      <td>${sleeveValidadeProgressoHTML(r.fabricacao, r.validade)}</td>
       <td class="val" style="text-align:center;">${fmtMilhar0(r.quantidade)}</td>
       <td style="text-align:right;"><button class="sleeve-receb-del" data-id="${r.id}" title="Remover" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:16px; line-height:1; padding:2px 4px;">&times;</button></td>
     </tr>`).join('') : `<tr><td colspan="9" class="hist-empty">Nenhum recebimento registrado ainda.</td></tr>`;
+
+  requestAnimationFrame(()=>{
+    tbody.querySelectorAll('.entrega-progress-fill').forEach(el=>{
+      el.style.width = el.dataset.pct + '%';
+    });
+  });
 
   tbody.querySelectorAll('.sleeve-receb-del').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
