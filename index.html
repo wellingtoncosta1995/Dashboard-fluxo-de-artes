@@ -1308,7 +1308,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.48';
+const APP_VERSION = 'v9.49';
 const APP_VERSION_DATE = '02/09/2026';
 
 /* ========================================================================
@@ -7691,12 +7691,12 @@ function linhaSleeveOP(o){
     <td class="val">${o.qtdCaixas}</td>
     <td class="val">${o.unidPorCaixa!=null ? o.unidPorCaixa : '—'}</td>
     <td class="val">${o.qtdUnidades!=null ? o.qtdUnidades.toLocaleString('pt-BR', {maximumFractionDigits:0}) : '—'}</td>
-    <td>${o.termino ? fmtDateTime(o.termino) : '—'}</td>
+    <td>${o.entrega ? entregaProgressoHTML(fmtDate(o.entrega)) : '—'}</td>
   </tr>`;
 }
 // Tela "Fluxo de sleeve": fila de produção por máquina, só dos itens que já
-// tiveram algum recebimento registrado — ordenada pelo término dentro de
-// cada máquina.
+// tiveram algum recebimento registrado — ordenada pela data de entrega
+// (RPCP264) dentro de cada máquina.
 function renderSleeveFila(){
   const codigosComRecebimento = new Set(sleeveRecebimentos.map(r=>r.codigo));
   const pendentes = sleeveOPs.filter(o=>!o.validado && !o.saiuDaFila && codigosComRecebimento.has(o.codigo));
@@ -7726,18 +7726,24 @@ function renderSleeveFila(){
   const wrapMaquinas = document.getElementById('sleeve-maquinas-wrap');
   const maquinas = filtroMaquinaSleeve ? [filtroMaquinaSleeve] : todasMaquinas;
   wrapMaquinas.innerHTML = maquinas.length ? maquinas.map(maq=>{
-    const itens = porMaquina[maq].slice().sort((a,b)=> new Date(a.termino||0) - new Date(b.termino||0));
+    const itens = porMaquina[maq].slice().sort((a,b)=> new Date(a.entrega||a.termino||0) - new Date(b.entrega||b.termino||0));
     return `
     <div class="topics-card" style="margin-bottom:16px;">
       <div class="k" style="font-size:12.5px; margin-bottom:8px;">${maq} (${itens.length})</div>
       <div class="hist-table-wrap">
         <table class="hist">
-          <thead><tr><th>OP</th><th>Item</th><th>Pedido</th><th>Cliente</th><th style="text-align:right;">Qtd caixas</th><th style="text-align:right;">Unid./caixa</th><th style="text-align:right;">Total unid.</th><th>Término</th></tr></thead>
+          <thead><tr><th>OP</th><th>Item</th><th>Pedido</th><th>Cliente</th><th style="text-align:right;">Qtd caixas</th><th style="text-align:right;">Unid./caixa</th><th style="text-align:right;">Total unid.</th><th>Data de entrega</th></tr></thead>
           <tbody>${itens.map(linhaSleeveOP).join('')}</tbody>
         </table>
       </div>
     </div>`;
   }).join('') : `<div class="placeholder-card">Nenhum item com recebimento registrado ainda — registre em "Saldo de estoque" &gt; Recebimento de sleeve.</div>`;
+
+  requestAnimationFrame(()=>{
+    wrapMaquinas.querySelectorAll('.entrega-progress-fill').forEach(el=>{
+      el.style.width = el.dataset.pct + '%';
+    });
+  });
 }
 // Calcula, por código de item, o saldo (recebido - segregado), o quanto
 // ainda está pendente de produzir (soma das OPs não validadas e ainda na
