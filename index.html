@@ -788,12 +788,16 @@
             <input type="text" id="sleeve-receb-lote-input" style="padding:9px 12px; border:1px solid var(--border-soft); border-radius:8px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif; background:var(--panel-alt); color:var(--text);">
           </div>
           <div style="display:flex; flex-direction:column; gap:4px; min-width:150px;">
+            <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">Recebimento</label>
+            <input type="date" id="sleeve-receb-recebimento-input" style="padding:8px 10px; border:1px solid var(--border-soft); border-radius:8px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif; background:var(--panel-alt); color:var(--text);">
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px; min-width:150px;">
             <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">Fabricação</label>
             <input type="date" id="sleeve-receb-fabricacao-input" style="padding:8px 10px; border:1px solid var(--border-soft); border-radius:8px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif; background:var(--panel-alt); color:var(--text);">
           </div>
-          <div style="display:flex; flex-direction:column; gap:4px; min-width:150px;">
-            <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">Validade</label>
-            <input type="date" id="sleeve-receb-validade-input" style="padding:8px 10px; border:1px solid var(--border-soft); border-radius:8px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif; background:var(--panel-alt); color:var(--text);">
+          <div style="display:flex; flex-direction:column; gap:4px; min-width:130px;">
+            <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">Validade (meses)</label>
+            <input type="text" id="sleeve-receb-validade-input" placeholder="Ex.: 12" style="padding:9px 12px; border:1px solid var(--border-soft); border-radius:8px; font-size:13px; text-align:right; font-family:'IBM Plex Mono',monospace; background:var(--panel-alt); color:var(--text);">
           </div>
           <div style="display:flex; flex-direction:column; gap:4px; min-width:110px;">
             <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">Quantidade</label>
@@ -805,7 +809,7 @@
         <div class="hist-table-wrap" style="margin-top:14px;">
           <table class="hist" id="sleeve-receb-table">
             <thead>
-              <tr><th>Item</th><th>Gráfica</th><th>NF</th><th>Lote</th><th>Fabricação</th><th>Validade</th><th style="text-align:center;">Quantidade</th><th></th></tr>
+              <tr><th>Item</th><th>Gráfica</th><th>NF</th><th>Lote</th><th>Recebimento</th><th>Fabricação</th><th>Validade</th><th style="text-align:center;">Quantidade</th><th></th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -1205,8 +1209,8 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.32';
-const APP_VERSION_DATE = '01/09/2026';
+const APP_VERSION = 'v9.33';
+const APP_VERSION_DATE = '02/09/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -1814,7 +1818,7 @@ const DIAMETROS_CONHECIDOS = [68,75,79,93,101,120,150,185];
 let diametrosManual = {}; // {codigo: diametro} — identificação manual, quando não dá pra detectar pelo nome
 let clicheItensInfo = {}; // {codigo: {osCliche, numeroCliche, qtdCores}} — ficha do clichê de cada item do catálogo
 let sleeveOPs = []; // fila de produção importada do relatório RGER339 (ou parecido) — uma entrada por OP, ver parseSleeveRGER339
-let sleeveRecebimentos = []; // { id, codigo, nome, grafica, nf, lote, fabricacao, validade, quantidade, criadoEm } — cada entrada de matéria-prima registrada no card "Recebimento de sleeve"; o saldo em "Saldo de estoque" é a soma das quantidades por código
+let sleeveRecebimentos = []; // { id, codigo, nome, grafica, nf, lote, recebimento, fabricacao, validade (meses), quantidade, criadoEm } — cada entrada de matéria-prima registrada no card "Recebimento de sleeve"; o saldo em "Saldo de estoque" é a soma das quantidades por código
 function extrairDiametro(nome){
   const n = String(nome||'');
   // Potes/copos/embalagens costumam trazer a boca no formato "(101X82,5)" —
@@ -7598,7 +7602,7 @@ function abrirSleeveOPsModal(codigo){
   overlay.classList.add('open');
 }
 // Card "Recebimento de sleeve": registra cada entrada de matéria-prima
-// (gráfica, NF, lote, fabricação, validade, quantidade) por item. O saldo
+// (gráfica, NF, lote, recebimento, fabricação, validade em meses, quantidade) por item. O saldo
 // mostrado em "Saldo de estoque" é sempre a soma das quantidades daqui —
 // não existe mais edição direta do saldo.
 function itensSleeveConhecidos(){
@@ -7619,11 +7623,12 @@ function renderSleeveRecebimentos(){
       <td>${r.grafica || '—'}</td>
       <td>${r.nf || '—'}</td>
       <td>${r.lote || '—'}</td>
+      <td>${fmtDataInput(r.recebimento)}</td>
       <td>${fmtDataInput(r.fabricacao)}</td>
-      <td>${fmtDataInput(r.validade)}</td>
+      <td>${r.validade ? r.validade + ' meses' : '—'}</td>
       <td class="val" style="text-align:center;">${fmtMilhar0(r.quantidade)}</td>
       <td style="text-align:right;"><button class="sleeve-receb-del" data-id="${r.id}" title="Remover" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:16px; line-height:1; padding:2px 4px;">&times;</button></td>
-    </tr>`).join('') : `<tr><td colspan="8" class="hist-empty">Nenhum recebimento registrado ainda.</td></tr>`;
+    </tr>`).join('') : `<tr><td colspan="9" class="hist-empty">Nenhum recebimento registrado ainda.</td></tr>`;
 
   tbody.querySelectorAll('.sleeve-receb-del').forEach(btn=>{
     btn.addEventListener('click', async ()=>{
@@ -7656,14 +7661,15 @@ document.getElementById('sleeve-receb-add-btn').addEventListener('click', async 
     grafica: document.getElementById('sleeve-receb-grafica-input').value.trim(),
     nf: document.getElementById('sleeve-receb-nf-input').value.trim(),
     lote: document.getElementById('sleeve-receb-lote-input').value.trim(),
+    recebimento: document.getElementById('sleeve-receb-recebimento-input').value,
     fabricacao: document.getElementById('sleeve-receb-fabricacao-input').value,
-    validade: document.getElementById('sleeve-receb-validade-input').value,
+    validade: parseInt(document.getElementById('sleeve-receb-validade-input').value, 10) || null,
     quantidade,
     criadoEm: new Date().toISOString(),
   });
   await saveState();
   renderTudoSleeve();
-  ['sleeve-receb-item-input','sleeve-receb-grafica-input','sleeve-receb-nf-input','sleeve-receb-lote-input','sleeve-receb-fabricacao-input','sleeve-receb-validade-input','sleeve-receb-qtd-input'].forEach(id=>{ document.getElementById(id).value=''; });
+  ['sleeve-receb-item-input','sleeve-receb-grafica-input','sleeve-receb-nf-input','sleeve-receb-lote-input','sleeve-receb-recebimento-input','sleeve-receb-fabricacao-input','sleeve-receb-validade-input','sleeve-receb-qtd-input'].forEach(id=>{ document.getElementById(id).value=''; });
 });
 // Tela "Pedidos finalizados": OPs cujo Término já passou e ainda não foram
 // validadas — o usuário confirma a quantidade produzida.
