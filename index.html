@@ -779,7 +779,8 @@
     <div id="view-sleeve-pedidos" style="display:none;">
       <div class="topics-card">
         <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">PEDIDOS</span> <span class="link-text">todos os números de pedido já vistos nos relatórios importados, com o cliente</span></p>
-        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;">
+        <div class="stage-cards" id="sleeve-pedidos-status-cards" style="margin-top:12px;"></div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:4px;">
           <div class="search-box" style="max-width:340px;">
             <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
             <input type="text" id="sleeve-pedidos-search-input" class="busca-livre" placeholder="Buscar por pedido ou cliente...">
@@ -791,7 +792,7 @@
         <div class="hist-table-wrap" style="margin-top:12px;">
           <table class="hist" id="sleeve-pedidos-table">
             <thead>
-              <tr><th>Pedido</th><th>Cliente</th></tr>
+              <tr><th>Pedido</th><th>Cliente</th><th style="text-align:center;">Situação</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -1278,7 +1279,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.41';
+const APP_VERSION = 'v9.42';
 const APP_VERSION_DATE = '02/09/2026';
 
 /* ========================================================================
@@ -1931,6 +1932,7 @@ let catalogoSearchTerm = '';
 let sleeveEstoqueSearchTerm = '';
 let sleeveEstoqueClienteFiltro = '';
 let filtroMaquinaSleeve = null; // máquina selecionada nos cards de "Fluxo de sleeve" (clique alterna, null = mostra todas)
+let filtroStatusPedidoSleeve = null; // status selecionado nos cards de "Pedidos" (completo/incompleto/sem-estoque; clique alterna, null = mostra todos)
 let sleevePedidosSearchTerm = '';
 let sleevePedidosClienteFiltro = '';
 let currentHistTab = 'finalizados';
@@ -7672,23 +7674,41 @@ function renderSleeveFila(){
     </div>`;
   }).join('') : `<div class="placeholder-card">Nenhum item com recebimento registrado ainda — registre em "Saldo de estoque" &gt; Recebimento de sleeve.</div>`;
 }
+// Calcula, por código de item, o saldo (recebido - segregado), o quanto
+// ainda está pendente de produzir (soma das OPs não validadas e ainda na
+// fila) e se o saldo cobre essa demanda. Base compartilhada por "Saldo de
+// estoque" e pela classificação de status em "Pedidos".
+function sleeveCoberturaPorCodigo(){
+  const porCodigo = {};
+  sleeveOPs.forEach(o=>{
+    if(!o.codigo) return;
+    if(!porCodigo[o.codigo]) porCodigo[o.codigo] = { nome:o.nome, clienteNome:o.clienteNome, pendenteCaixas:0, pendenteUnidades:0 };
+    porCodigo[o.codigo].nome = o.nome;
+    porCodigo[o.codigo].clienteNome = o.clienteNome;
+    if(!o.validado && !o.saiuDaFila){
+      porCodigo[o.codigo].pendenteCaixas += (o.qtdCaixas||0);
+      if(o.qtdUnidades!=null) porCodigo[o.codigo].pendenteUnidades += o.qtdUnidades;
+    }
+  });
+  Object.keys(porCodigo).forEach(cod=>{
+    const recebimentosDoItem = sleeveRecebimentos.filter(r=>r.codigo===cod);
+    const temRecebimento = recebimentosDoItem.length > 0;
+    const totalRecebido = recebimentosDoItem.reduce((s,r)=>s+(r.quantidade||0),0);
+    const totalSegregado = sleeveSegregados.filter(s=>s.codigo===cod).reduce((s,r)=>s+(r.quantidade||0),0);
+    const saldoUnidades = totalRecebido - totalSegregado;
+    porCodigo[cod].temRecebimento = temRecebimento;
+    porCodigo[cod].saldoUnidades = saldoUnidades;
+    porCodigo[cod].cobre = temRecebimento && saldoUnidades >= porCodigo[cod].pendenteUnidades;
+  });
+  return porCodigo;
+}
 // Tela "Saldo de estoque": um item (código) por linha, com o saldo (em
 // unidades — soma automática dos recebimentos registrados no card
 // "Recebimento de sleeve") e o quanto ainda está pendente de produzir
 // daquele código (qtdCaixas × unidPorCaixa). Mostra TODOS os itens já
 // vistos em algum relatório importado (com ou sem recebimento ainda).
 function renderSleeveEstoque(){
-  const itensPorCodigo = {};
-  sleeveOPs.forEach(o=>{
-    if(!o.codigo) return;
-    if(!itensPorCodigo[o.codigo]) itensPorCodigo[o.codigo] = { nome:o.nome, clienteNome:o.clienteNome, pendenteCaixas:0, pendenteUnidades:0 };
-    itensPorCodigo[o.codigo].nome = o.nome;
-    itensPorCodigo[o.codigo].clienteNome = o.clienteNome;
-    if(!o.validado && !o.saiuDaFila){
-      itensPorCodigo[o.codigo].pendenteCaixas += (o.qtdCaixas||0);
-      if(o.qtdUnidades!=null) itensPorCodigo[o.codigo].pendenteUnidades += o.qtdUnidades;
-    }
-  });
+  const itensPorCodigo = sleeveCoberturaPorCodigo();
   // popular o seletor de clientes
   const selectCliente = document.getElementById('sleeve-estoque-cliente-filter');
   const clientesUnicos = [...new Set(Object.values(itensPorCodigo).map(it=>it.clienteNome))].sort((a,b)=>a.localeCompare(b));
@@ -7708,21 +7728,15 @@ function renderSleeveEstoque(){
     .sort((a,b)=> itensPorCodigo[a].clienteNome.localeCompare(itensPorCodigo[b].clienteNome));
   tbodyEstoque.innerHTML = codigosEstoque.length ? codigosEstoque.map(cod=>{
     const it = itensPorCodigo[cod];
-    const recebimentosDoItem = sleeveRecebimentos.filter(r=>r.codigo===cod);
-    const temRecebimento = recebimentosDoItem.length > 0;
-    const totalRecebido = recebimentosDoItem.reduce((s,r)=>s+(r.quantidade||0),0);
-    const totalSegregado = sleeveSegregados.filter(s=>s.codigo===cod).reduce((s,r)=>s+(r.quantidade||0),0);
-    const saldoUnidades = totalRecebido - totalSegregado;
-    const cobre = temRecebimento && saldoUnidades >= it.pendenteUnidades;
     return `
     <tr>
       <td class="pedido"><button class="sleeve-item-link" data-codigo="${cod}" style="background:none; border:none; padding:0; text-align:left; cursor:pointer; color:inherit; font:inherit;">${cod}<br><small style="color:var(--text-faint); text-decoration:underline;">${it.nome}</small></button></td>
       <td>${it.clienteNome}</td>
       <td class="val" style="text-align:center;">${fmtMilhar0(it.pendenteCaixas)}</td>
       <td class="val" style="text-align:center;">${fmtMilhar0(it.pendenteUnidades)}</td>
-      <td class="val" style="text-align:center;">${temRecebimento ? fmtMilhar0(saldoUnidades) : '—'}</td>
-      <td class="val" style="text-align:center;">${cobre ? fmtMilhar0(saldoUnidades-it.pendenteUnidades) : '—'}</td>
-      <td style="text-align:center;">${!temRecebimento ? '<span style="color:var(--text-faint);">—</span>' : (cobre ? '<span class="tag tag-repeticao">✓ COBRE</span>' : `<span class="tag tag-alterada">FALTAM ${fmtMilhar0(it.pendenteUnidades-saldoUnidades)} UNID.</span>`)}</td>
+      <td class="val" style="text-align:center;">${it.temRecebimento ? fmtMilhar0(it.saldoUnidades) : '—'}</td>
+      <td class="val" style="text-align:center;">${it.cobre ? fmtMilhar0(it.saldoUnidades-it.pendenteUnidades) : '—'}</td>
+      <td style="text-align:center;">${!it.temRecebimento ? '<span style="color:var(--text-faint);">—</span>' : (it.cobre ? '<span class="tag tag-repeticao">✓ COBRE</span>' : `<span class="tag tag-alterada">FALTAM ${fmtMilhar0(it.pendenteUnidades-it.saldoUnidades)} UNID.</span>`)}</td>
     </tr>`;
   }).join('') : `<tr><td colspan="7" class="hist-empty">${termo ? 'Nenhum item encontrado pra essa busca.' : 'Nenhum item importado ainda.'}</td></tr>`;
   tbodyEstoque.querySelectorAll('.sleeve-item-link').forEach(btn=>{
@@ -7731,13 +7745,50 @@ function renderSleeveEstoque(){
 }
 // Tela "Pedidos": todo número de pedido já visto em algum relatório
 // importado, um por linha, com o cliente — pra gerenciar os pedidos sem
-// precisar abrir a fila de produção por máquina.
+// precisar abrir a fila de produção por máquina. Cada pedido é classificado
+// conforme a cobertura de estoque dos seus itens ainda pendentes (mesma
+// base de "Saldo de estoque"): completo (todos os itens cobrem), sem
+// estoque (nenhum item tem qualquer recebimento) ou incompleto (o resto —
+// mistura de itens cobertos, faltando ou sem recebimento). Pedido sem
+// nenhum item mais pendente (já produzido/validado) fica sem status.
+const SLEEVE_PEDIDO_STATUS_LABEL = { completo:'Pedidos completos', incompleto:'Pedidos incompletos', 'sem-estoque':'Pedidos sem estoque' };
 function renderSleevePedidos(){
+  const coberturaPorCodigo = sleeveCoberturaPorCodigo();
   const pedidosPorNumero = {};
   sleeveOPs.forEach(o=>{
     if(!o.pedido) return;
-    if(!pedidosPorNumero[o.pedido]) pedidosPorNumero[o.pedido] = { clienteNome: o.clienteNome };
+    if(!pedidosPorNumero[o.pedido]) pedidosPorNumero[o.pedido] = { clienteNome: o.clienteNome, codigosPendentes: new Set() };
+    pedidosPorNumero[o.pedido].clienteNome = o.clienteNome;
+    if(o.codigo && !o.validado && !o.saiuDaFila) pedidosPorNumero[o.pedido].codigosPendentes.add(o.codigo);
   });
+  Object.values(pedidosPorNumero).forEach(p=>{
+    const cods = [...p.codigosPendentes];
+    if(!cods.length){ p.status = null; return; }
+    const todosCobrem = cods.every(c=> coberturaPorCodigo[c] && coberturaPorCodigo[c].cobre);
+    const nenhumTemEstoque = cods.every(c=> !coberturaPorCodigo[c] || !coberturaPorCodigo[c].temRecebimento);
+    p.status = todosCobrem ? 'completo' : (nenhumTemEstoque ? 'sem-estoque' : 'incompleto');
+  });
+
+  const wrapStatus = document.getElementById('sleeve-pedidos-status-cards');
+  const contagens = { completo:0, incompleto:0, 'sem-estoque':0 };
+  Object.values(pedidosPorNumero).forEach(p=>{ if(p.status) contagens[p.status]++; });
+  if(filtroStatusPedidoSleeve && !contagens.hasOwnProperty(filtroStatusPedidoSleeve)) filtroStatusPedidoSleeve = null;
+  wrapStatus.innerHTML = Object.keys(SLEEVE_PEDIDO_STATUS_LABEL).map(st=>{
+    const isActive = filtroStatusPedidoSleeve === st;
+    return `
+      <div class="stage-mini-card ${isActive?'active':''}" data-status="${st}">
+        <div class="smc-nome">${SLEEVE_PEDIDO_STATUS_LABEL[st]}</div>
+        <div class="smc-count ${contagens[st]===0?'zero':''}">${contagens[st]}</div>
+      </div>`;
+  }).join('');
+  wrapStatus.querySelectorAll('.stage-mini-card').forEach(card=>{
+    card.addEventListener('click', ()=>{
+      const st = card.dataset.status;
+      filtroStatusPedidoSleeve = (filtroStatusPedidoSleeve === st) ? null : st;
+      renderSleevePedidos();
+    });
+  });
+
   const selectCliente = document.getElementById('sleeve-pedidos-cliente-filter');
   const clientesUnicos = [...new Set(Object.values(pedidosPorNumero).map(p=>p.clienteNome))].sort((a,b)=>a.localeCompare(b));
   if(sleevePedidosClienteFiltro && !clientesUnicos.includes(sleevePedidosClienteFiltro)) sleevePedidosClienteFiltro = '';
@@ -7749,16 +7800,23 @@ function renderSleevePedidos(){
   const pedidosLista = Object.keys(pedidosPorNumero)
     .filter(ped=>{
       const p = pedidosPorNumero[ped];
+      if(filtroStatusPedidoSleeve && p.status !== filtroStatusPedidoSleeve) return false;
       if(sleevePedidosClienteFiltro && p.clienteNome !== sleevePedidosClienteFiltro) return false;
       if(!termo) return true;
       return ped.toLowerCase().includes(termo) || p.clienteNome.toLowerCase().includes(termo);
     })
     .sort((a,b)=> pedidosPorNumero[a].clienteNome.localeCompare(pedidosPorNumero[b].clienteNome) || a.localeCompare(b));
+  const SITUACAO_TAG = {
+    completo: '<span class="tag tag-repeticao">✓ COMPLETO</span>',
+    incompleto: '<span class="tag tag-confirmacao">INCOMPLETO</span>',
+    'sem-estoque': '<span class="tag tag-alterada">SEM ESTOQUE</span>',
+  };
   tbody.innerHTML = pedidosLista.length ? pedidosLista.map(ped=>`
     <tr>
       <td class="pedido">${ped}</td>
       <td>${pedidosPorNumero[ped].clienteNome}</td>
-    </tr>`).join('') : `<tr><td colspan="2" class="hist-empty">${termo || sleevePedidosClienteFiltro ? 'Nenhum pedido encontrado.' : 'Nenhum pedido importado ainda.'}</td></tr>`;
+      <td style="text-align:center;">${SITUACAO_TAG[pedidosPorNumero[ped].status] || '<span style="color:var(--text-faint);">—</span>'}</td>
+    </tr>`).join('') : `<tr><td colspan="3" class="hist-empty">${termo || sleevePedidosClienteFiltro || filtroStatusPedidoSleeve ? 'Nenhum pedido encontrado.' : 'Nenhum pedido importado ainda.'}</td></tr>`;
 }
 // Modal "quais OPs vão fazer": lista as OPs pendentes (não validadas) de um
 // código, aberta ao clicar no item na tela "Saldo de estoque".
