@@ -1308,7 +1308,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.47';
+const APP_VERSION = 'v9.48';
 const APP_VERSION_DATE = '02/09/2026';
 
 /* ========================================================================
@@ -7866,9 +7866,11 @@ function renderSleevePedidos(){
     }
   });
   Object.values(pedidosPorNumero).forEach(p=>{
-    const datas = [...p.datasEntrega].sort();
-    p.entregaDisplay = datas.length ? datas[0] : null;
-    p.entregaDivergente = datas.length > 1;
+    // Só preenche a coluna quando todos os itens do pedido têm a mesma
+    // Entrega; se divergir (ou não tiver data ainda), fica em branco — o
+    // detalhe por item continua no modal (clique no pedido).
+    const datas = [...p.datasEntrega];
+    p.entregaDisplay = datas.length === 1 ? datas[0] : null;
   });
   Object.values(pedidosPorNumero).forEach(p=>{
     const cods = [...p.codigosPendentes];
@@ -7964,8 +7966,7 @@ function renderSleevePedidos(){
     const situacao = p.statusFinal === 'a-validar'
       ? `<button class="btn small gold sleeve-pedido-validar-btn" data-pedido="${ped}">Validar</button>`
       : (SITUACAO_TAG[p.status] || '<span style="color:var(--text-faint);">—</span>');
-    const entrega = !p.entregaDisplay ? '<span style="color:var(--text-faint);">—</span>'
-      : fmtDate(p.entregaDisplay) + (p.entregaDivergente ? ` <span class="tag tag-alterada" title="Os itens desse pedido têm datas de entrega diferentes — clique no pedido pra ver item a item">⚠</span>` : '');
+    const entrega = p.entregaDisplay ? fmtDate(p.entregaDisplay) : '<span style="color:var(--text-faint);">—</span>';
     return `
     <tr>
       <td class="pedido"><button class="sleeve-item-link" data-pedido="${ped}" style="background:none; border:none; padding:0; text-align:left; cursor:pointer; color:inherit; font:inherit; text-decoration:underline;">${ped}</button></td>
