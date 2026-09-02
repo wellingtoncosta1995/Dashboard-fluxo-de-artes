@@ -835,9 +835,10 @@
             <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">Nome (item novo)</label>
             <input type="text" id="sleeve-receb-novo-nome-input" placeholder="Só preencha se o item ainda não existir" style="padding:9px 12px; border:1px solid var(--gold); border-radius:8px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif; background:var(--panel-alt); color:var(--text);">
           </div>
-          <div style="display:flex; flex-direction:column; gap:4px; min-width:140px;">
+          <div style="display:flex; flex-direction:column; gap:4px; min-width:140px; position:relative;">
             <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">Gráfica</label>
-            <input type="text" id="sleeve-receb-grafica-input" style="padding:9px 12px; border:1px solid var(--border-soft); border-radius:8px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif; background:var(--panel-alt); color:var(--text);">
+            <input type="text" id="sleeve-receb-grafica-input" autocomplete="off" style="padding:9px 12px; border:1px solid var(--border-soft); border-radius:8px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif; background:var(--panel-alt); color:var(--text);">
+            <div id="sleeve-receb-grafica-dropdown" class="item-autocomplete-panel" style="display:none;"></div>
           </div>
           <div style="display:flex; flex-direction:column; gap:4px; min-width:120px;">
             <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">NF</label>
@@ -1323,7 +1324,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.51';
+const APP_VERSION = 'v9.52';
 const APP_VERSION_DATE = '02/09/2026';
 
 /* ========================================================================
@@ -8156,6 +8157,32 @@ function setupItemAutocomplete(inputId, panelId){
   input.addEventListener('focus', render);
   input.addEventListener('blur', ()=>{ setTimeout(()=>{ panel.style.display = 'none'; }, 150); });
 }
+// Autocomplete de texto livre a partir do histórico já digitado (ex: nome
+// da gráfica) — sem catálogo fixo, só lembra o que já foi usado antes e vai
+// sugerindo conforme o usuário digita; itens novos entram sozinhos na lista
+// assim que são salvos num recebimento.
+function setupTextAutocomplete(inputId, panelId, getSugestoes){
+  const input = document.getElementById(inputId);
+  const panel = document.getElementById(panelId);
+  function render(){
+    const termo = input.value.trim().toLowerCase();
+    const sugestoes = getSugestoes();
+    const filtradas = termo ? sugestoes.filter(s=> s.toLowerCase().includes(termo) && s.toLowerCase()!==termo) : sugestoes;
+    if(!filtradas.length){ panel.style.display = 'none'; return; }
+    panel.innerHTML = filtradas.slice(0,50).map(s=>`<div class="item-autocomplete-option">${s}</div>`).join('');
+    panel.style.display = 'block';
+    panel.querySelectorAll('.item-autocomplete-option').forEach(opt=>{
+      opt.addEventListener('mousedown', (e)=>{
+        e.preventDefault();
+        input.value = opt.textContent;
+        panel.style.display = 'none';
+      });
+    });
+  }
+  input.addEventListener('input', render);
+  input.addEventListener('focus', render);
+  input.addEventListener('blur', ()=>{ setTimeout(()=>{ panel.style.display = 'none'; }, 150); });
+}
 function renderSleeveRecebimentos(){
   const tbody = document.querySelector('#sleeve-receb-table tbody');
   const lista = sleeveRecebimentos.slice().sort((a,b)=> new Date(b.criadoEm) - new Date(a.criadoEm));
@@ -8281,6 +8308,7 @@ function atualizarLotesSegregado(){
 document.getElementById('sleeve-segregado-item-input').addEventListener('input', atualizarLotesSegregado);
 setupItemAutocomplete('sleeve-receb-item-input', 'sleeve-receb-item-dropdown');
 setupItemAutocomplete('sleeve-segregado-item-input', 'sleeve-segregado-item-dropdown');
+setupTextAutocomplete('sleeve-receb-grafica-input', 'sleeve-receb-grafica-dropdown', ()=>[...new Set(sleeveRecebimentos.map(r=>r.grafica).filter(Boolean))].sort());
 function renderSleeveSegregados(){
   atualizarLotesSegregado();
 
