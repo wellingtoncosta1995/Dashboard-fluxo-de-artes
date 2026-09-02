@@ -877,7 +877,10 @@
 
     <div id="view-sleeve-validar" style="display:none;">
       <div class="topics-card">
-        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">PEDIDOS FINALIZADOS</span> <span class="link-text">modo de confronto — pedidos que sumiram da fila no último relatório reimportado; valide a quantidade produzida de verdade</span></p>
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
+          <p class="topics-intro" style="margin:0; padding:0; border:none;"><span class="mono-label">PEDIDOS FINALIZADOS</span> <span class="link-text">modo de confronto — pedidos que sumiram da fila no último relatório reimportado; valide a quantidade produzida de verdade</span></p>
+          <button class="btn small gold" id="btn-sleeve-confronto" style="flex-shrink:0; white-space:nowrap;">&#8613; Confronto (reimportar relatório)</button>
+        </div>
         <div class="hist-table-wrap" style="margin-top:12px;">
           <table class="hist" id="sleeve-validar-table">
             <thead>
@@ -1267,7 +1270,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.37';
+const APP_VERSION = 'v9.38';
 const APP_VERSION_DATE = '02/09/2026';
 
 /* ========================================================================
@@ -8041,6 +8044,7 @@ function abrirImportarSleeveModal(){
   overlay.classList.add('open');
 }
 document.getElementById('btn-sleeve-importar').addEventListener('click', abrirImportarSleeveModal);
+document.getElementById('btn-sleeve-confronto').addEventListener('click', abrirImportarSleeveModal);
 document.getElementById('sleeve-estoque-search-input').addEventListener('input', (e)=>{
   sleeveEstoqueSearchTerm = e.target.value;
   renderSleeveEstoque();
