@@ -1280,7 +1280,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.43';
+const APP_VERSION = 'v9.44';
 const APP_VERSION_DATE = '02/09/2026';
 
 /* ========================================================================
@@ -7774,9 +7774,26 @@ function renderSleevePedidos(){
     p.status = todosCobrem ? 'completo' : (nenhumTemEstoque ? 'sem-estoque' : 'incompleto');
   });
 
+  // Filtro combinado (status + máquina + cliente + busca). "ignorar" deixa
+  // de fora a própria dimensão que está sendo contada, pra cada linha de
+  // cards refletir só as OUTRAS restrições já ativas (faceted filtering) —
+  // assim um card só aparece/soma se realmente sobrar pedido com aquele
+  // corte, considerando o que já está filtrado nas outras linhas.
+  const termoAtual = sleevePedidosSearchTerm.trim().toLowerCase();
+  function pedidoPassaFiltros(ped, p, ignorar){
+    ignorar = ignorar || {};
+    if(!ignorar.status && filtroStatusPedidoSleeve && p.status !== filtroStatusPedidoSleeve) return false;
+    if(!ignorar.maquina && filtroMaquinaPedidoSleeve && !p.maquinas.has(filtroMaquinaPedidoSleeve)) return false;
+    if(sleevePedidosClienteFiltro && p.clienteNome !== sleevePedidosClienteFiltro) return false;
+    if(termoAtual && !(ped.toLowerCase().includes(termoAtual) || p.clienteNome.toLowerCase().includes(termoAtual))) return false;
+    return true;
+  }
+
   const wrapStatus = document.getElementById('sleeve-pedidos-status-cards');
   const contagens = { completo:0, incompleto:0, 'sem-estoque':0 };
-  Object.values(pedidosPorNumero).forEach(p=>{ if(p.status) contagens[p.status]++; });
+  Object.entries(pedidosPorNumero).forEach(([ped,p])=>{
+    if(p.status && pedidoPassaFiltros(ped, p, {status:true})) contagens[p.status]++;
+  });
   if(filtroStatusPedidoSleeve && !contagens.hasOwnProperty(filtroStatusPedidoSleeve)) filtroStatusPedidoSleeve = null;
   wrapStatus.innerHTML = Object.keys(SLEEVE_PEDIDO_STATUS_LABEL).map(st=>{
     const isActive = filtroStatusPedidoSleeve === st;
@@ -7794,20 +7811,22 @@ function renderSleevePedidos(){
     });
   });
 
-  // Cards de máquina: quantos pedidos (ainda com item pendente) têm alguma
-  // OP naquela máquina — clique filtra a lista abaixo, combinando com o
-  // status já selecionado (se houver).
+  // Cards de máquina: só aparece a máquina que ainda tem pelo menos um
+  // pedido depois de aplicar o status/cliente/busca já selecionados.
   const contagemMaquinas = {};
-  Object.values(pedidosPorNumero).forEach(p=>{ p.maquinas.forEach(m=>{ contagemMaquinas[m] = (contagemMaquinas[m]||0) + 1; }); });
+  Object.entries(pedidosPorNumero).forEach(([ped,p])=>{
+    if(!pedidoPassaFiltros(ped, p, {maquina:true})) return;
+    p.maquinas.forEach(m=>{ contagemMaquinas[m] = (contagemMaquinas[m]||0) + 1; });
+  });
   const todasMaquinasPedido = Object.keys(contagemMaquinas).sort();
-  if(filtroMaquinaPedidoSleeve && !todasMaquinasPedido.includes(filtroMaquinaPedidoSleeve)) filtroMaquinaPedidoSleeve = null;
+  if(filtroMaquinaPedidoSleeve && !contagemMaquinas[filtroMaquinaPedidoSleeve]) filtroMaquinaPedidoSleeve = null;
   const wrapMaquinaCards = document.getElementById('sleeve-pedidos-maquina-cards');
   wrapMaquinaCards.innerHTML = todasMaquinasPedido.map(maq=>{
     const isActive = filtroMaquinaPedidoSleeve === maq;
     return `
       <div class="stage-mini-card ${isActive?'active':''}" data-maquina="${maq}">
         <div class="smc-nome">${maq}</div>
-        <div class="smc-count ${contagemMaquinas[maq]===0?'zero':''}">${contagemMaquinas[maq]}</div>
+        <div class="smc-count">${contagemMaquinas[maq]}</div>
       </div>`;
   }).join('');
   wrapMaquinaCards.querySelectorAll('.stage-mini-card').forEach(card=>{
@@ -7825,16 +7844,8 @@ function renderSleevePedidos(){
   selectCliente.value = sleevePedidosClienteFiltro;
 
   const tbody = document.querySelector('#sleeve-pedidos-table tbody');
-  const termo = sleevePedidosSearchTerm.trim().toLowerCase();
   const pedidosLista = Object.keys(pedidosPorNumero)
-    .filter(ped=>{
-      const p = pedidosPorNumero[ped];
-      if(filtroStatusPedidoSleeve && p.status !== filtroStatusPedidoSleeve) return false;
-      if(filtroMaquinaPedidoSleeve && !p.maquinas.has(filtroMaquinaPedidoSleeve)) return false;
-      if(sleevePedidosClienteFiltro && p.clienteNome !== sleevePedidosClienteFiltro) return false;
-      if(!termo) return true;
-      return ped.toLowerCase().includes(termo) || p.clienteNome.toLowerCase().includes(termo);
-    })
+    .filter(ped=> pedidoPassaFiltros(ped, pedidosPorNumero[ped]))
     .sort((a,b)=> pedidosPorNumero[a].clienteNome.localeCompare(pedidosPorNumero[b].clienteNome) || a.localeCompare(b));
   const SITUACAO_TAG = {
     completo: '<span class="tag tag-repeticao">✓ COMPLETO</span>',
@@ -7846,7 +7857,7 @@ function renderSleevePedidos(){
       <td class="pedido">${ped}</td>
       <td>${pedidosPorNumero[ped].clienteNome}</td>
       <td style="text-align:center;">${SITUACAO_TAG[pedidosPorNumero[ped].status] || '<span style="color:var(--text-faint);">—</span>'}</td>
-    </tr>`).join('') : `<tr><td colspan="3" class="hist-empty">${termo || sleevePedidosClienteFiltro || filtroStatusPedidoSleeve || filtroMaquinaPedidoSleeve ? 'Nenhum pedido encontrado.' : 'Nenhum pedido importado ainda.'}</td></tr>`;
+    </tr>`).join('') : `<tr><td colspan="3" class="hist-empty">${termoAtual || sleevePedidosClienteFiltro || filtroStatusPedidoSleeve || filtroMaquinaPedidoSleeve ? 'Nenhum pedido encontrado.' : 'Nenhum pedido importado ainda.'}</td></tr>`;
 }
 // Modal "quais OPs vão fazer": lista as OPs pendentes (não validadas) de um
 // código, aberta ao clicar no item na tela "Saldo de estoque".
