@@ -824,12 +824,16 @@
 
     <div id="view-sleeve-recebimento" style="display:none;">
       <div class="topics-card">
-        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">RECEBIMENTO DE SLEEVE</span> <span class="link-text">registre cada recebimento — o saldo em "Saldo de estoque" é a soma automática das quantidades recebidas por item</span></p>
+        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">RECEBIMENTO DE SLEEVE</span> <span class="link-text">registre cada recebimento — o saldo em "Saldo de estoque" é a soma automática das quantidades recebidas por item. Se o item ainda não tiver pedido em fábrica, digite o código e preencha o nome pra cadastrar — quando o pedido entrar, ele já cai no mesmo saldo</span></p>
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; align-items:flex-end;">
           <div style="display:flex; flex-direction:column; gap:4px; flex:1; min-width:260px; position:relative;">
             <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">Item</label>
             <input type="text" id="sleeve-receb-item-input" autocomplete="off" placeholder="Código ou nome do item..." style="padding:9px 12px; border:1px solid var(--border-soft); border-radius:8px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif; background:var(--panel-alt); color:var(--text);">
             <div id="sleeve-receb-item-dropdown" class="item-autocomplete-panel" style="display:none;"></div>
+          </div>
+          <div id="sleeve-receb-novo-nome-wrap" style="display:none; flex-direction:column; gap:4px; min-width:220px;">
+            <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">Nome (item novo)</label>
+            <input type="text" id="sleeve-receb-novo-nome-input" placeholder="Só preencha se o item ainda não existir" style="padding:9px 12px; border:1px solid var(--gold); border-radius:8px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif; background:var(--panel-alt); color:var(--text);">
           </div>
           <div style="display:flex; flex-direction:column; gap:4px; min-width:140px;">
             <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">Gráfica</label>
@@ -1319,7 +1323,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.50';
+const APP_VERSION = 'v9.51';
 const APP_VERSION_DATE = '02/09/2026';
 
 /* ========================================================================
@@ -1930,6 +1934,7 @@ let clicheItensInfo = {}; // {codigo: {osCliche, numeroCliche, qtdCores}} — fi
 let sleeveOPs = []; // fila de produção importada do relatório RGER339 (ou parecido) — uma entrada por OP, ver parseSleeveRGER339
 let sleeveRecebimentos = []; // { id, codigo, nome, grafica, nf, lote, recebimento, fabricacao, validade (meses), quantidade, criadoEm } — cada entrada de matéria-prima registrada no card "Recebimento de sleeve"; o saldo em "Saldo de estoque" é a soma das quantidades por código
 let sleeveSegregados = []; // { id, codigo, nome, lote, grafica, nf, fabricacao, validade (meses), quantidade, criadoEm } — quantidade de um lote separada em "Estoque segregado"; descontada do saldo em "Saldo de estoque"
+let sleeveItensManuais = []; // { codigo, nome } — itens cadastrados manualmente em "Recebimento de sleeve" pra item que já tem saldo mas ainda não tem pedido em fábrica; quando uma OP real trouxer o mesmo código, o nome dela passa a valer (ver itensSleeveConhecidos)
 let sleevePedidosConhecidos = []; // números de pedido já vistos/validados na tela "Pedidos" — um pedido cujo número não está aqui é "novo" e cai no card "Pedidos a validar" até o usuário validar
 let sleevePedidosHistorico = []; // { pedido, clienteNome, status, itens:[{codigo,nome,pendenteUnidades,saldoUnidades,temRecebimento,cobre}], validadoEm } — snapshot de cada pedido no momento em que foi validado, pra tela "Histórico de pedidos"
 function extrairDiametro(nome){
@@ -2030,6 +2035,7 @@ async function loadState(){
     if(saved.sleeveOPs) sleeveOPs = saved.sleeveOPs;
     if(saved.sleeveRecebimentos) sleeveRecebimentos = saved.sleeveRecebimentos;
     if(saved.sleeveSegregados) sleeveSegregados = saved.sleeveSegregados;
+    if(saved.sleeveItensManuais) sleeveItensManuais = saved.sleeveItensManuais;
     if(saved.sleevePedidosConhecidos) sleevePedidosConhecidos = saved.sleevePedidosConhecidos;
     else sleevePedidosConhecidos = [...new Set(sleeveOPs.filter(o=>o.pedido).map(o=>o.pedido))]; // migração: pedidos já existentes antes desse recurso não entram retroativamente em "a validar"
     if(saved.sleevePedidosHistorico) sleevePedidosHistorico = saved.sleevePedidosHistorico;
@@ -2107,7 +2113,7 @@ async function saveState(){
     return;
   }
   try{
-    await window.storage.set('artes-pedidos-v3', JSON.stringify({pedidos, historico, regravacoes, nomeRelatorioAtual, lastImportTime, seedDescartada, tabelaCodigosInternos: TABELA_CODIGOS_INTERNOS, codigosUltimaAtualizacao, diametrosManual, clicheItensInfo, leadTimePorBoca, valoresChapa, valorClicheReferencia, tarefasDiarias, sleeveOPs, sleeveRecebimentos, sleeveSegregados, sleevePedidosConhecidos, sleevePedidosHistorico, stageOrderV2:true}), false);
+    await window.storage.set('artes-pedidos-v3', JSON.stringify({pedidos, historico, regravacoes, nomeRelatorioAtual, lastImportTime, seedDescartada, tabelaCodigosInternos: TABELA_CODIGOS_INTERNOS, codigosUltimaAtualizacao, diametrosManual, clicheItensInfo, leadTimePorBoca, valoresChapa, valorClicheReferencia, tarefasDiarias, sleeveOPs, sleeveRecebimentos, sleeveSegregados, sleeveItensManuais, sleevePedidosConhecidos, sleevePedidosHistorico, stageOrderV2:true}), false);
   }catch(e){ console.error('Falha ao salvar', e); }
 }
 
@@ -7762,6 +7768,9 @@ function renderSleeveFila(){
 // estoque" e pela classificação de status em "Pedidos".
 function sleeveCoberturaPorCodigo(){
   const porCodigo = {};
+  sleeveItensManuais.forEach(it=>{
+    porCodigo[it.codigo] = { nome:it.nome, clienteNome:'—', pendenteCaixas:0, pendenteUnidades:0, ops:[] };
+  });
   sleeveOPs.forEach(o=>{
     if(!o.codigo) return;
     if(!porCodigo[o.codigo]) porCodigo[o.codigo] = { nome:o.nome, clienteNome:o.clienteNome, pendenteCaixas:0, pendenteUnidades:0, ops:[] };
@@ -8112,7 +8121,8 @@ function abrirSleeveOPsModal(codigo){
 // não existe mais edição direta do saldo.
 function itensSleeveConhecidos(){
   const mapa = {};
-  sleeveOPs.forEach(o=>{ if(o.codigo) mapa[o.codigo] = o.nome; });
+  sleeveItensManuais.forEach(it=>{ mapa[it.codigo] = it.nome; });
+  sleeveOPs.forEach(o=>{ if(o.codigo) mapa[o.codigo] = o.nome; }); // pedido real sobrescreve o nome cadastrado manualmente
   return mapa;
 }
 // Autocomplete próprio pra escolher item (código/nome) nos cards de sleeve —
@@ -8176,14 +8186,33 @@ function renderSleeveRecebimentos(){
     });
   });
 }
+// Mostra o campo "Nome (item novo)" só quando o código digitado ainda não
+// existe em itensSleeveConhecidos (nem por OP, nem cadastrado antes) — é
+// o que permite lançar saldo de um item que ainda não tem pedido em fábrica.
+function atualizarCampoNovoItemSleeve(){
+  const itemInput = document.getElementById('sleeve-receb-item-input');
+  const wrap = document.getElementById('sleeve-receb-novo-nome-wrap');
+  const itensConhecidos = itensSleeveConhecidos();
+  const match = itemInput.value.trim().match(/^(\S+)\s+—/);
+  const codigo = match ? match[1] : itemInput.value.trim();
+  wrap.style.display = (codigo && !itensConhecidos[codigo]) ? 'flex' : 'none';
+}
+document.getElementById('sleeve-receb-item-input').addEventListener('input', atualizarCampoNovoItemSleeve);
 document.getElementById('sleeve-receb-add-btn').addEventListener('click', async ()=>{
   const itemInput = document.getElementById('sleeve-receb-item-input');
+  const novoNomeInput = document.getElementById('sleeve-receb-novo-nome-input');
   const erroDiv = document.getElementById('sleeve-receb-erro');
   const itensConhecidos = itensSleeveConhecidos();
   const match = itemInput.value.trim().match(/^(\S+)\s+—/);
   const codigo = match ? match[1] : itemInput.value.trim();
-  if(!codigo || !itensConhecidos[codigo]){
-    erroDiv.textContent = 'Selecione um item válido da lista (comece a digitar o código ou nome).';
+  if(!codigo){
+    erroDiv.textContent = 'Informe o item (código ou nome).';
+    return;
+  }
+  let nome = itensConhecidos[codigo];
+  const nomeNovo = novoNomeInput.value.trim();
+  if(!nome && !nomeNovo){
+    erroDiv.textContent = 'Esse item ainda não existe — preencha o campo "Nome (item novo)" pra cadastrar.';
     return;
   }
   const quantidade = parseNumeroBR(document.getElementById('sleeve-receb-qtd-input').value);
@@ -8192,10 +8221,14 @@ document.getElementById('sleeve-receb-add-btn').addEventListener('click', async 
     return;
   }
   erroDiv.textContent = '';
+  if(!nome){
+    sleeveItensManuais.push({ codigo, nome: nomeNovo });
+    nome = nomeNovo;
+  }
   sleeveRecebimentos.push({
     id: Date.now() + '-' + Math.random().toString(36).slice(2),
     codigo,
-    nome: itensConhecidos[codigo],
+    nome,
     grafica: document.getElementById('sleeve-receb-grafica-input').value.trim(),
     nf: document.getElementById('sleeve-receb-nf-input').value.trim(),
     lote: document.getElementById('sleeve-receb-lote-input').value.trim(),
@@ -8207,7 +8240,8 @@ document.getElementById('sleeve-receb-add-btn').addEventListener('click', async 
   });
   await saveState();
   renderTudoSleeve();
-  ['sleeve-receb-item-input','sleeve-receb-grafica-input','sleeve-receb-nf-input','sleeve-receb-lote-input','sleeve-receb-recebimento-input','sleeve-receb-fabricacao-input','sleeve-receb-validade-input','sleeve-receb-qtd-input'].forEach(id=>{ document.getElementById(id).value=''; });
+  ['sleeve-receb-item-input','sleeve-receb-novo-nome-input','sleeve-receb-grafica-input','sleeve-receb-nf-input','sleeve-receb-lote-input','sleeve-receb-recebimento-input','sleeve-receb-fabricacao-input','sleeve-receb-validade-input','sleeve-receb-qtd-input'].forEach(id=>{ document.getElementById(id).value=''; });
+  atualizarCampoNovoItemSleeve();
 });
 // Card "Estoque segregado": separa uma quantidade de um lote já recebido
 // (o restante dos dados — gráfica, NF, fabricação, validade — vem herdado
