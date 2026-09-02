@@ -772,7 +772,7 @@
         <div class="hist-table-wrap" style="margin-top:12px;">
           <table class="hist" id="sleeve-estoque-table">
             <thead>
-              <tr><th>Item</th><th>Cliente</th><th style="text-align:center;">Pendente (caixas)</th><th style="text-align:center;">Pendente (unid.)</th><th style="text-align:center;">Saldo (unid.)</th><th style="text-align:center;">Sobra (unid.)</th><th style="text-align:center;">Situação</th></tr>
+              <tr><th>OP</th><th>Item</th><th>Cliente</th><th style="text-align:center;">Pendente (caixas)</th><th style="text-align:center;">Pendente (unid.)</th><th style="text-align:center;">Saldo (unid.)</th><th style="text-align:center;">Sobra (unid.)</th><th style="text-align:center;">Situação</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -1305,7 +1305,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.45';
+const APP_VERSION = 'v9.46';
 const APP_VERSION_DATE = '02/09/2026';
 
 /* ========================================================================
@@ -7718,12 +7718,13 @@ function sleeveCoberturaPorCodigo(){
   const porCodigo = {};
   sleeveOPs.forEach(o=>{
     if(!o.codigo) return;
-    if(!porCodigo[o.codigo]) porCodigo[o.codigo] = { nome:o.nome, clienteNome:o.clienteNome, pendenteCaixas:0, pendenteUnidades:0 };
+    if(!porCodigo[o.codigo]) porCodigo[o.codigo] = { nome:o.nome, clienteNome:o.clienteNome, pendenteCaixas:0, pendenteUnidades:0, ops:[] };
     porCodigo[o.codigo].nome = o.nome;
     porCodigo[o.codigo].clienteNome = o.clienteNome;
     if(!o.validado && !o.saiuDaFila){
       porCodigo[o.codigo].pendenteCaixas += (o.qtdCaixas||0);
       if(o.qtdUnidades!=null) porCodigo[o.codigo].pendenteUnidades += o.qtdUnidades;
+      if(o.op) porCodigo[o.codigo].ops.push(o.op);
     }
   });
   Object.keys(porCodigo).forEach(cod=>{
@@ -7766,6 +7767,7 @@ function renderSleeveEstoque(){
     const it = itensPorCodigo[cod];
     return `
     <tr>
+      <td class="pedido">${it.ops.length ? [...new Set(it.ops)].join(', ') : '—'}</td>
       <td class="pedido"><button class="sleeve-item-link" data-codigo="${cod}" style="background:none; border:none; padding:0; text-align:left; cursor:pointer; color:inherit; font:inherit;">${cod}<br><small style="color:var(--text-faint); text-decoration:underline;">${it.nome}</small></button></td>
       <td>${it.clienteNome}</td>
       <td class="val" style="text-align:center;">${fmtMilhar0(it.pendenteCaixas)}</td>
@@ -7774,7 +7776,7 @@ function renderSleeveEstoque(){
       <td class="val" style="text-align:center;">${it.cobre ? fmtMilhar0(it.saldoUnidades-it.pendenteUnidades) : '—'}</td>
       <td style="text-align:center;">${!it.temRecebimento ? '<span style="color:var(--text-faint);">—</span>' : (it.cobre ? '<span class="tag tag-repeticao">✓ COBRE</span>' : `<span class="tag tag-alterada">FALTAM ${fmtMilhar0(it.pendenteUnidades-it.saldoUnidades)} UNID.</span>`)}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="7" class="hist-empty">${termo ? 'Nenhum item encontrado pra essa busca.' : 'Nenhum item importado ainda.'}</td></tr>`;
+  }).join('') : `<tr><td colspan="8" class="hist-empty">${termo ? 'Nenhum item encontrado pra essa busca.' : 'Nenhum item importado ainda.'}</td></tr>`;
   tbodyEstoque.querySelectorAll('.sleeve-item-link').forEach(btn=>{
     btn.addEventListener('click', ()=> abrirSleeveOPsModal(btn.dataset.codigo));
   });
