@@ -608,6 +608,7 @@
         <button class="nav-item nav-panel-head" data-view="fluxo-sleeve"><span class="icon"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="3.5" width="8" height="13" rx="3"/><path d="M6 8h8"/></svg></span> Fluxo de sleeve<span class="nav-chevron"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5 7 9l3.5-3.5"/></svg></span></button>
         <div id="sleeve-submenu" style="display:none;">
           <button class="nav-item nav-sub-item" data-view="sleeve-estoque">Saldo de estoque</button>
+          <button class="nav-item nav-sub-item" data-view="sleeve-pedidos">Pedidos</button>
           <button class="nav-item nav-sub-item" data-view="sleeve-recebimento">Recebimento de sleeve</button>
           <button class="nav-item nav-sub-item" data-view="sleeve-segregado">Estoque segregado</button>
           <button class="nav-item nav-sub-item" data-view="sleeve-validar">Pedidos finalizados</button>
@@ -760,6 +761,29 @@
           <table class="hist" id="sleeve-estoque-table">
             <thead>
               <tr><th>Item</th><th>Cliente</th><th style="text-align:center;">Pendente (caixas)</th><th style="text-align:center;">Pendente (unid.)</th><th style="text-align:center;">Saldo (unid.)</th><th style="text-align:center;">Sobra (unid.)</th><th style="text-align:center;">Situação</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-sleeve-pedidos" style="display:none;">
+      <div class="topics-card">
+        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">PEDIDOS</span> <span class="link-text">todos os números de pedido já vistos nos relatórios importados, com o cliente</span></p>
+        <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:12px;">
+          <div class="search-box" style="max-width:340px;">
+            <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
+            <input type="text" id="sleeve-pedidos-search-input" class="busca-livre" placeholder="Buscar por pedido ou cliente...">
+          </div>
+          <select id="sleeve-pedidos-cliente-filter" style="background:var(--panel-alt); border:1.5px solid var(--gold); color:var(--text); padding:9px 11px; border-radius:9px; font-size:13px; font-weight:600; font-family:'Plus Jakarta Sans',sans-serif; min-width:240px; cursor:pointer;">
+            <option value="">Todos os clientes</option>
+          </select>
+        </div>
+        <div class="hist-table-wrap" style="margin-top:12px;">
+          <table class="hist" id="sleeve-pedidos-table">
+            <thead>
+              <tr><th>Pedido</th><th>Cliente</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -1243,7 +1267,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.35';
+const APP_VERSION = 'v9.36';
 const APP_VERSION_DATE = '02/09/2026';
 
 /* ========================================================================
@@ -1895,6 +1919,8 @@ let leadTimePorBoca = JSON.parse(JSON.stringify(LEAD_TIME_INICIAL));
 let catalogoSearchTerm = '';
 let sleeveEstoqueSearchTerm = '';
 let sleeveEstoqueClienteFiltro = '';
+let sleevePedidosSearchTerm = '';
+let sleevePedidosClienteFiltro = '';
 let currentHistTab = 'finalizados';
 let currentView = 'board'; // board | leadtime | history
 let searchTerm = '';
@@ -5939,6 +5965,7 @@ const VIEW_TITULOS = {
   board: "Fluxo interno",
   'fluxo-sleeve': "Fluxo de sleeve",
   'sleeve-estoque': "Saldo de estoque",
+  'sleeve-pedidos': "Pedidos",
   'sleeve-recebimento': "Recebimento de sleeve",
   'sleeve-segregado': "Estoque segregado",
   'sleeve-validar': "Pedidos finalizados",
@@ -5968,12 +5995,13 @@ function switchView(view){
   if(view!=='cliche' && view!=='custo-mensal' && view!=='custo-anual' && view!=='valores-chapa') clicheSubmenuOpen = false;
   if(view!=='analise-entrega' && view!=='analise-entrega-historico') analiseEntregaSubmenuOpen = false;
   if(view!=='history') historySubmenuOpen = false;
-  if(view!=='fluxo-sleeve' && view!=='sleeve-estoque' && view!=='sleeve-recebimento' && view!=='sleeve-segregado' && view!=='sleeve-validar') sleeveSubmenuOpen = false;
+  if(view!=='fluxo-sleeve' && view!=='sleeve-estoque' && view!=='sleeve-pedidos' && view!=='sleeve-recebimento' && view!=='sleeve-segregado' && view!=='sleeve-validar') sleeveSubmenuOpen = false;
   if(BOARD_GROUP_VIEWS.includes(view)) boardSubmenuOpen = true;
   document.getElementById('view-home').style.display = view==='home' ? 'block' : 'none';
   document.getElementById('view-board').style.display = view==='board' ? 'block' : 'none';
   document.getElementById('view-fluxo-sleeve').style.display = view==='fluxo-sleeve' ? 'block' : 'none';
   document.getElementById('view-sleeve-estoque').style.display = view==='sleeve-estoque' ? 'block' : 'none';
+  document.getElementById('view-sleeve-pedidos').style.display = view==='sleeve-pedidos' ? 'block' : 'none';
   document.getElementById('view-sleeve-recebimento').style.display = view==='sleeve-recebimento' ? 'block' : 'none';
   document.getElementById('view-sleeve-segregado').style.display = view==='sleeve-segregado' ? 'block' : 'none';
   document.getElementById('view-sleeve-validar').style.display = view==='sleeve-validar' ? 'block' : 'none';
@@ -6012,6 +6040,7 @@ function switchView(view){
   if(view==='catalogo') renderCatalogo();
   if(view==='fluxo-sleeve') renderSleeveFila();
   if(view==='sleeve-estoque') renderSleeveEstoque();
+  if(view==='sleeve-pedidos') renderSleevePedidos();
   if(view==='sleeve-recebimento') renderSleeveRecebimentos();
   if(view==='sleeve-segregado') renderSleeveSegregados();
   if(view==='sleeve-validar') renderSleeveValidar();
@@ -7652,6 +7681,37 @@ function renderSleeveEstoque(){
     btn.addEventListener('click', ()=> abrirSleeveOPsModal(btn.dataset.codigo));
   });
 }
+// Tela "Pedidos": todo número de pedido já visto em algum relatório
+// importado, um por linha, com o cliente — pra gerenciar os pedidos sem
+// precisar abrir a fila de produção por máquina.
+function renderSleevePedidos(){
+  const pedidosPorNumero = {};
+  sleeveOPs.forEach(o=>{
+    if(!o.pedido) return;
+    if(!pedidosPorNumero[o.pedido]) pedidosPorNumero[o.pedido] = { clienteNome: o.clienteNome };
+  });
+  const selectCliente = document.getElementById('sleeve-pedidos-cliente-filter');
+  const clientesUnicos = [...new Set(Object.values(pedidosPorNumero).map(p=>p.clienteNome))].sort((a,b)=>a.localeCompare(b));
+  if(sleevePedidosClienteFiltro && !clientesUnicos.includes(sleevePedidosClienteFiltro)) sleevePedidosClienteFiltro = '';
+  selectCliente.innerHTML = `<option value="">Todos os clientes</option>` + clientesUnicos.map(c=>`<option value="${c}">${c}</option>`).join('');
+  selectCliente.value = sleevePedidosClienteFiltro;
+
+  const tbody = document.querySelector('#sleeve-pedidos-table tbody');
+  const termo = sleevePedidosSearchTerm.trim().toLowerCase();
+  const pedidosLista = Object.keys(pedidosPorNumero)
+    .filter(ped=>{
+      const p = pedidosPorNumero[ped];
+      if(sleevePedidosClienteFiltro && p.clienteNome !== sleevePedidosClienteFiltro) return false;
+      if(!termo) return true;
+      return ped.toLowerCase().includes(termo) || p.clienteNome.toLowerCase().includes(termo);
+    })
+    .sort((a,b)=> pedidosPorNumero[a].clienteNome.localeCompare(pedidosPorNumero[b].clienteNome) || a.localeCompare(b));
+  tbody.innerHTML = pedidosLista.length ? pedidosLista.map(ped=>`
+    <tr>
+      <td class="pedido">${ped}</td>
+      <td>${pedidosPorNumero[ped].clienteNome}</td>
+    </tr>`).join('') : `<tr><td colspan="2" class="hist-empty">${termo || sleevePedidosClienteFiltro ? 'Nenhum pedido encontrado.' : 'Nenhum pedido importado ainda.'}</td></tr>`;
+}
 // Modal "quais OPs vão fazer": lista as OPs pendentes (não validadas) de um
 // código, aberta ao clicar no item na tela "Saldo de estoque".
 function abrirSleeveOPsModal(codigo){
@@ -7915,6 +7975,7 @@ function renderSleeveValidar(){
 function renderTudoSleeve(){
   renderSleeveFila();
   renderSleeveEstoque();
+  renderSleevePedidos();
   renderSleeveRecebimentos();
   renderSleeveSegregados();
   renderSleeveValidar();
@@ -7971,6 +8032,14 @@ document.getElementById('sleeve-estoque-search-input').addEventListener('input',
 document.getElementById('sleeve-estoque-cliente-filter').addEventListener('change', (e)=>{
   sleeveEstoqueClienteFiltro = e.target.value;
   renderSleeveEstoque();
+});
+document.getElementById('sleeve-pedidos-search-input').addEventListener('input', (e)=>{
+  sleevePedidosSearchTerm = e.target.value;
+  renderSleevePedidos();
+});
+document.getElementById('sleeve-pedidos-cliente-filter').addEventListener('change', (e)=>{
+  sleevePedidosClienteFiltro = e.target.value;
+  renderSleevePedidos();
 });
 
 /* ========================================================================
