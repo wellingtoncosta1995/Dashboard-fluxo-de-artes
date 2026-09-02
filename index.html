@@ -609,6 +609,7 @@
         <div id="sleeve-submenu" style="display:none;">
           <button class="nav-item nav-sub-item" data-view="sleeve-estoque">Saldo de estoque</button>
           <button class="nav-item nav-sub-item" data-view="sleeve-recebimento">Recebimento de sleeve</button>
+          <button class="nav-item nav-sub-item" data-view="sleeve-segregado">Estoque segregado</button>
           <button class="nav-item nav-sub-item" data-view="sleeve-validar">Pedidos finalizados</button>
         </div>
       </div>
@@ -810,6 +811,39 @@
           <table class="hist" id="sleeve-receb-table">
             <thead>
               <tr><th>Item</th><th>Gráfica</th><th>NF</th><th>Lote</th><th>Recebimento</th><th>Fabricação</th><th>Validade</th><th style="text-align:center;">Quantidade</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div id="view-sleeve-segregado" style="display:none;">
+      <div class="topics-card">
+        <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">ESTOQUE SEGREGADO</span> <span class="link-text">separe uma quantidade de um lote já recebido — o saldo em "Saldo de estoque" passa a descontar o que está segregado</span></p>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; align-items:flex-end;">
+          <div style="display:flex; flex-direction:column; gap:4px; flex:1; min-width:260px;">
+            <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">Item</label>
+            <input type="text" id="sleeve-segregado-item-input" list="sleeve-segregado-item-list" placeholder="Código ou nome do item..." style="padding:9px 12px; border:1px solid var(--border-soft); border-radius:8px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif; background:var(--panel-alt); color:var(--text);">
+            <datalist id="sleeve-segregado-item-list"></datalist>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px; min-width:260px;">
+            <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">Lote</label>
+            <select id="sleeve-segregado-lote-select" style="padding:9px 12px; border:1px solid var(--border-soft); border-radius:8px; font-size:13px; font-family:'Plus Jakarta Sans',sans-serif; background:var(--panel-alt); color:var(--text);">
+              <option value="">Selecione o item primeiro...</option>
+            </select>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:4px; min-width:110px;">
+            <label style="font-size:10.5px; color:var(--text-faint); text-transform:uppercase;">Quantidade</label>
+            <input type="text" id="sleeve-segregado-qtd-input" placeholder="0" style="padding:9px 12px; border:1px solid var(--border-soft); border-radius:8px; font-size:13px; text-align:right; font-family:'IBM Plex Mono',monospace; background:var(--panel-alt); color:var(--text);">
+          </div>
+          <button class="btn gold" id="sleeve-segregado-add-btn">Adicionar</button>
+        </div>
+        <div id="sleeve-segregado-erro" style="font-size:12.5px; color:var(--red); margin-top:8px;"></div>
+        <div class="hist-table-wrap" style="margin-top:14px;">
+          <table class="hist" id="sleeve-segregado-table">
+            <thead>
+              <tr><th>Item</th><th>Gráfica</th><th>NF</th><th>Lote</th><th>Fabricação</th><th>Validade</th><th style="text-align:center;">Quantidade segregada</th><th></th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -1209,7 +1243,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.34';
+const APP_VERSION = 'v9.35';
 const APP_VERSION_DATE = '02/09/2026';
 
 /* ========================================================================
@@ -1819,6 +1853,7 @@ let diametrosManual = {}; // {codigo: diametro} — identificação manual, quan
 let clicheItensInfo = {}; // {codigo: {osCliche, numeroCliche, qtdCores}} — ficha do clichê de cada item do catálogo
 let sleeveOPs = []; // fila de produção importada do relatório RGER339 (ou parecido) — uma entrada por OP, ver parseSleeveRGER339
 let sleeveRecebimentos = []; // { id, codigo, nome, grafica, nf, lote, recebimento, fabricacao, validade (meses), quantidade, criadoEm } — cada entrada de matéria-prima registrada no card "Recebimento de sleeve"; o saldo em "Saldo de estoque" é a soma das quantidades por código
+let sleeveSegregados = []; // { id, codigo, nome, lote, grafica, nf, fabricacao, validade (meses), quantidade, criadoEm } — quantidade de um lote separada em "Estoque segregado"; descontada do saldo em "Saldo de estoque"
 function extrairDiametro(nome){
   const n = String(nome||'');
   // Potes/copos/embalagens costumam trazer a boca no formato "(101X82,5)" —
@@ -1910,6 +1945,7 @@ async function loadState(){
     if(saved.clicheItensInfo) clicheItensInfo = saved.clicheItensInfo;
     if(saved.sleeveOPs) sleeveOPs = saved.sleeveOPs;
     if(saved.sleeveRecebimentos) sleeveRecebimentos = saved.sleeveRecebimentos;
+    if(saved.sleeveSegregados) sleeveSegregados = saved.sleeveSegregados;
     if(saved.leadTimePorBoca) leadTimePorBoca = saved.leadTimePorBoca;
     tarefasDiarias = saved.tarefasDiarias || [];
     valoresChapa = saved.valoresChapa || JSON.parse(JSON.stringify(VALORES_CHAPA_SEED));
@@ -1984,7 +2020,7 @@ async function saveState(){
     return;
   }
   try{
-    await window.storage.set('artes-pedidos-v3', JSON.stringify({pedidos, historico, regravacoes, nomeRelatorioAtual, lastImportTime, seedDescartada, tabelaCodigosInternos: TABELA_CODIGOS_INTERNOS, codigosUltimaAtualizacao, diametrosManual, clicheItensInfo, leadTimePorBoca, valoresChapa, valorClicheReferencia, tarefasDiarias, sleeveOPs, sleeveRecebimentos, stageOrderV2:true}), false);
+    await window.storage.set('artes-pedidos-v3', JSON.stringify({pedidos, historico, regravacoes, nomeRelatorioAtual, lastImportTime, seedDescartada, tabelaCodigosInternos: TABELA_CODIGOS_INTERNOS, codigosUltimaAtualizacao, diametrosManual, clicheItensInfo, leadTimePorBoca, valoresChapa, valorClicheReferencia, tarefasDiarias, sleeveOPs, sleeveRecebimentos, sleeveSegregados, stageOrderV2:true}), false);
   }catch(e){ console.error('Falha ao salvar', e); }
 }
 
@@ -5904,6 +5940,7 @@ const VIEW_TITULOS = {
   'fluxo-sleeve': "Fluxo de sleeve",
   'sleeve-estoque': "Saldo de estoque",
   'sleeve-recebimento': "Recebimento de sleeve",
+  'sleeve-segregado': "Estoque segregado",
   'sleeve-validar': "Pedidos finalizados",
   cliche: "Custo de clichê",
   'custo-mensal': "Custo mensal",
@@ -5931,13 +5968,14 @@ function switchView(view){
   if(view!=='cliche' && view!=='custo-mensal' && view!=='custo-anual' && view!=='valores-chapa') clicheSubmenuOpen = false;
   if(view!=='analise-entrega' && view!=='analise-entrega-historico') analiseEntregaSubmenuOpen = false;
   if(view!=='history') historySubmenuOpen = false;
-  if(view!=='fluxo-sleeve' && view!=='sleeve-estoque' && view!=='sleeve-recebimento' && view!=='sleeve-validar') sleeveSubmenuOpen = false;
+  if(view!=='fluxo-sleeve' && view!=='sleeve-estoque' && view!=='sleeve-recebimento' && view!=='sleeve-segregado' && view!=='sleeve-validar') sleeveSubmenuOpen = false;
   if(BOARD_GROUP_VIEWS.includes(view)) boardSubmenuOpen = true;
   document.getElementById('view-home').style.display = view==='home' ? 'block' : 'none';
   document.getElementById('view-board').style.display = view==='board' ? 'block' : 'none';
   document.getElementById('view-fluxo-sleeve').style.display = view==='fluxo-sleeve' ? 'block' : 'none';
   document.getElementById('view-sleeve-estoque').style.display = view==='sleeve-estoque' ? 'block' : 'none';
   document.getElementById('view-sleeve-recebimento').style.display = view==='sleeve-recebimento' ? 'block' : 'none';
+  document.getElementById('view-sleeve-segregado').style.display = view==='sleeve-segregado' ? 'block' : 'none';
   document.getElementById('view-sleeve-validar').style.display = view==='sleeve-validar' ? 'block' : 'none';
   document.getElementById('sleeve-submenu').style.display = sleeveSubmenuOpen ? 'block' : 'none';
   syncGroupChevron('fluxo-sleeve', sleeveSubmenuOpen);
@@ -5975,6 +6013,7 @@ function switchView(view){
   if(view==='fluxo-sleeve') renderSleeveFila();
   if(view==='sleeve-estoque') renderSleeveEstoque();
   if(view==='sleeve-recebimento') renderSleeveRecebimentos();
+  if(view==='sleeve-segregado') renderSleeveSegregados();
   if(view==='sleeve-validar') renderSleeveValidar();
   if(view==='codigos') renderCodigosInternos();
   if(view==='leadtime') renderLeadTime();
@@ -7594,7 +7633,9 @@ function renderSleeveEstoque(){
     const it = itensPorCodigo[cod];
     const recebimentosDoItem = sleeveRecebimentos.filter(r=>r.codigo===cod);
     const temRecebimento = recebimentosDoItem.length > 0;
-    const saldoUnidades = recebimentosDoItem.reduce((s,r)=>s+(r.quantidade||0),0);
+    const totalRecebido = recebimentosDoItem.reduce((s,r)=>s+(r.quantidade||0),0);
+    const totalSegregado = sleeveSegregados.filter(s=>s.codigo===cod).reduce((s,r)=>s+(r.quantidade||0),0);
+    const saldoUnidades = totalRecebido - totalSegregado;
     const cobre = temRecebimento && saldoUnidades >= it.pendenteUnidades;
     return `
     <tr>
@@ -7718,6 +7759,120 @@ document.getElementById('sleeve-receb-add-btn').addEventListener('click', async 
   renderTudoSleeve();
   ['sleeve-receb-item-input','sleeve-receb-grafica-input','sleeve-receb-nf-input','sleeve-receb-lote-input','sleeve-receb-recebimento-input','sleeve-receb-fabricacao-input','sleeve-receb-validade-input','sleeve-receb-qtd-input'].forEach(id=>{ document.getElementById(id).value=''; });
 });
+// Card "Estoque segregado": separa uma quantidade de um lote já recebido
+// (o restante dos dados — gráfica, NF, fabricação, validade — vem herdado
+// do recebimento daquele lote). Descontado do saldo em "Saldo de estoque".
+function lotesDisponiveisDoItem(codigo){
+  const porLote = {};
+  sleeveRecebimentos.filter(r=>r.codigo===codigo).forEach(r=>{
+    const key = r.lote || '(sem lote)';
+    if(!porLote[key]) porLote[key] = { key, lote:r.lote||'', grafica:r.grafica, nf:r.nf, fabricacao:r.fabricacao, validade:r.validade, recebido:0 };
+    porLote[key].recebido += (r.quantidade||0);
+  });
+  const segregadoPorLote = {};
+  sleeveSegregados.filter(s=>s.codigo===codigo).forEach(s=>{
+    const key = s.lote || '(sem lote)';
+    segregadoPorLote[key] = (segregadoPorLote[key]||0) + (s.quantidade||0);
+  });
+  return Object.values(porLote).map(info=>{
+    const segregado = segregadoPorLote[info.key] || 0;
+    return { ...info, segregado, disponivel: info.recebido - segregado };
+  });
+}
+function atualizarLotesSegregado(){
+  const itemInput = document.getElementById('sleeve-segregado-item-input');
+  const loteSelect = document.getElementById('sleeve-segregado-lote-select');
+  const itensConhecidos = itensSleeveConhecidos();
+  const match = itemInput.value.trim().match(/^(\S+)\s+—/);
+  const codigo = match ? match[1] : itemInput.value.trim();
+  if(!codigo || !itensConhecidos[codigo]){
+    loteSelect.innerHTML = `<option value="">Selecione o item primeiro...</option>`;
+    return;
+  }
+  const lotes = lotesDisponiveisDoItem(codigo).sort((a,b)=> a.key.localeCompare(b.key));
+  loteSelect.innerHTML = lotes.length
+    ? lotes.map(l=>`<option value="${l.key}">${l.lote || '(sem lote)'} — disponível: ${fmtMilhar0(l.disponivel)}</option>`).join('')
+    : `<option value="">Nenhum recebimento registrado pra esse item</option>`;
+}
+document.getElementById('sleeve-segregado-item-input').addEventListener('input', atualizarLotesSegregado);
+function renderSleeveSegregados(){
+  const itensConhecidos = itensSleeveConhecidos();
+  const datalist = document.getElementById('sleeve-segregado-item-list');
+  datalist.innerHTML = Object.keys(itensConhecidos).sort().map(cod=>`<option value="${cod} — ${itensConhecidos[cod]}">`).join('');
+  atualizarLotesSegregado();
+
+  const tbody = document.querySelector('#sleeve-segregado-table tbody');
+  const lista = sleeveSegregados.slice().sort((a,b)=> new Date(b.criadoEm) - new Date(a.criadoEm));
+  tbody.innerHTML = lista.length ? lista.map(r=>`
+    <tr>
+      <td class="pedido">${r.codigo}<br><small style="color:var(--text-faint);">${r.nome}</small></td>
+      <td>${r.grafica || '—'}</td>
+      <td>${r.nf || '—'}</td>
+      <td>${r.lote || '—'}</td>
+      <td>${fmtDataInput(r.fabricacao)}</td>
+      <td>${sleeveValidadeProgressoHTML(r.fabricacao, r.validade)}</td>
+      <td class="val" style="text-align:center;">${fmtMilhar0(r.quantidade)}</td>
+      <td style="text-align:right;"><button class="sleeve-segregado-del" data-id="${r.id}" title="Remover" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:16px; line-height:1; padding:2px 4px;">&times;</button></td>
+    </tr>`).join('') : `<tr><td colspan="8" class="hist-empty">Nenhum item segregado ainda.</td></tr>`;
+
+  requestAnimationFrame(()=>{
+    tbody.querySelectorAll('.entrega-progress-fill').forEach(el=>{
+      el.style.width = el.dataset.pct + '%';
+    });
+  });
+
+  tbody.querySelectorAll('.sleeve-segregado-del').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      sleeveSegregados = sleeveSegregados.filter(r=>r.id!==btn.dataset.id);
+      await saveState();
+      renderTudoSleeve();
+    });
+  });
+}
+document.getElementById('sleeve-segregado-add-btn').addEventListener('click', async ()=>{
+  const itemInput = document.getElementById('sleeve-segregado-item-input');
+  const loteSelect = document.getElementById('sleeve-segregado-lote-select');
+  const erroDiv = document.getElementById('sleeve-segregado-erro');
+  const itensConhecidos = itensSleeveConhecidos();
+  const match = itemInput.value.trim().match(/^(\S+)\s+—/);
+  const codigo = match ? match[1] : itemInput.value.trim();
+  if(!codigo || !itensConhecidos[codigo]){
+    erroDiv.textContent = 'Selecione um item válido da lista (comece a digitar o código ou nome).';
+    return;
+  }
+  const loteInfo = lotesDisponiveisDoItem(codigo).find(l=>l.key===loteSelect.value);
+  if(!loteInfo){
+    erroDiv.textContent = 'Selecione um lote válido.';
+    return;
+  }
+  const quantidade = parseNumeroBR(document.getElementById('sleeve-segregado-qtd-input').value);
+  if(!quantidade || quantidade <= 0){
+    erroDiv.textContent = 'Informe uma quantidade válida.';
+    return;
+  }
+  if(quantidade > loteInfo.disponivel){
+    erroDiv.textContent = `Quantidade maior que o saldo disponível desse lote (${fmtMilhar0(loteInfo.disponivel)}).`;
+    return;
+  }
+  erroDiv.textContent = '';
+  sleeveSegregados.push({
+    id: Date.now() + '-' + Math.random().toString(36).slice(2),
+    codigo,
+    nome: itensConhecidos[codigo],
+    lote: loteInfo.lote,
+    grafica: loteInfo.grafica,
+    nf: loteInfo.nf,
+    fabricacao: loteInfo.fabricacao,
+    validade: loteInfo.validade,
+    quantidade,
+    criadoEm: new Date().toISOString(),
+  });
+  await saveState();
+  renderTudoSleeve();
+  itemInput.value = '';
+  document.getElementById('sleeve-segregado-qtd-input').value = '';
+  atualizarLotesSegregado();
+});
 // Tela "Pedidos finalizados": OPs cujo Término já passou e ainda não foram
 // validadas — o usuário confirma a quantidade produzida.
 function renderSleeveValidar(){
@@ -7761,6 +7916,7 @@ function renderTudoSleeve(){
   renderSleeveFila();
   renderSleeveEstoque();
   renderSleeveRecebimentos();
+  renderSleeveSegregados();
   renderSleeveValidar();
 }
 function abrirImportarSleeveModal(){
