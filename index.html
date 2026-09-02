@@ -172,6 +172,8 @@
     color:var(--gold-dark); background:var(--gold-bg-light); border:1px solid var(--gold);
     padding:3px 10px; border-radius:6px;
   }
+  .mono-label.alert{color:var(--red); background:var(--red-bg); border-color:var(--red);}
+  .topics-card.alert{border-color:var(--red);}
   .link-text{color:var(--text-dim); font-size:13.5px; font-weight:500;}
 
   .toolbar-row{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; align-items:center;}
@@ -772,6 +774,7 @@
       </div>
 
       <div class="stage-cards" id="sleeve-maquina-cards"></div>
+      <div id="sleeve-sem-cobertura-wrap"></div>
       <div id="sleeve-maquinas-wrap"></div>
     </div>
 
@@ -1331,7 +1334,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.55';
+const APP_VERSION = 'v9.56';
 const APP_VERSION_DATE = '02/09/2026';
 
 /* ========================================================================
@@ -7723,8 +7726,50 @@ function linhaSleeveOP(o){
 // tiveram algum recebimento registrado — ordenada pela data de entrega
 // (RPCP264) dentro de cada máquina.
 function renderSleeveFila(){
+  const coberturaPorCodigo = sleeveCoberturaPorCodigo();
   const codigosComRecebimento = new Set(sleeveRecebimentos.map(r=>r.codigo));
   const pendentes = sleeveOPs.filter(o=>!o.validado && !o.saiuDaFila && codigosComRecebimento.has(o.codigo));
+
+  // Card "Sem estoque suficiente": junta as OPs de todas as máquinas cujo
+  // item não cobre (zero saldo ou saldo parcial) — a demanda real é
+  // quantidade + data de entrega, não a máquina, então aparece à parte,
+  // ordenado pela entrega mais próxima primeiro.
+  const semCobertura = pendentes
+    .filter(o=> !(coberturaPorCodigo[o.codigo] && coberturaPorCodigo[o.codigo].cobre))
+    .sort((a,b)=> new Date(a.entrega||a.termino||0) - new Date(b.entrega||b.termino||0));
+  const wrapSemCobertura = document.getElementById('sleeve-sem-cobertura-wrap');
+  wrapSemCobertura.innerHTML = semCobertura.length ? `
+    <div class="topics-card alert" style="margin-bottom:16px;">
+      <p class="topics-intro" style="margin-bottom:10px; padding-bottom:10px;"><span class="mono-label alert">SEM ESTOQUE SUFICIENTE</span> <span class="link-text">itens sem sleeve disponível (ou saldo parcial) pra atender a fila — ordenado pela data de entrega mais próxima primeiro</span></p>
+      <div class="hist-table-wrap">
+        <table class="hist">
+          <thead><tr><th>OP</th><th>Item</th><th>Máquina</th><th>Pedido</th><th>Cliente</th><th style="text-align:right;">Qtd caixas</th><th style="text-align:center;">Situação</th><th>Data de entrega</th></tr></thead>
+          <tbody>${semCobertura.map(o=>{
+            const cob = coberturaPorCodigo[o.codigo];
+            const tag = (!cob || !cob.temRecebimento)
+              ? '<span class="tag tag-alterada">SEM ESTOQUE</span>'
+              : `<span class="tag tag-alterada">FALTAM ${fmtMilhar0(cob.pendenteUnidades-cob.saldoUnidades)} UNID.</span>`;
+            return `
+            <tr>
+              <td class="pedido">${o.op}</td>
+              <td>${o.codigo || '—'}<br><small style="color:var(--text-faint);">${o.nome}</small></td>
+              <td>${o.maquina}</td>
+              <td>${o.pedido}</td>
+              <td>${o.clienteNome}</td>
+              <td class="val">${o.qtdCaixas}</td>
+              <td style="text-align:center;">${tag}</td>
+              <td>${o.entrega ? entregaProgressoHTML(fmtDate(o.entrega)) : '—'}</td>
+            </tr>`;
+          }).join('')}</tbody>
+        </table>
+      </div>
+    </div>` : '';
+  requestAnimationFrame(()=>{
+    wrapSemCobertura.querySelectorAll('.entrega-progress-fill').forEach(el=>{
+      el.style.width = el.dataset.pct + '%';
+    });
+  });
+
   const porMaquina = {};
   pendentes.forEach(o=>{ (porMaquina[o.maquina] = porMaquina[o.maquina] || []).push(o); });
   const todasMaquinas = Object.keys(porMaquina).sort();
