@@ -780,6 +780,7 @@
       <div class="topics-card">
         <p class="topics-intro" style="margin-bottom:0; padding-bottom:0; border-bottom:none;"><span class="mono-label">PEDIDOS</span> <span class="link-text">todos os números de pedido já vistos nos relatórios importados, com o cliente</span></p>
         <div class="stage-cards" id="sleeve-pedidos-status-cards" style="margin-top:12px;"></div>
+        <div class="stage-cards" id="sleeve-pedidos-maquina-cards" style="margin-top:8px;"></div>
         <div style="display:flex; gap:12px; flex-wrap:wrap; margin-top:4px;">
           <div class="search-box" style="max-width:340px;">
             <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
@@ -1279,7 +1280,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.42';
+const APP_VERSION = 'v9.43';
 const APP_VERSION_DATE = '02/09/2026';
 
 /* ========================================================================
@@ -1933,6 +1934,7 @@ let sleeveEstoqueSearchTerm = '';
 let sleeveEstoqueClienteFiltro = '';
 let filtroMaquinaSleeve = null; // máquina selecionada nos cards de "Fluxo de sleeve" (clique alterna, null = mostra todas)
 let filtroStatusPedidoSleeve = null; // status selecionado nos cards de "Pedidos" (completo/incompleto/sem-estoque; clique alterna, null = mostra todos)
+let filtroMaquinaPedidoSleeve = null; // máquina selecionada nos cards de máquina de "Pedidos" (clique alterna, null = mostra todas)
 let sleevePedidosSearchTerm = '';
 let sleevePedidosClienteFiltro = '';
 let currentHistTab = 'finalizados';
@@ -7757,9 +7759,12 @@ function renderSleevePedidos(){
   const pedidosPorNumero = {};
   sleeveOPs.forEach(o=>{
     if(!o.pedido) return;
-    if(!pedidosPorNumero[o.pedido]) pedidosPorNumero[o.pedido] = { clienteNome: o.clienteNome, codigosPendentes: new Set() };
+    if(!pedidosPorNumero[o.pedido]) pedidosPorNumero[o.pedido] = { clienteNome: o.clienteNome, codigosPendentes: new Set(), maquinas: new Set() };
     pedidosPorNumero[o.pedido].clienteNome = o.clienteNome;
-    if(o.codigo && !o.validado && !o.saiuDaFila) pedidosPorNumero[o.pedido].codigosPendentes.add(o.codigo);
+    if(!o.validado && !o.saiuDaFila){
+      if(o.codigo) pedidosPorNumero[o.pedido].codigosPendentes.add(o.codigo);
+      pedidosPorNumero[o.pedido].maquinas.add(o.maquina || '—');
+    }
   });
   Object.values(pedidosPorNumero).forEach(p=>{
     const cods = [...p.codigosPendentes];
@@ -7789,6 +7794,30 @@ function renderSleevePedidos(){
     });
   });
 
+  // Cards de máquina: quantos pedidos (ainda com item pendente) têm alguma
+  // OP naquela máquina — clique filtra a lista abaixo, combinando com o
+  // status já selecionado (se houver).
+  const contagemMaquinas = {};
+  Object.values(pedidosPorNumero).forEach(p=>{ p.maquinas.forEach(m=>{ contagemMaquinas[m] = (contagemMaquinas[m]||0) + 1; }); });
+  const todasMaquinasPedido = Object.keys(contagemMaquinas).sort();
+  if(filtroMaquinaPedidoSleeve && !todasMaquinasPedido.includes(filtroMaquinaPedidoSleeve)) filtroMaquinaPedidoSleeve = null;
+  const wrapMaquinaCards = document.getElementById('sleeve-pedidos-maquina-cards');
+  wrapMaquinaCards.innerHTML = todasMaquinasPedido.map(maq=>{
+    const isActive = filtroMaquinaPedidoSleeve === maq;
+    return `
+      <div class="stage-mini-card ${isActive?'active':''}" data-maquina="${maq}">
+        <div class="smc-nome">${maq}</div>
+        <div class="smc-count ${contagemMaquinas[maq]===0?'zero':''}">${contagemMaquinas[maq]}</div>
+      </div>`;
+  }).join('');
+  wrapMaquinaCards.querySelectorAll('.stage-mini-card').forEach(card=>{
+    card.addEventListener('click', ()=>{
+      const maq = card.dataset.maquina;
+      filtroMaquinaPedidoSleeve = (filtroMaquinaPedidoSleeve === maq) ? null : maq;
+      renderSleevePedidos();
+    });
+  });
+
   const selectCliente = document.getElementById('sleeve-pedidos-cliente-filter');
   const clientesUnicos = [...new Set(Object.values(pedidosPorNumero).map(p=>p.clienteNome))].sort((a,b)=>a.localeCompare(b));
   if(sleevePedidosClienteFiltro && !clientesUnicos.includes(sleevePedidosClienteFiltro)) sleevePedidosClienteFiltro = '';
@@ -7801,6 +7830,7 @@ function renderSleevePedidos(){
     .filter(ped=>{
       const p = pedidosPorNumero[ped];
       if(filtroStatusPedidoSleeve && p.status !== filtroStatusPedidoSleeve) return false;
+      if(filtroMaquinaPedidoSleeve && !p.maquinas.has(filtroMaquinaPedidoSleeve)) return false;
       if(sleevePedidosClienteFiltro && p.clienteNome !== sleevePedidosClienteFiltro) return false;
       if(!termo) return true;
       return ped.toLowerCase().includes(termo) || p.clienteNome.toLowerCase().includes(termo);
@@ -7816,7 +7846,7 @@ function renderSleevePedidos(){
       <td class="pedido">${ped}</td>
       <td>${pedidosPorNumero[ped].clienteNome}</td>
       <td style="text-align:center;">${SITUACAO_TAG[pedidosPorNumero[ped].status] || '<span style="color:var(--text-faint);">—</span>'}</td>
-    </tr>`).join('') : `<tr><td colspan="3" class="hist-empty">${termo || sleevePedidosClienteFiltro || filtroStatusPedidoSleeve ? 'Nenhum pedido encontrado.' : 'Nenhum pedido importado ainda.'}</td></tr>`;
+    </tr>`).join('') : `<tr><td colspan="3" class="hist-empty">${termo || sleevePedidosClienteFiltro || filtroStatusPedidoSleeve || filtroMaquinaPedidoSleeve ? 'Nenhum pedido encontrado.' : 'Nenhum pedido importado ainda.'}</td></tr>`;
 }
 // Modal "quais OPs vão fazer": lista as OPs pendentes (não validadas) de um
 // código, aberta ao clicar no item na tela "Saldo de estoque".
