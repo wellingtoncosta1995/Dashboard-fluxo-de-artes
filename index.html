@@ -784,7 +784,10 @@
       <div class="topics-card">
         <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:16px; flex-wrap:wrap;">
           <p class="topics-intro" style="margin:0; padding:0; border:none;"><span class="mono-label">PEDIDOS</span> <span class="link-text">todos os números de pedido já vistos nos relatórios importados, com o cliente — clique num pedido pra ver a situação de cada item</span></p>
-          <button class="btn small gold" id="sleeve-pedidos-validar-todos-btn" style="flex-shrink:0; white-space:nowrap;">Validar todos</button>
+          <div style="display:flex; gap:8px; flex-shrink:0;">
+            <button class="btn small ghost" id="btn-sleeve-importar-entregas" style="white-space:nowrap;">&#8613; Datas de entrega (RPCP264)</button>
+            <button class="btn small gold" id="sleeve-pedidos-validar-todos-btn" style="white-space:nowrap;">Validar todos</button>
+          </div>
         </div>
         <div class="stage-cards" id="sleeve-pedidos-status-cards" style="margin-top:12px;"></div>
         <div class="stage-cards" id="sleeve-pedidos-maquina-cards" style="margin-top:8px;"></div>
@@ -800,7 +803,7 @@
         <div class="hist-table-wrap" style="margin-top:12px;">
           <table class="hist" id="sleeve-pedidos-table">
             <thead>
-              <tr><th>Pedido</th><th>Cliente</th><th style="text-align:center;">Situação</th></tr>
+              <tr><th>Pedido</th><th>Cliente</th><th style="text-align:center;">Situação</th><th style="text-align:center;">Data de entrega</th></tr>
             </thead>
             <tbody></tbody>
           </table>
@@ -1305,7 +1308,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.46';
+const APP_VERSION = 'v9.47';
 const APP_VERSION_DATE = '02/09/2026';
 
 /* ========================================================================
@@ -7652,6 +7655,32 @@ function mergeSleeveOPs(novasOPs){
     }
   });
 }
+// Relatório RPCP264 ("Fila de Produção por Recurso") — não traz o número do
+// pedido, só a OP e a data de Entrega. Como a OP já está ligada ao pedido
+// certo (importada antes via RGER339), basta casar pelo número da OP pra
+// anexar a data de entrega na OP já existente — não cria OP nova.
+function parseSleeveRPCP264(texto){
+  const entregas = [];
+  texto.split(/\r?\n/).forEach(linha=>{
+    if(!linha || !linha.trim()) return;
+    const campos = linha.split(';');
+    const opRaw = (campos[0]||'').trim();
+    if(!/^\d+$/.test(opRaw)) return;
+    const entrega = parseDataHoraBR(campos[16]);
+    if(!entrega) return;
+    entregas.push({ op:opRaw, entrega });
+  });
+  return entregas;
+}
+function mergeSleeveEntregas(entregas){
+  let atualizados = 0, naoEncontrados = 0;
+  entregas.forEach(({op, entrega})=>{
+    const registro = sleeveOPs.find(o=>o.op===op);
+    if(registro){ registro.entrega = entrega; atualizados++; }
+    else naoEncontrados++;
+  });
+  return { atualizados, naoEncontrados };
+}
 function linhaSleeveOP(o){
   return `
   <tr>
@@ -7793,11 +7822,23 @@ function renderSleeveEstoque(){
 // em "a validar" até o usuário confirmar — só então passa a contar no card
 // da classificação real e um snapshot vai pro "Histórico de pedidos".
 const SLEEVE_PEDIDO_STATUS_LABEL = { 'a-validar':'Pedidos a validar', completo:'Pedidos completos', incompleto:'Pedidos incompletos', 'sem-estoque':'Pedidos sem estoque' };
-function sleevePedidoItensInfo(p, coberturaPorCodigo){
-  const cods = p.codigosPendentes.size ? [...p.codigosPendentes] : [...p.codigosTodos];
-  return cods.map(c=>{
+// Itens do pedido com a data de Entrega de cada um (vem do relatório
+// RPCP264, anexada na OP — ver mergeSleeveEntregas). Usa as OPs ainda
+// pendentes do pedido; se não sobrar nenhuma (tudo já validado), cai pras
+// OPs que o pedido teve, só pra exibição.
+function sleevePedidoItensInfo(ped, coberturaPorCodigo){
+  const opsDoPedido = sleeveOPs.filter(o=>o.pedido===ped);
+  const relevantes = opsDoPedido.filter(o=>!o.validado && !o.saiuDaFila);
+  const base = relevantes.length ? relevantes : opsDoPedido;
+  const porCodigo = {};
+  base.forEach(o=>{
+    if(!o.codigo) return;
+    if(!porCodigo[o.codigo]) porCodigo[o.codigo] = null;
+    if(o.entrega && !porCodigo[o.codigo]) porCodigo[o.codigo] = o.entrega;
+  });
+  return Object.keys(porCodigo).map(c=>{
     const info = coberturaPorCodigo[c] || {};
-    return { codigo:c, nome:info.nome||'', pendenteUnidades:info.pendenteUnidades||0, saldoUnidades:info.saldoUnidades||0, temRecebimento:!!info.temRecebimento, cobre:!!info.cobre };
+    return { codigo:c, nome:info.nome||'', pendenteUnidades:info.pendenteUnidades||0, saldoUnidades:info.saldoUnidades||0, temRecebimento:!!info.temRecebimento, cobre:!!info.cobre, entrega:porCodigo[c] };
   });
 }
 function validarSleevePedido(ped, p, coberturaPorCodigo){
@@ -7806,7 +7847,7 @@ function validarSleevePedido(ped, p, coberturaPorCodigo){
     pedido: ped,
     clienteNome: p.clienteNome,
     status: p.status,
-    itens: sleevePedidoItensInfo(p, coberturaPorCodigo),
+    itens: sleevePedidoItensInfo(ped, coberturaPorCodigo),
     validadoEm: new Date().toISOString(),
   });
 }
@@ -7815,13 +7856,19 @@ function renderSleevePedidos(){
   const pedidosPorNumero = {};
   sleeveOPs.forEach(o=>{
     if(!o.pedido) return;
-    if(!pedidosPorNumero[o.pedido]) pedidosPorNumero[o.pedido] = { clienteNome: o.clienteNome, codigosPendentes: new Set(), codigosTodos: new Set(), maquinas: new Set() };
+    if(!pedidosPorNumero[o.pedido]) pedidosPorNumero[o.pedido] = { clienteNome: o.clienteNome, codigosPendentes: new Set(), codigosTodos: new Set(), maquinas: new Set(), datasEntrega: new Set() };
     pedidosPorNumero[o.pedido].clienteNome = o.clienteNome;
     if(o.codigo) pedidosPorNumero[o.pedido].codigosTodos.add(o.codigo);
+    if(o.entrega) pedidosPorNumero[o.pedido].datasEntrega.add(o.entrega);
     if(!o.validado && !o.saiuDaFila){
       if(o.codigo) pedidosPorNumero[o.pedido].codigosPendentes.add(o.codigo);
       pedidosPorNumero[o.pedido].maquinas.add(o.maquina || '—');
     }
+  });
+  Object.values(pedidosPorNumero).forEach(p=>{
+    const datas = [...p.datasEntrega].sort();
+    p.entregaDisplay = datas.length ? datas[0] : null;
+    p.entregaDivergente = datas.length > 1;
   });
   Object.values(pedidosPorNumero).forEach(p=>{
     const cods = [...p.codigosPendentes];
@@ -7917,19 +7964,22 @@ function renderSleevePedidos(){
     const situacao = p.statusFinal === 'a-validar'
       ? `<button class="btn small gold sleeve-pedido-validar-btn" data-pedido="${ped}">Validar</button>`
       : (SITUACAO_TAG[p.status] || '<span style="color:var(--text-faint);">—</span>');
+    const entrega = !p.entregaDisplay ? '<span style="color:var(--text-faint);">—</span>'
+      : fmtDate(p.entregaDisplay) + (p.entregaDivergente ? ` <span class="tag tag-alterada" title="Os itens desse pedido têm datas de entrega diferentes — clique no pedido pra ver item a item">⚠</span>` : '');
     return `
     <tr>
       <td class="pedido"><button class="sleeve-item-link" data-pedido="${ped}" style="background:none; border:none; padding:0; text-align:left; cursor:pointer; color:inherit; font:inherit; text-decoration:underline;">${ped}</button></td>
       <td>${p.clienteNome}</td>
       <td style="text-align:center;">${situacao}</td>
+      <td style="text-align:center;">${entrega}</td>
     </tr>`;
-  }).join('') : `<tr><td colspan="3" class="hist-empty">${termoAtual || sleevePedidosClienteFiltro || filtroStatusPedidoSleeve || filtroMaquinaPedidoSleeve ? 'Nenhum pedido encontrado.' : 'Nenhum pedido importado ainda.'}</td></tr>`;
+  }).join('') : `<tr><td colspan="4" class="hist-empty">${termoAtual || sleevePedidosClienteFiltro || filtroStatusPedidoSleeve || filtroMaquinaPedidoSleeve ? 'Nenhum pedido encontrado.' : 'Nenhum pedido importado ainda.'}</td></tr>`;
 
   tbody.querySelectorAll('.sleeve-item-link').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const ped = btn.dataset.pedido;
       const p = pedidosPorNumero[ped];
-      abrirSleevePedidoItensModal(ped, p.clienteNome, sleevePedidoItensInfo(p, coberturaPorCodigo));
+      abrirSleevePedidoItensModal(ped, p.clienteNome, sleevePedidoItensInfo(ped, coberturaPorCodigo));
     });
   });
   tbody.querySelectorAll('.sleeve-pedido-validar-btn').forEach(btn=>{
@@ -7990,7 +8040,8 @@ function abrirSleevePedidoItensModal(pedido, clienteNome, itens){
       <td class="val" style="text-align:center;">${fmtMilhar0(it.pendenteUnidades)}</td>
       <td class="val" style="text-align:center;">${it.temRecebimento ? fmtMilhar0(it.saldoUnidades) : '—'}</td>
       <td style="text-align:center;">${!it.temRecebimento ? '<span style="color:var(--text-faint);">—</span>' : (it.cobre ? '<span class="tag tag-repeticao">✓ COBRE</span>' : `<span class="tag tag-alterada">FALTAM ${fmtMilhar0(it.pendenteUnidades-it.saldoUnidades)} UNID.</span>`)}</td>
-    </tr>`).join('') : `<tr><td colspan="4" class="hist-empty">Nenhum item pendente pra esse pedido.</td></tr>`;
+      <td style="text-align:center;">${it.entrega ? fmtDate(it.entrega) : '<span style="color:var(--text-faint);">—</span>'}</td>
+    </tr>`).join('') : `<tr><td colspan="5" class="hist-empty">Nenhum item pendente pra esse pedido.</td></tr>`;
   modal.innerHTML = `
     <div class="modal-head">
       <div><h2 style="font-size:16px;">Pedido ${pedido}</h2><p>${clienteNome || ''}</p></div>
@@ -7998,7 +8049,7 @@ function abrirSleevePedidoItensModal(pedido, clienteNome, itens){
     </div>
     <div class="hist-table-wrap">
       <table class="hist">
-        <thead><tr><th>Item</th><th style="text-align:center;">Pendente (unid.)</th><th style="text-align:center;">Saldo (unid.)</th><th style="text-align:center;">Situação</th></tr></thead>
+        <thead><tr><th>Item</th><th style="text-align:center;">Pendente (unid.)</th><th style="text-align:center;">Saldo (unid.)</th><th style="text-align:center;">Situação</th><th style="text-align:center;">Entrega</th></tr></thead>
         <tbody>${linhas}</tbody>
       </table>
     </div>
@@ -8276,6 +8327,53 @@ function renderTudoSleeve(){
   renderSleeveValidar();
   renderSleevePedidosHistorico();
 }
+function abrirImportarEntregasModal(){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div><h2 style="font-size:16px;">Importar datas de entrega</h2><p>Envie o CSV exportado do ERP (RPCP264 — Fila de Produção por Recurso). Esse relatório não traz o pedido, só a OP e a Entrega — a data é anexada na OP já existente (importada antes via "Importar relatório"), casando pelo número da OP.</p></div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <div class="export-row">
+      <label>Arquivo do relatório (.csv)</label>
+      <input type="file" id="sleeve-import-entregas-file" accept=".csv" style="width:100%; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:8px; padding:8px 10px; font-size:12.5px; font-family:'Plus Jakarta Sans',sans-serif;">
+    </div>
+    <div id="sleeve-import-entregas-result" style="font-size:12.5px; margin-bottom:10px;"></div>
+    <div class="export-actions">
+      <button class="btn ghost" id="sleeve-import-entregas-cancel">Cancelar</button>
+      <button class="btn gold" id="sleeve-import-entregas-confirm">Processar e importar</button>
+    </div>
+  `;
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('sleeve-import-entregas-cancel').addEventListener('click', closeModal);
+  document.getElementById('sleeve-import-entregas-confirm').addEventListener('click', async (e)=>{
+    const fileInput = document.getElementById('sleeve-import-entregas-file');
+    const resultDiv = document.getElementById('sleeve-import-entregas-result');
+    const arquivo = fileInput.files[0];
+    if(!arquivo){
+      resultDiv.innerHTML = '<span style="color:var(--red);">Selecione o arquivo antes de processar.</span>';
+      return;
+    }
+    resultDiv.innerHTML = '<span style="color:var(--text-dim);">Lendo arquivo...</span>';
+    let texto;
+    try{ texto = await arquivo.text(); }
+    catch(err){ resultDiv.innerHTML = `<span style="color:var(--red);">Erro ao ler o arquivo: ${err.message}</span>`; return; }
+    const entregas = parseSleeveRPCP264(texto);
+    if(!entregas.length){
+      resultDiv.innerHTML = '<span style="color:var(--red);">Não encontrei nenhuma OP com data de entrega reconhecível nesse arquivo. Confira o formato do relatório.</span>';
+      return;
+    }
+    const { atualizados, naoEncontrados } = mergeSleeveEntregas(entregas);
+    await saveState();
+    renderTudoSleeve();
+    resultDiv.innerHTML = `<span style="color:var(--gold-dark);">${atualizados} OP(s) com data de entrega atualizada.${naoEncontrados ? ` ${naoEncontrados} OP(s) do relatório ainda não estão na fila (importe o relatório de produção antes).` : ''}</span>`;
+    e.target.textContent = 'Concluído';
+    e.target.disabled = true;
+    document.getElementById('sleeve-import-entregas-cancel').textContent = 'Fechar';
+  });
+  overlay.classList.add('open');
+}
 function abrirImportarSleeveModal(){
   const overlay = document.getElementById('overlay');
   const modal = document.getElementById('modal');
@@ -8322,6 +8420,7 @@ function abrirImportarSleeveModal(){
 }
 document.getElementById('btn-sleeve-importar').addEventListener('click', abrirImportarSleeveModal);
 document.getElementById('btn-sleeve-confronto').addEventListener('click', abrirImportarSleeveModal);
+document.getElementById('btn-sleeve-importar-entregas').addEventListener('click', abrirImportarEntregasModal);
 document.getElementById('sleeve-estoque-search-input').addEventListener('input', (e)=>{
   sleeveEstoqueSearchTerm = e.target.value;
   renderSleeveEstoque();
