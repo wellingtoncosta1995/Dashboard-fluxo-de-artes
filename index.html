@@ -730,7 +730,7 @@
 
         <div class="stage-cards" id="stage-cards"></div>
 
-        <div class="toolbar-row">
+        <div class="toolbar-row" id="board-toolbar-row">
           <button class="btn-outline" id="btn-multiselect">&#9745; SELECIONAR VÁRIOS</button>
           <div class="search-box">
             <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
@@ -744,6 +744,8 @@
           <button class="btn small gold" id="bulk-apply">Aplicar</button>
           <button class="btn small ghost" id="bulk-cancel">Cancelar</button>
         </div>
+
+        <div id="artes-sem-pedido-wrap" style="display:none;"></div>
 
         <div class="accordion" id="accordion" style="display:none;"></div>
 
@@ -1346,7 +1348,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.63';
+const APP_VERSION = 'v9.64';
 const APP_VERSION_DATE = '03/09/2026';
 
 /* ========================================================================
@@ -1481,6 +1483,11 @@ const STAGES = [
 ];
 const STAGE_ALTERACAO = 4; // etapa "Alteração de arte"
 const STAGE_DESENVOLVIMENTO = 3; // etapa "Arte em desenvolvimento" — a partir daqui a OS fica editável
+// Etapas disponíveis pra uma arte em "Artes sem pedido" (que ainda não tem pedido/cliente):
+// começa em "Arte em desenvolvimento" e vai até "Clichê em fábrica" — as 3 primeiras etapas
+// do fluxo normal (Sem tratativa, Aguardando conferência de layout, Aguardando arte p/
+// desenvolvimento) não fazem sentido pra algo desenvolvido por antecipação, sem pedido.
+const ARTE_SEM_PEDIDO_STAGES = STAGES.filter(s=>s.id >= STAGE_DESENVOLVIMENTO);
 const STAGE_APROVACAO_ARTE = 5; // etapa "Aguardando aprovação de arte" — exige OS preenchida em todos os itens
 const LIMITE_DIAS_COBRANCA_APROVACAO = 3; // dias após o envio da arte pra liberar a cobrança
 function diasEmAprovacao(p){
@@ -1950,6 +1957,7 @@ let pedidos = [];       // pedidos ativos no quadro (stage 0-10)
 let historico = [];     // finalizados + repetição
 let regravacoes = [];   // registros manuais de regravação de clichê
 let tarefasDiarias = []; // { id, texto, feito, criadoEm } — checklist pessoal de atividades do dia a dia
+let artesSemPedido = []; // { id, codigo, nome, observacao, criadoEm, stage, stageHistory } — arte desenvolvida por antecipação, sem pedido vinculado ainda; some da lista quando "puxada" pra um pedido real (ver vincularArteAoPedido)
 let catalogoItens = {}; // {codigo: nome} — deduplicado, extraído de todos os pedidos
 const DIAMETROS_CONHECIDOS = [68,75,79,93,101,120,150,185];
 let diametrosManual = {}; // {codigo: diametro} — identificação manual, quando não dá pra detectar pelo nome
@@ -2029,6 +2037,7 @@ let selectedIds = new Set();
 let openStages = new Set(); // acordeões abertos
 let boardViewMode = 'lista'; // lista | etapas
 let filtroEtapaLista = null; // id da etapa selecionada nos cards, ou null = todas
+let filtroArtesSemPedido = false; // true quando o card "Artes sem pedido" está selecionado (mutuamente exclusivo com filtroEtapaLista)
 let lastSyncTime = null;
 let lastImportTime = null;
 let seedDescartada = false; // true depois de "Zerar pedidos": impede que os dados fixos antigos (sem vendedor) voltem
@@ -2057,6 +2066,7 @@ async function loadState(){
     if(saved.codigosUltimaAtualizacao) codigosUltimaAtualizacao = saved.codigosUltimaAtualizacao;
     if(saved.diametrosManual) diametrosManual = saved.diametrosManual;
     if(saved.clicheItensInfo) clicheItensInfo = saved.clicheItensInfo;
+    if(saved.artesSemPedido) artesSemPedido = saved.artesSemPedido;
     if(saved.sleeveOPs) sleeveOPs = saved.sleeveOPs;
     if(saved.sleeveRecebimentos) sleeveRecebimentos = saved.sleeveRecebimentos;
     if(saved.sleeveSegregados) sleeveSegregados = saved.sleeveSegregados;
@@ -2138,7 +2148,7 @@ async function saveState(){
     return;
   }
   try{
-    await window.storage.set('artes-pedidos-v3', JSON.stringify({pedidos, historico, regravacoes, nomeRelatorioAtual, lastImportTime, seedDescartada, tabelaCodigosInternos: TABELA_CODIGOS_INTERNOS, codigosUltimaAtualizacao, diametrosManual, clicheItensInfo, leadTimePorBoca, valoresChapa, valorClicheReferencia, tarefasDiarias, sleeveOPs, sleeveRecebimentos, sleeveSegregados, sleeveItensManuais, sleevePedidosConhecidos, sleevePedidosHistorico, stageOrderV2:true}), false);
+    await window.storage.set('artes-pedidos-v3', JSON.stringify({pedidos, historico, regravacoes, nomeRelatorioAtual, lastImportTime, seedDescartada, tabelaCodigosInternos: TABELA_CODIGOS_INTERNOS, codigosUltimaAtualizacao, diametrosManual, clicheItensInfo, leadTimePorBoca, valoresChapa, valorClicheReferencia, tarefasDiarias, sleeveOPs, sleeveRecebimentos, sleeveSegregados, sleeveItensManuais, sleevePedidosConhecidos, sleevePedidosHistorico, artesSemPedido, stageOrderV2:true}), false);
   }catch(e){ console.error('Falha ao salvar', e); }
 }
 
@@ -2274,17 +2284,26 @@ function renderPageHeader(){
    ======================================================================== */
 function renderBoard(){
   renderStageCards();
-  document.getElementById('accordion').style.display = boardViewMode==='etapas' ? 'block' : 'none';
-  document.getElementById('lista-pedidos-wrap').style.display = boardViewMode==='lista' ? 'block' : 'none';
-  if(boardViewMode==='etapas') renderAccordion();
+  document.getElementById('board-toolbar-row').style.display = filtroArtesSemPedido ? 'none' : 'flex';
+  document.getElementById('artes-sem-pedido-wrap').style.display = filtroArtesSemPedido ? 'block' : 'none';
+  document.getElementById('accordion').style.display = (!filtroArtesSemPedido && boardViewMode==='etapas') ? 'block' : 'none';
+  document.getElementById('lista-pedidos-wrap').style.display = (!filtroArtesSemPedido && boardViewMode==='lista') ? 'block' : 'none';
+  if(filtroArtesSemPedido) renderArtesSemPedidoWrap();
+  else if(boardViewMode==='etapas') renderAccordion();
   else renderListaPedidos();
 }
 
 function renderStageCards(){
   const wrap = document.getElementById('stage-cards');
-  wrap.innerHTML = STAGES.map(stage=>{
+  const cardArtesSemPedido = `
+    <div class="stage-mini-card ${filtroArtesSemPedido?'active':''}" id="stage-card-artes-sem-pedido">
+      <div class="smc-num">—</div>
+      <div class="smc-nome">Artes sem pedido</div>
+      <div class="smc-count ${artesSemPedido.length===0?'zero':''}">${artesSemPedido.length}</div>
+    </div>`;
+  wrap.innerHTML = cardArtesSemPedido + STAGES.map(stage=>{
     const count = pedidos.filter(p=>p.stage===stage.id).length;
-    const isActive = filtroEtapaLista === stage.id;
+    const isActive = !filtroArtesSemPedido && filtroEtapaLista === stage.id;
     return `
       <div class="stage-mini-card ${isActive?'active':''}" data-stage="${stage.id}">
         <div class="smc-num">${stage.id}</div>
@@ -2292,13 +2311,201 @@ function renderStageCards(){
         <div class="smc-count ${count===0?'zero':''}">${count}</div>
       </div>`;
   }).join('');
-  wrap.querySelectorAll('.stage-mini-card').forEach(card=>{
+  document.getElementById('stage-card-artes-sem-pedido').addEventListener('click', ()=>{
+    filtroArtesSemPedido = !filtroArtesSemPedido;
+    if(filtroArtesSemPedido) filtroEtapaLista = null;
+    renderBoard();
+  });
+  wrap.querySelectorAll('.stage-mini-card[data-stage]').forEach(card=>{
     card.addEventListener('click', ()=>{
       const stageId = parseInt(card.dataset.stage,10);
+      filtroArtesSemPedido = false;
       filtroEtapaLista = (filtroEtapaLista === stageId) ? null : stageId;
       renderBoard();
     });
   });
+}
+
+/* ========================================================================
+   RENDER — ARTES SEM PEDIDO (arte desenvolvida por antecipação, ainda sem
+   pedido/cliente — acompanha etapa e histórico como um pedido normal, mas só
+   sai daqui quando "vinculada" a um pedido real que chegou em Sem tratativa)
+   ======================================================================== */
+function gerarIdArteSemPedido(){
+  return 'asp_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+}
+function renderArtesSemPedidoWrap(){
+  const wrap = document.getElementById('artes-sem-pedido-wrap');
+  const itens = artesSemPedido.slice().sort((a,b)=> new Date(b.criadoEm) - new Date(a.criadoEm));
+  wrap.innerHTML = `
+    <p class="topics-intro" style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border-soft);"><span class="mono-label">ARTES SEM PEDIDO</span> <span class="link-text">arte desenvolvida por antecipação, sem pedido vinculado ainda — acompanhe a etapa até "Clichê em fábrica" e vincule a um pedido real quando ele chegar</span></p>
+    <button id="asp-add-toggle-btn" style="background:none; border:none; color:var(--blue-dark); font-weight:600; font-size:12px; cursor:pointer; padding:8px 0; display:flex; align-items:center; gap:5px;">&#10011; Adicionar item</button>
+    <div id="asp-add-form" style="display:none; margin-bottom:12px; padding:12px; background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:9px;">
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:8px;">
+        <div>
+          <div class="k" style="font-size:10.5px; margin-bottom:4px;">Código</div>
+          <input type="text" id="asp-add-codigo" placeholder="Código" style="width:120px; background:var(--panel); border:1px solid var(--border-soft); color:var(--text); border-radius:7px; padding:6px 9px; font-size:12px; font-family:'IBM Plex Mono',monospace;">
+        </div>
+        <div style="flex:1; min-width:220px;">
+          <div class="k" style="font-size:10.5px; margin-bottom:4px;">Nome do item</div>
+          <input type="text" id="asp-add-nome" placeholder="Nome do item" style="width:100%; background:var(--panel); border:1px solid var(--border-soft); color:var(--text); border-radius:7px; padding:6px 9px; font-size:12px; box-sizing:border-box;">
+        </div>
+        <div style="flex:1; min-width:220px;">
+          <div class="k" style="font-size:10.5px; margin-bottom:4px;">Observação (opcional)</div>
+          <input type="text" id="asp-add-obs" placeholder="Observação" style="width:100%; background:var(--panel); border:1px solid var(--border-soft); color:var(--text); border-radius:7px; padding:6px 9px; font-size:12px; box-sizing:border-box;">
+        </div>
+      </div>
+      <div style="display:flex; gap:8px;">
+        <button id="asp-add-confirm-btn" class="finalize-mini" style="padding:7px 12px;">&#10003; Adicionar</button>
+        <button id="asp-add-cancel-btn" style="background:none; border:none; color:var(--text-faint); font-weight:600; font-size:12px; cursor:pointer;">Cancelar</button>
+      </div>
+    </div>
+    <div class="hist-table-wrap">
+      <table class="hist">
+        <thead><tr><th>Código</th><th>Item</th><th>Etapa atual</th><th>Parado há</th><th></th></tr></thead>
+        <tbody>${itens.length ? itens.map(a=>{
+          const stage = STAGES.find(s=>s.id===a.stage);
+          const ultimaEntrada = (a.stageHistory && a.stageHistory.length) ? new Date(a.stageHistory[a.stageHistory.length-1].entradaEm) : new Date(a.criadoEm);
+          const parado = formatDuracao(new Date() - ultimaEntrada);
+          return `
+          <tr class="asp-row" data-id="${a.id}" style="cursor:pointer;">
+            <td class="pedido">${fmtCodigo(a.codigo)}</td>
+            <td>${a.nome}${a.observacao ? `<br><small style="color:var(--text-faint);">${a.observacao}</small>` : ''}</td>
+            <td><span class="lp-etapa-badge">${stage ? `${stage.id} — ${stage.nome}` : '—'}</span></td>
+            <td style="font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:var(--text-dim);">${parado}</td>
+            <td onclick="event.stopPropagation()"><button class="btn small gold asp-vincular-btn" data-id="${a.id}">Vincular a pedido</button></td>
+          </tr>`;
+        }).join('') : `<tr><td colspan="5" class="lp-empty">Nenhuma arte sem pedido cadastrada.</td></tr>`}</tbody>
+      </table>
+    </div>
+  `;
+  document.getElementById('asp-add-toggle-btn').addEventListener('click', ()=>{
+    const form = document.getElementById('asp-add-form');
+    form.style.display = form.style.display==='none' ? 'block' : 'none';
+    if(form.style.display==='block') document.getElementById('asp-add-codigo').focus();
+  });
+  document.getElementById('asp-add-cancel-btn').addEventListener('click', ()=>{
+    document.getElementById('asp-add-form').style.display = 'none';
+  });
+  document.getElementById('asp-add-confirm-btn').addEventListener('click', ()=>{
+    const codigo = document.getElementById('asp-add-codigo').value.trim();
+    const nome = document.getElementById('asp-add-nome').value.trim();
+    const observacao = document.getElementById('asp-add-obs').value.trim();
+    if(!codigo || !nome){ alert('Preencha código e nome do item.'); return; }
+    const agora = new Date().toISOString();
+    artesSemPedido.push({
+      id: gerarIdArteSemPedido(),
+      codigo, nome, observacao,
+      criadoEm: agora,
+      stage: STAGE_DESENVOLVIMENTO,
+      stageHistory: [{stage: STAGE_DESENVOLVIMENTO, entradaEm: agora}],
+    });
+    saveState();
+    renderAll();
+  });
+  wrap.querySelectorAll('.asp-row').forEach(tr=>{
+    tr.addEventListener('click', ()=> openArteSemPedidoModal(tr.dataset.id));
+  });
+  wrap.querySelectorAll('.asp-vincular-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=> openVincularArteModal(btn.dataset.id));
+  });
+}
+function openArteSemPedidoModal(arteId){
+  const arte = artesSemPedido.find(a=>a.id===arteId);
+  if(!arte) return;
+  const modal = document.getElementById('modal');
+  modal.innerHTML = `
+    <div class="modal-head" style="margin-bottom:10px;">
+      <div>
+        <h2 style="font-size:19px;">${fmtCodigo(arte.codigo)}</h2>
+        <p style="margin-top:4px;">${arte.nome}</p>
+        ${arte.observacao ? `<p style="margin-top:2px; color:var(--text-dim); font-size:12.5px;">${arte.observacao}</p>` : ''}
+      </div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <hr class="divider" style="margin:10px 0;">
+    <div class="modal-row"><span class="k">Etapa atual</span><span class="v"><select class="stage-select" id="asp-stage-select">${ARTE_SEM_PEDIDO_STAGES.map(s=>`<option value="${s.id}" ${s.id===arte.stage?'selected':''}>${s.id} — ${s.nome}</option>`).join('')}</select></span></div>
+    <hr class="divider" style="margin:10px 0;">
+    <div class="k" style="font-size:12.5px; margin-bottom:8px;">Histórico de fluxo</div>
+    <div class="alt-list" style="max-height:none;">${buildFluxoHistoricoHTML(arte, true)}</div>
+    <hr class="divider" style="margin:16px 0 10px;">
+    <button id="asp-vincular-btn" style="width:100%; padding:9px 0; border-radius:9px; border:1px solid var(--gold); background:var(--gold-bg-light); color:var(--gold-dark); font-weight:700; font-size:13px; cursor:pointer;">&#8618; Vincular a um pedido</button>
+    <button id="asp-excluir-btn" style="margin-top:10px; width:100%; padding:9px 0; border-radius:9px; border:1px solid var(--red); background:var(--red-bg); color:var(--red); font-weight:700; font-size:13px; cursor:pointer;">&#10005; Excluir</button>
+  `;
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('asp-stage-select').addEventListener('change', (e)=>{
+    const novaEtapa = parseInt(e.target.value,10);
+    registrarMudancaEtapa(arte, novaEtapa);
+    arte.stage = novaEtapa;
+    saveState();
+    renderAll();
+    openArteSemPedidoModal(arteId);
+  });
+  attachFluxoHistoricoEditListeners(modal, arte, ()=> openArteSemPedidoModal(arteId));
+  document.getElementById('asp-vincular-btn').addEventListener('click', ()=> openVincularArteModal(arteId));
+  document.getElementById('asp-excluir-btn').addEventListener('click', ()=>{
+    if(!confirm(`Excluir "${arte.nome}" de Artes sem pedido? Essa ação não pode ser desfeita.`)) return;
+    artesSemPedido = artesSemPedido.filter(a=>a.id!==arteId);
+    closeModal();
+    saveState();
+    renderAll();
+  });
+  document.getElementById('overlay').classList.add('open');
+}
+function openVincularArteModal(arteId){
+  const arte = artesSemPedido.find(a=>a.id===arteId);
+  if(!arte) return;
+  const modal = document.getElementById('modal');
+  modal.innerHTML = `
+    <div class="modal-head" style="margin-bottom:10px;">
+      <div>
+        <button id="asp-vincular-voltar" style="background:none; border:none; color:var(--blue-dark); font-weight:600; font-size:12.5px; cursor:pointer; padding:0 0 8px; display:flex; align-items:center; gap:5px;">&#8592; Voltar</button>
+        <h2 style="font-size:19px;">Vincular a um pedido</h2>
+        <p>${fmtCodigo(arte.codigo)} · ${arte.nome}</p>
+      </div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <hr class="divider" style="margin:10px 0;">
+    <p style="font-size:12px; color:var(--text-dim); margin-bottom:10px;">Só pedidos ainda em "Sem tratativa" aparecem aqui. Ao vincular, o pedido pula direto pra etapa em que essa arte já está, com o histórico dela.</p>
+    <div class="search-box" style="margin-bottom:10px;">
+      <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
+      <input type="text" id="asp-vincular-search-input" class="busca-livre" placeholder="Buscar pedido, cliente ou item...">
+    </div>
+    <div class="alt-list" id="asp-vincular-lista-wrap" style="max-height:none;"></div>
+  `;
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  document.getElementById('asp-vincular-voltar').addEventListener('click', ()=> openArteSemPedidoModal(arteId));
+  function renderLista(){
+    const termo = document.getElementById('asp-vincular-search-input').value;
+    const candidatos = pedidos.filter(p=> p.tipo==='ativo' && p.stage===0 && matchesSearch(p, termo))
+      .sort((a,b)=>parseDateBR(a.entrega)-parseDateBR(b.entrega));
+    const listaWrap = document.getElementById('asp-vincular-lista-wrap');
+    listaWrap.innerHTML = candidatos.length ? candidatos.map(p=>`
+      <div class="alt-item asp-vincular-opt" data-id="${p.id}" style="cursor:pointer;">
+        <div class="alt-date-row"><span class="alt-date"><b style="color:var(--text);">${p.pedido}</b> · ${p.clienteNome}</span></div>
+        <div class="alt-note">${p.itens.map(it=>fmtCodigo(it.codigo)+' - '+it.nome).join('; ')}</div>
+      </div>
+    `).join('') : `<div class="empty-alt">Nenhum pedido em "Sem tratativa" encontrado.</div>`;
+    listaWrap.querySelectorAll('.asp-vincular-opt').forEach(el=>{
+      el.addEventListener('click', ()=> vincularArteAoPedido(arteId, el.dataset.id));
+    });
+  }
+  document.getElementById('asp-vincular-search-input').addEventListener('input', renderLista);
+  renderLista();
+  document.getElementById('overlay').classList.add('open');
+}
+function vincularArteAoPedido(arteId, pedidoId){
+  const arte = artesSemPedido.find(a=>a.id===arteId);
+  const pedido = pedidos.find(p=>p.id===pedidoId);
+  if(!arte || !pedido) return;
+  const stage = STAGES.find(s=>s.id===arte.stage);
+  if(!confirm(`Vincular a arte "${arte.nome}" ao pedido ${pedido.pedido} (${pedido.clienteNome})? O pedido vai pular direto pra etapa "${stage ? stage.nome : arte.stage}", com todo o histórico já registrado nessa arte.`)) return;
+  pedido.stage = arte.stage;
+  pedido.stageHistory = (arte.stageHistory && arte.stageHistory.length) ? arte.stageHistory.map(h=>({...h})) : [{stage:arte.stage, entradaEm:new Date().toISOString()}];
+  artesSemPedido = artesSemPedido.filter(a=>a.id!==arteId);
+  closeModal();
+  saveState();
+  renderAll();
 }
 
 function renderListaPedidos(){
