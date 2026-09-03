@@ -781,6 +781,7 @@
     <div id="view-sleeve-sem-cobertura" style="display:none;">
       <div class="topics-card alert" id="sleeve-sem-cobertura-card">
         <p class="topics-intro" style="margin-bottom:10px; padding-bottom:10px;"><span class="mono-label alert">PEDIDOS SEM SLEEVE / PARCIAL</span> <span class="link-text">itens sem sleeve disponível (ou saldo parcial) pra atender a fila, separados por máquina — ordenado pela data de entrega mais próxima primeiro</span></p>
+        <div class="stage-cards" id="sleeve-sem-cobertura-maquina-cards" style="margin-bottom:12px;"></div>
         <div class="search-box" style="max-width:340px; margin-bottom:12px;">
           <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
           <input type="text" id="sleeve-sem-cobertura-search-input" class="busca-livre" placeholder="Buscar por item, cliente ou pedido...">
@@ -1345,7 +1346,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.60';
+const APP_VERSION = 'v9.61';
 const APP_VERSION_DATE = '03/09/2026';
 
 /* ========================================================================
@@ -2001,7 +2002,8 @@ let catalogoSearchTerm = '';
 let sleeveEstoqueSearchTerm = '';
 let sleeveEstoqueClienteFiltro = '';
 let filtroMaquinaSleeve = null; // máquina selecionada nos cards de "Fluxo de sleeve" (clique alterna, null = mostra todas)
-let sleeveSemCoberturaSearchTerm = ''; // busca do card "Pedidos sem sleeve / Parcial" (por item, cliente ou pedido)
+let sleeveSemCoberturaSearchTerm = ''; // busca da tela "Pedidos sem sleeve / Parcial" (por item, cliente ou pedido)
+let filtroMaquinaSemCobertura = null; // máquina selecionada nos cards de "Pedidos sem sleeve / Parcial" (clique alterna, null = mostra todas)
 let filtroStatusPedidoSleeve = null; // status selecionado nos cards de "Pedidos" (completo/incompleto/sem-estoque; clique alterna, null = mostra todos)
 let filtroMaquinaPedidoSleeve = null; // máquina selecionada nos cards de máquina de "Pedidos" (clique alterna, null = mostra todas)
 let sleevePedidosHistoricoSearchTerm = '';
@@ -7757,16 +7759,43 @@ function sleeveSemCoberturaCalc(){
 // cliente ou pedido.
 function renderSleeveSemCobertura(){
   const { coberturaPorCodigo, alocacaoPorOP, semCobertura } = sleeveSemCoberturaCalc();
+
+  const porMaquinaTotal = {};
+  semCobertura.forEach(o=>{ (porMaquinaTotal[o.maquina] = porMaquinaTotal[o.maquina] || []).push(o); });
+  const todasMaquinasSemCobertura = Object.keys(porMaquinaTotal).sort();
+  if(filtroMaquinaSemCobertura && !todasMaquinasSemCobertura.includes(filtroMaquinaSemCobertura)) filtroMaquinaSemCobertura = null;
+
+  const wrapCardsMaquina = document.getElementById('sleeve-sem-cobertura-maquina-cards');
+  wrapCardsMaquina.innerHTML = todasMaquinasSemCobertura.map(maq=>{
+    const count = porMaquinaTotal[maq].length;
+    const isActive = filtroMaquinaSemCobertura === maq;
+    return `
+      <div class="stage-mini-card ${isActive?'active':''}" data-maquina="${maq}">
+        <div class="smc-nome">${maq}</div>
+        <div class="smc-count ${count===0?'zero':''}">${count}</div>
+      </div>`;
+  }).join('');
+  wrapCardsMaquina.querySelectorAll('.stage-mini-card').forEach(card=>{
+    card.addEventListener('click', ()=>{
+      const maq = card.dataset.maquina;
+      filtroMaquinaSemCobertura = (filtroMaquinaSemCobertura === maq) ? null : maq;
+      renderSleeveSemCobertura();
+    });
+  });
+
   const wrapSemCobertura = document.getElementById('sleeve-sem-cobertura-groups');
   if(semCobertura.length){
     const termoBusca = sleeveSemCoberturaSearchTerm.trim().toLowerCase();
-    const filtrados = termoBusca ? semCobertura.filter(o=>
-      (o.nome||'').toLowerCase().includes(termoBusca) ||
-      (o.codigo||'').toLowerCase().includes(termoBusca) ||
-      (o.clienteNome||'').toLowerCase().includes(termoBusca) ||
-      (o.pedido||'').toLowerCase().includes(termoBusca) ||
-      (o.op||'').toLowerCase().includes(termoBusca)
-    ) : semCobertura;
+    let filtrados = filtroMaquinaSemCobertura ? porMaquinaTotal[filtroMaquinaSemCobertura] : semCobertura;
+    if(termoBusca){
+      filtrados = filtrados.filter(o=>
+        (o.nome||'').toLowerCase().includes(termoBusca) ||
+        (o.codigo||'').toLowerCase().includes(termoBusca) ||
+        (o.clienteNome||'').toLowerCase().includes(termoBusca) ||
+        (o.pedido||'').toLowerCase().includes(termoBusca) ||
+        (o.op||'').toLowerCase().includes(termoBusca)
+      );
+    }
     const porMaquinaSemCobertura = {};
     filtrados.forEach(o=>{ (porMaquinaSemCobertura[o.maquina] = porMaquinaSemCobertura[o.maquina] || []).push(o); });
     const maquinasSemCobertura = Object.keys(porMaquinaSemCobertura).sort();
