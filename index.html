@@ -1348,7 +1348,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.66';
+const APP_VERSION = 'v9.67';
 const APP_VERSION_DATE = '03/09/2026';
 
 /* ========================================================================
@@ -7264,32 +7264,25 @@ function openFinalizarSemanaModal(){
   const noPrazo = comStatus.filter(x=>x.st && x.st.noPrazo);
   const semCalculo = comStatus.filter(x=>!x.st);
 
-  function leadPill(st){
-    const cor = st.noPrazo ? 'var(--green-dark)' : 'var(--red)';
-    const bg = st.noPrazo ? 'var(--green-bg)' : 'var(--red-bg)';
-    const dias = Math.abs(st.diasDiferenca);
-    const texto = st.noPrazo ? `Faltam ${dias} dia${dias===1?'':'s'}` : `Atrasado ${dias} dia${dias===1?'':'s'}`;
-    return `<span style="display:inline-block; background:${bg}; color:${cor}; padding:4px 9px; border-radius:6px; font-weight:700; font-size:11px; white-space:nowrap;">${texto}</span>`;
-  }
-
   const FIN_COLWIDTHS = ['8%','32%','12%','13%','14%','13%','8%'];
   function tabelaGrupo(lista, comAcao){
     const linhas = lista.map(({p,st})=>{
       const novaDataBR = st ? st.novaData.toLocaleDateString('pt-BR') : '';
       const [dd,mm,yyyy] = novaDataBR ? novaDataBR.split('/') : ['','',''];
       const novaDataISO = novaDataBR ? `${yyyy}-${mm}-${dd}` : '';
+      const entregaOrig = (p.entregaHistorico && p.entregaHistorico.length) ? p.entregaHistorico[0].de : p.entrega;
       return `
       <tr data-id="${p.id}">
         <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
         <td>${p.clienteNome} <span style="color:var(--text-faint); font-size:11px;">· Cód. ${p.clienteCod}</span></td>
-        <td>${entregaComHistoricoHTML(p)}</td>
+        <td>${entregaOrig}</td>
         <td>${fmtDate(p.finalizadoEm)}</td>
-        <td>${st ? leadPill(st) : '<span style="color:var(--text-faint);">—</span>'}</td>
+        <td>${entregaComHistoricoHTML(p)}</td>
         <td>${st ? `<b style="color:${st.noPrazo?'var(--green-dark)':'var(--red)'};">${novaDataBR}</b>` : '<span style="color:var(--text-faint);">—</span>'}</td>
         ${comAcao ? `<td class="acordada-cell"><button class="btn-aplicar-data" data-id="${p.id}" data-nova-iso="${novaDataISO}">&#10003; Aplicar data acordada</button></td>` : ''}
       </tr>`;
     }).join('');
-    const ths = ['Pedido','Cliente','Entrega','Clichê em fábrica','Lead time','Sugestão de nova data'].map((t,i)=>`<th style="width:${FIN_COLWIDTHS[i]};">${t}</th>`).join('');
+    const ths = ['Pedido','Cliente','Entrega','Clichê em fábrica','Entrega alterada','Sugestão de nova data'].map((t,i)=>`<th style="width:${FIN_COLWIDTHS[i]};">${t}</th>`).join('');
     return `
       <div class="hist-table-wrap">
         <table class="hist fin-tabela">
@@ -7327,15 +7320,12 @@ function openFinalizarSemanaModal(){
 
   document.getElementById('btn-exportar-finalizados-pdf').addEventListener('click', ()=>{
     function linhaPDF({p,st}){
-      let leadTexto = '—', sugestaoTexto = '—';
-      if(st){
-        const dias = Math.abs(st.diasDiferenca);
-        leadTexto = st.noPrazo ? `Faltam ${dias} dia${dias===1?'':'s'}` : `Atrasado ${dias} dia${dias===1?'':'s'}`;
-        sugestaoTexto = st.novaData.toLocaleDateString('pt-BR');
-      }
-      return [p.pedido, `${p.clienteNome} · Cód. ${p.clienteCod}`, p.entrega, fmtDate(p.finalizadoEm), leadTexto, sugestaoTexto];
+      let sugestaoTexto = '—';
+      if(st) sugestaoTexto = st.novaData.toLocaleDateString('pt-BR');
+      const entregaOrig = (p.entregaHistorico && p.entregaHistorico.length) ? p.entregaHistorico[0].de : p.entrega;
+      return [p.pedido, `${p.clienteNome} · Cód. ${p.clienteCod}`, entregaOrig, fmtDate(p.finalizadoEm), p.entrega, sugestaoTexto];
     }
-    const colunas = ['Pedido','Cliente','Entrega','Clichê em fábrica','Lead time','Sugestão de nova data'];
+    const colunas = ['Pedido','Cliente','Entrega','Clichê em fábrica','Entrega alterada','Sugestão de nova data'];
     const grupos = [
       { titulo:'Atrasados', linhas: atrasados.map(linhaPDF), corLinhas: atrasados.map(()=>'#F7E9E7') },
       { titulo:'No prazo', linhas: noPrazo.map(linhaPDF), corLinhas: noPrazo.map(()=>'#E3F3E9') },
