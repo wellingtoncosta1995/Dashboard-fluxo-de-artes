@@ -708,9 +708,9 @@
             <span>Rioplastic: <b id="hcm-valor-rioplastic">R$ 0,00</b></span>
           </div>
         </div>
-        <div class="home-card home-card-live" id="home-card-finalizar-semana" title="Ver clichês finalizados nos últimos 7 dias">
+        <div class="home-card home-card-live" id="home-card-finalizar-semana" title="Ver clichês em fábrica nos últimos 7 dias">
           <div class="hcm-top">
-            <div class="hcm-label">CLICHÊ FINALIZADO (7 DIAS)</div>
+            <div class="hcm-label">CLICHÊS EM FÁBRICA (7 DIAS)</div>
             <span class="hcm-delta" id="hcfs-delta" style="display:none;"></span>
           </div>
           <div class="hcm-valor" id="hcfs-valor-total">0</div>
@@ -1348,7 +1348,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.69';
+const APP_VERSION = 'v9.70';
 const APP_VERSION_DATE = '03/09/2026';
 
 /* ========================================================================
@@ -7336,7 +7336,7 @@ function openFinalizarSemanaModal(){
 
   modal.innerHTML = `
     <div class="modal-head">
-      <div><h2 style="font-size:18px;">Clichê finalizado — últimos 7 dias</h2><p>Pedidos cujo clichê chegou na fábrica e foi liberado nos últimos 7 dias</p></div>
+      <div><h2 style="font-size:18px;">Clichês em fábrica — últimos 7 dias</h2><p>Pedidos cujo clichê chegou na fábrica e foi liberado nos últimos 7 dias</p></div>
       <button class="close-x" id="modal-close">&times;</button>
     </div>
     <hr class="divider">
@@ -7348,7 +7348,7 @@ function openFinalizarSemanaModal(){
       ${grupoHTML('atraso', 'Atrasados', atrasados, true)}
       ${grupoHTML('ok', 'No prazo', noPrazo, true)}
       ${grupoHTML('neutro', 'Sem cálculo de lead time', semCalculo, false)}
-    ` : `<div class="hist-empty">Nenhum clichê finalizado nos últimos 7 dias.</div>`}
+    ` : `<div class="hist-empty">Nenhum clichê chegou na fábrica nos últimos 7 dias.</div>`}
   `;
 
   document.getElementById('btn-exportar-finalizados-pdf').addEventListener('click', ()=>{
@@ -7365,8 +7365,8 @@ function openFinalizarSemanaModal(){
       { titulo:'Sem cálculo de lead time', linhas: semCalculo.map(linhaPDF), corLinhas: semCalculo.map(()=>null) },
     ].filter(g=>g.linhas.length);
     exportarTabelaPDF({
-      titulo: 'Clichê finalizado — últimos 7 dias',
-      subtitulo: `${itens.length} pedido${itens.length===1?'':'s'} · gerado em ${new Date().toLocaleString('pt-BR')}`,
+      titulo: 'Clichês em fábrica — últimos 7 dias',
+      subtitulo: `${itens.length} pedido${itens.length===1?'':'s'} · clichês chegados na fábrica até ${new Date().toLocaleDateString('pt-BR')}`,
       colunas,
       grupos,
     });
