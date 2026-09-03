@@ -1348,7 +1348,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.78';
+const APP_VERSION = 'v9.79';
 const APP_VERSION_DATE = '03/09/2026';
 
 /* ========================================================================
@@ -7091,7 +7091,7 @@ function exportarTabelaPDF({titulo, subtitulo, colunas, linhas, corLinhas, grupo
 // largura de coluna ajustada ao conteúdo — a versão gratuita do SheetJS não
 // escreve cor/negrito na célula, então a "boa impressão" vem da organização
 // (título e seções mescladas) e das colunas no tamanho certo, sem cortar texto.
-function exportarTabelaExcel({titulo, subtitulo, colunas, linhas, grupos}){
+function exportarTabelaExcel({titulo, subtitulo, colunas, linhas, grupos, legenda}){
   const aoa = [];
   const merges = [];
   const ultimaCol = colunas.length - 1;
@@ -7116,9 +7116,10 @@ function exportarTabelaExcel({titulo, subtitulo, colunas, linhas, grupos}){
     (linhas||[]).forEach(l=> aoa.push(l));
   }
 
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!merges'] = merges;
-  ws['!cols'] = colunas.map((c,i)=>{
+  // largura calculada só com os dados (antes da legenda) — os textos longos
+  // da legenda, se entrassem na conta, deixariam as colunas de dados largas
+  // demais.
+  const larguras = colunas.map((c,i)=>{
     let max = String(c).length;
     aoa.forEach(row=>{
       if(row[i]!=null){
@@ -7128,6 +7129,17 @@ function exportarTabelaExcel({titulo, subtitulo, colunas, linhas, grupos}){
     });
     return { wch: Math.min(Math.max(max+2, 10), 50) };
   });
+
+  if(legenda && legenda.length){
+    aoa.push([]);
+    merges.push({s:{r:aoa.length,c:0}, e:{r:aoa.length,c:ultimaCol}});
+    aoa.push(['LEGENDA']);
+    legenda.forEach(([col, exp])=> aoa.push([col, exp]));
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges'] = merges;
+  ws['!cols'] = larguras;
 
   const wb = XLSX.utils.book_new();
   const nomeAba = titulo.replace(/[:\\\/\?\*\[\]]/g,'').slice(0,31);
@@ -7478,12 +7490,30 @@ function openFinalizarSemanaModal(){
       { titulo:'Entrega atrasada', linhas: entregaAtrasada.map(linhaExport), corLinhas: entregaAtrasada.map(()=>'#F7E9E7') },
       { titulo:'Entrega no prazo', linhas: entregaNoPrazo.map(linhaExport), corLinhas: entregaNoPrazo.map(()=>'#E3F3E9') },
     ].filter(g=>g.linhas.length);
+    const legenda = [
+      ['Pedido', 'Número do pedido.'],
+      ['Primeira data de entrega', 'Data de entrega original, prometida ao cliente antes de qualquer alteração.'],
+      ['Clichê em fábrica', 'Data em que o clichê chegou na fábrica e foi liberado.'],
+      ['D-8', 'Primeira data de entrega menos 8 dias — prazo limite pro clichê estar pronto.'],
+      ['Entrega alterada', 'Data de entrega atual, com o número de vezes que já foi alterada (ou "Não houve alteração" se nunca mudou).'],
+      ['Maior parada', 'Etapa (fluxo interno) ou setor (fluxo externo) onde o pedido ficou parado por mais tempo — calculado só pra quem está atrasado.'],
+      ['Seções', '"Entrega atrasada" = a primeira data de entrega já passou · "Entrega no prazo" = ainda não passou.'],
+    ];
+    const extraHTML = `
+      <h2>Legenda</h2>
+      <table>
+        <thead><tr><th>Coluna</th><th>O que significa</th></tr></thead>
+        <tbody>${legenda.map(([col,exp])=>`<tr><td><b>${col}</b></td><td>${exp}</td></tr>`).join('')}</tbody>
+      </table>
+    `;
     return {
       titulo: 'Clichês em fábrica — últimos 7 dias',
       subtitulo: `${itens.length} pedido${itens.length===1?'':'s'} · clichês chegados na fábrica até ${new Date().toLocaleDateString('pt-BR')}`,
       colunas,
       grupos,
       paisagem: true,
+      extraHTML,
+      legenda,
     };
   }
   document.getElementById('btn-exportar-finalizados-pdf').addEventListener('click', ()=>{
