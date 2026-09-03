@@ -1348,7 +1348,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.71';
+const APP_VERSION = 'v9.72';
 const APP_VERSION_DATE = '03/09/2026';
 
 /* ========================================================================
@@ -2174,7 +2174,10 @@ function fmtTime(iso){
   return new Date(iso).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 }
 const ENTREGA_BARRA_JANELA_DIAS = 21;
-function entregaProgressoHTML(entregaStr){
+// Status da entrega (atrasada ou não, e o texto "Faltam/Atrasado X dias")
+// compartilhado entre a barra de progresso na tela e o texto simples usado
+// em relatórios exportados (PDF), que não têm como mostrar a barra animada.
+function entregaStatusInfo(entregaStr){
   const agora = new Date();
   const prazo = parseDateBR(entregaStr);
   prazo.setHours(23,59,59,999);
@@ -2199,6 +2202,10 @@ function entregaProgressoHTML(entregaStr){
     classe = 'ok';
     texto = `Faltam ${diasInt} dias`;
   }
+  return { atrasado, diasInt, pct, classe, texto };
+}
+function entregaProgressoHTML(entregaStr){
+  const { pct, classe, texto } = entregaStatusInfo(entregaStr);
   return `
     <div class="entrega-progress-wrap">
       <div class="entrega-progress-label">${entregaStr}</div>
@@ -7358,17 +7365,25 @@ function openFinalizarSemanaModal(){
   });
 
   document.getElementById('btn-exportar-finalizados-pdf').addEventListener('click', ()=>{
+    function entregaOrigDe(p){
+      return (p.entregaHistorico && p.entregaHistorico.length) ? p.entregaHistorico[0].de : p.entrega;
+    }
     function linhaPDF({p,st}){
       let sugestaoTexto = '—';
       if(st) sugestaoTexto = st.novaData.toLocaleDateString('pt-BR');
-      const entregaOrig = (p.entregaHistorico && p.entregaHistorico.length) ? p.entregaHistorico[0].de : p.entrega;
-      return [p.pedido, entregaOrig, fmtDate(p.finalizadoEm), p.entrega, sugestaoTexto];
+      const entregaOrig = entregaOrigDe(p);
+      const entregaTexto = `${entregaOrig} (${entregaStatusInfo(entregaOrig).texto})`;
+      return [p.pedido, entregaTexto, fmtDate(p.finalizadoEm), p.entrega, sugestaoTexto];
     }
     const colunas = ['Pedido','Entrega','Clichê em fábrica','Entrega alterada','Sugestão de nova data'];
+    // Separa pelo status da própria data de Entrega (já passou ou não —
+    // mesmo critério da barra verde/vermelha), diferente do agrupamento
+    // Atrasados/No prazo da tela, que é sobre o lead time de produção.
+    const entregaAtrasada = comStatus.filter(x=> entregaStatusInfo(entregaOrigDe(x.p)).atrasado);
+    const entregaNoPrazo = comStatus.filter(x=> !entregaStatusInfo(entregaOrigDe(x.p)).atrasado);
     const grupos = [
-      { titulo:'Atrasados', linhas: atrasados.map(linhaPDF), corLinhas: atrasados.map(()=>'#F7E9E7') },
-      { titulo:'No prazo', linhas: noPrazo.map(linhaPDF), corLinhas: noPrazo.map(()=>'#E3F3E9') },
-      { titulo:'Sem cálculo de lead time', linhas: semCalculo.map(linhaPDF), corLinhas: semCalculo.map(()=>null) },
+      { titulo:'Entrega atrasada', linhas: entregaAtrasada.map(linhaPDF), corLinhas: entregaAtrasada.map(()=>'#F7E9E7') },
+      { titulo:'Entrega no prazo', linhas: entregaNoPrazo.map(linhaPDF), corLinhas: entregaNoPrazo.map(()=>'#E3F3E9') },
     ].filter(g=>g.linhas.length);
     exportarTabelaPDF({
       titulo: 'Clichês em fábrica — últimos 7 dias',
