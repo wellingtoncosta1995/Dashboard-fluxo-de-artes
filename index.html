@@ -1348,7 +1348,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.70';
+const APP_VERSION = 'v9.71';
 const APP_VERSION_DATE = '03/09/2026';
 
 /* ========================================================================
@@ -7308,7 +7308,7 @@ function openFinalizarSemanaModal(){
       return `
       <tr data-id="${p.id}">
         <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
-        <td>${entregaOrig}</td>
+        <td>${entregaProgressoHTML(entregaOrig)}</td>
         <td>${fmtDate(p.finalizadoEm)}</td>
         <td>${entregaComHistoricoHTML(p)}</td>
         <td>${st ? `<b style="color:${st.noPrazo?'var(--green-dark)':'var(--red)'};">${novaDataBR}</b>` : '<span style="color:var(--text-faint);">—</span>'}</td>
@@ -7350,6 +7350,12 @@ function openFinalizarSemanaModal(){
       ${grupoHTML('neutro', 'Sem cálculo de lead time', semCalculo, false)}
     ` : `<div class="hist-empty">Nenhum clichê chegou na fábrica nos últimos 7 dias.</div>`}
   `;
+
+  requestAnimationFrame(()=>{
+    modal.querySelectorAll('.entrega-progress-fill').forEach(el=>{
+      el.style.width = el.dataset.pct + '%';
+    });
+  });
 
   document.getElementById('btn-exportar-finalizados-pdf').addEventListener('click', ()=>{
     function linhaPDF({p,st}){
