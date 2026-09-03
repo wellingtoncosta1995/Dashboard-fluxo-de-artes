@@ -1346,7 +1346,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.62';
+const APP_VERSION = 'v9.63';
 const APP_VERSION_DATE = '03/09/2026';
 
 /* ========================================================================
@@ -7726,6 +7726,44 @@ function mergeSleeveEntregas(entregas){
   });
   return { atualizados, naoEncontrados };
 }
+// Célula de "Data de entrega" das telas de sleeve, com lápis pra definir ou
+// corrigir a data manualmente — útil quando o relatório RPCP264 não trouxe
+// a data daquela OP (fica "—" até alguém preencher à mão).
+function sleeveEntregaInputValue(iso){
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+function sleeveEntregaCellHTML(o){
+  return `
+    <div class="entrega-cell" data-op="${o.op}">
+      <span class="entrega-view">${o.entrega ? entregaProgressoHTML(fmtDate(o.entrega)) : '<span style="color:var(--text-faint);">—</span>'}</span>
+      <button type="button" class="btn-editar-entrega" data-op="${o.op}" title="${o.entrega ? 'Editar data de entrega' : 'Definir data de entrega'}" style="background:none; border:none; cursor:pointer; color:var(--text-faint); font-size:12px; padding:2px 4px; vertical-align:middle;">&#9998;</button>
+    </div>`;
+}
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('.btn-editar-entrega');
+  if(!btn) return;
+  const registro = sleeveOPs.find(o=>o.op===btn.dataset.op);
+  if(!registro) return;
+  const cell = btn.closest('.entrega-cell');
+  const valorInput = registro.entrega ? sleeveEntregaInputValue(registro.entrega) : '';
+  cell.innerHTML = `
+    <input type="date" class="sleeve-entrega-input" value="${valorInput}" style="font-size:12px; padding:3px 5px; border-radius:6px; border:1px solid var(--gold); font-family:'IBM Plex Mono',monospace; background:var(--panel-alt); color:var(--text);">
+    <button type="button" class="sleeve-entrega-save" title="Salvar" style="background:none; border:none; color:var(--green-dark); cursor:pointer; font-size:13px; padding:0 4px;">&#10003;</button>
+    <button type="button" class="sleeve-entrega-cancel" title="Cancelar" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:13px; padding:0 4px;">&times;</button>
+  `;
+  cell.querySelector('.sleeve-entrega-save').addEventListener('click', ()=>{
+    const val = cell.querySelector('.sleeve-entrega-input').value;
+    if(!val) return;
+    const [y,m,d] = val.split('-').map(Number);
+    registro.entrega = new Date(y, m-1, d).toISOString();
+    saveState();
+    renderTudoSleeve();
+  });
+  cell.querySelector('.sleeve-entrega-cancel').addEventListener('click', ()=>{
+    renderTudoSleeve();
+  });
+});
 function linhaSleeveOP(o){
   return `
   <tr>
@@ -7736,7 +7774,7 @@ function linhaSleeveOP(o){
     <td class="val">${o.qtdCaixas}</td>
     <td class="val">${o.unidPorCaixa!=null ? o.unidPorCaixa : '—'}</td>
     <td class="val">${o.qtdUnidades!=null ? o.qtdUnidades.toLocaleString('pt-BR', {maximumFractionDigits:0}) : '—'}</td>
-    <td>${o.entrega ? entregaProgressoHTML(fmtDate(o.entrega)) : '—'}</td>
+    <td>${sleeveEntregaCellHTML(o)}</td>
   </tr>`;
 }
 // Cálculo compartilhado entre a tela "Fluxo de sleeve" e a tela "Pedidos sem
@@ -7820,7 +7858,7 @@ function renderSleeveSemCobertura(){
                 <td>${o.clienteNome}</td>
                 <td class="val">${o.qtdCaixas}</td>
                 <td style="text-align:center;">${tag}</td>
-                <td>${o.entrega ? entregaProgressoHTML(fmtDate(o.entrega)) : '—'}</td>
+                <td>${sleeveEntregaCellHTML(o)}</td>
               </tr>`;
             }).join('')}</tbody>
           </table>
