@@ -1348,7 +1348,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.72';
+const APP_VERSION = 'v9.73';
 const APP_VERSION_DATE = '03/09/2026';
 
 /* ========================================================================
@@ -7078,7 +7078,7 @@ function exportarTabelaExcel({titulo, colunas, linhas}){
 }
 
 function entregaComHistoricoHTML(p){
-  if(!p.entregaHistorico || !p.entregaHistorico.length) return p.entrega;
+  if(!p.entregaHistorico || !p.entregaHistorico.length) return '<span style="color:var(--text-faint); font-style:italic;">Não houve alteração</span>';
   return `${p.entrega} <button type="button" class="entrega-alt-badge" data-id="${p.id}" style="display:inline-block; background:var(--gold-bg-light); color:var(--gold-dark); border:none; border-radius:5px; padding:1px 5px; font-size:9.5px; font-weight:700; cursor:pointer; font-family:inherit;">&#8635; ${p.entregaHistorico.length}</button>`;
 }
 // Clique no selo "⟲ N" de entrega alterada abre um cartão flutuante (fixed,
@@ -7373,7 +7373,8 @@ function openFinalizarSemanaModal(){
       if(st) sugestaoTexto = st.novaData.toLocaleDateString('pt-BR');
       const entregaOrig = entregaOrigDe(p);
       const entregaTexto = `${entregaOrig} (${entregaStatusInfo(entregaOrig).texto})`;
-      return [p.pedido, entregaTexto, fmtDate(p.finalizadoEm), p.entrega, sugestaoTexto];
+      const entregaAlteradaTexto = (p.entregaHistorico && p.entregaHistorico.length) ? p.entrega : 'Não houve alteração';
+      return [p.pedido, entregaTexto, fmtDate(p.finalizadoEm), entregaAlteradaTexto, sugestaoTexto];
     }
     const colunas = ['Pedido','Entrega','Clichê em fábrica','Entrega alterada','Sugestão de nova data'];
     // Separa pelo status da própria data de Entrega (já passou ou não —
