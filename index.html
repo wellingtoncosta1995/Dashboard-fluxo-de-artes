@@ -1348,7 +1348,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.67';
+const APP_VERSION = 'v9.68';
 const APP_VERSION_DATE = '03/09/2026';
 
 /* ========================================================================
@@ -3416,7 +3416,7 @@ function openHistoricoFluxoScreen(id, opts={}){
   attachFluxoHistoricoEditListeners(modal, p, ()=> openHistoricoFluxoScreen(id, opts));
 }
 
-function closeModal(){ document.getElementById('overlay').classList.remove('open'); document.getElementById('modal').classList.remove('modal-wide','modal-2xl'); }
+function closeModal(){ document.getElementById('overlay').classList.remove('open'); document.getElementById('modal').classList.remove('modal-wide','modal-2xl'); document.getElementById('entrega-alt-floating-panel')?.remove(); }
 document.getElementById('overlay').addEventListener('click', e=>{ if(e.target.id==='overlay') closeModal(); });
 
 document.addEventListener('keydown', (e)=>{
@@ -7072,9 +7072,43 @@ function exportarTabelaExcel({titulo, colunas, linhas}){
 
 function entregaComHistoricoHTML(p){
   if(!p.entregaHistorico || !p.entregaHistorico.length) return p.entrega;
-  const tooltip = p.entregaHistorico.map(h=>`${fmtDateTime(h.em)}: de ${h.de} para ${h.para}`).join('\n');
-  return `${p.entrega} <span title="${tooltip.replace(/"/g,'&quot;')}" style="display:inline-block; background:var(--gold-bg-light); color:var(--gold-dark); border-radius:5px; padding:1px 5px; font-size:9.5px; font-weight:700; cursor:help;">&#8635; ${p.entregaHistorico.length}</span>`;
+  return `${p.entrega} <button type="button" class="entrega-alt-badge" data-id="${p.id}" style="display:inline-block; background:var(--gold-bg-light); color:var(--gold-dark); border:none; border-radius:5px; padding:1px 5px; font-size:9.5px; font-weight:700; cursor:pointer; font-family:inherit;">&#8635; ${p.entregaHistorico.length}</button>`;
 }
+// Clique no selo "⟲ N" de entrega alterada abre um cartão flutuante (fixed,
+// fora da tabela com scroll) listando cada alteração — evita depender do
+// title nativo (não funciona bem em touch) e do overflow:hidden da tabela.
+document.addEventListener('click', (e)=>{
+  const badge = e.target.closest('.entrega-alt-badge');
+  const panelAberto = document.getElementById('entrega-alt-floating-panel');
+  if(badge){
+    e.stopPropagation();
+    if(panelAberto){
+      const mesmoBadge = panelAberto.dataset.for === badge.dataset.id;
+      panelAberto.remove();
+      if(mesmoBadge) return;
+    }
+    const p = pedidos.find(x=>x.id===badge.dataset.id) || historico.find(x=>x.id===badge.dataset.id);
+    if(!p || !p.entregaHistorico || !p.entregaHistorico.length) return;
+    const rect = badge.getBoundingClientRect();
+    const panel = document.createElement('div');
+    panel.id = 'entrega-alt-floating-panel';
+    panel.dataset.for = badge.dataset.id;
+    const left = Math.min(rect.left, window.innerWidth - 260);
+    panel.style.cssText = `position:fixed; top:${rect.bottom+4}px; left:${Math.max(8,left)}px; z-index:9999; min-width:220px; max-width:260px; max-height:260px; overflow-y:auto; background:var(--panel); border:1px solid var(--border-soft); border-radius:9px; box-shadow:0 10px 28px rgba(0,0,0,.2); padding:6px 0;`;
+    const historicoOrdenado = p.entregaHistorico.slice().reverse();
+    panel.innerHTML = `
+      <div style="padding:6px 12px 8px; font-size:10.5px; font-weight:700; color:var(--text-faint); text-transform:uppercase; border-bottom:1px solid var(--border-soft);">Histórico de alterações — Entrega</div>
+      ${historicoOrdenado.map((h,i)=>`
+        <div style="padding:7px 12px; font-size:11.5px; ${i<historicoOrdenado.length-1?'border-bottom:1px solid var(--border-soft);':''}">
+          <div style="color:var(--text-faint); font-size:10px; margin-bottom:2px;">${fmtDateTime(h.em)}</div>
+          <div>de <b style="color:var(--text);">${h.de}</b> para <b style="color:var(--gold-dark);">${h.para}</b></div>
+        </div>`).join('')}
+    `;
+    document.body.appendChild(panel);
+  } else if(panelAberto && !panelAberto.contains(e.target)){
+    panelAberto.remove();
+  }
+});
 function diasParaEntregaTexto(dias){
   if(dias < 0) return { texto: `Atrasado ${Math.abs(dias)}d`, cor: 'var(--red)' };
   if(dias === 0) return { texto: 'Hoje', cor: 'var(--red)' };
