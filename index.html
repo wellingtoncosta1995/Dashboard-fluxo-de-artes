@@ -508,8 +508,8 @@
     #print-area h1{font-family:'Parkinsans',sans-serif; font-size:20px; margin:0 0 4px;}
     #print-area p{color:#555; font-size:12px; margin:0 0 16px;}
     #print-area table{width:100%; border-collapse:collapse; font-size:11px;}
-    #print-area th{text-align:left; padding:6px 8px; border-bottom:2px solid #333; font-size:10px; text-transform:uppercase;}
-    #print-area td{padding:6px 8px; border-bottom:1px solid #ddd;}
+    #print-area th{text-align:left; padding:10px 14px; border-bottom:2px solid #333; font-size:10px; text-transform:uppercase; letter-spacing:.3px;}
+    #print-area td{padding:10px 14px; border-bottom:1px solid #ddd;}
     #print-area h2{font-family:'Parkinsans',sans-serif; font-size:13px; margin:18px 0 8px; padding-left:8px; border-left:3px solid #333;}
     #print-area h2:first-of-type{margin-top:10px;}
     #print-area table.requisicao-campos{margin-bottom:12px;}
@@ -1348,7 +1348,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.74';
+const APP_VERSION = 'v9.75';
 const APP_VERSION_DATE = '03/09/2026';
 
 /* ========================================================================
@@ -7038,7 +7038,7 @@ document.getElementById('home-card-fluxo').addEventListener('click', ()=>{
   openFluxoModal();
 });
 
-function exportarTabelaPDF({titulo, subtitulo, colunas, linhas, corLinhas, grupos, extraHTML}){
+function exportarTabelaPDF({titulo, subtitulo, colunas, linhas, corLinhas, grupos, extraHTML, paisagem}){
   const printArea = document.getElementById('print-area');
   function tabelaHTML(linhas, corLinhas){
     const rows = linhas.map((l,i)=>{
@@ -7061,10 +7061,23 @@ function exportarTabelaPDF({titulo, subtitulo, colunas, linhas, corLinhas, grupo
     ${corpo}
     ${extraHTML || ''}
   `;
+  // @page não pode ser restrito por classe — insere uma tag <style> temporária
+  // só quando o relatório pede paisagem, e remove depois de imprimir.
+  let estiloPagina = null;
+  if(paisagem){
+    estiloPagina = document.createElement('style');
+    estiloPagina.textContent = '@page { size: landscape; }';
+    document.head.appendChild(estiloPagina);
+  }
   document.body.classList.add('printing');
   const tituloOriginal = document.title;
   document.title = `${titulo} - ${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}`;
-  const limpar = ()=>{ document.body.classList.remove('printing'); document.title = tituloOriginal; window.removeEventListener('afterprint', limpar); };
+  const limpar = ()=>{
+    document.body.classList.remove('printing');
+    document.title = tituloOriginal;
+    if(estiloPagina) estiloPagina.remove();
+    window.removeEventListener('afterprint', limpar);
+  };
   window.addEventListener('afterprint', limpar);
   window.print();
 }
@@ -7363,7 +7376,7 @@ function openFinalizarSemanaModal(){
         ${comAcao ? `<td class="acordada-cell"><button class="btn-aplicar-data" data-id="${p.id}" data-nova-iso="${novaDataISO}">&#10003; Aplicar data acordada</button></td>` : ''}
       </tr>`;
     }).join('');
-    const ths = ['Pedido','Entrega','Clichê em fábrica','Entrega alterada','Sugestão de nova data'].map((t,i)=>`<th style="width:${FIN_COLWIDTHS[i]};">${t}</th>`).join('');
+    const ths = ['Pedido','Primeira data de entrega','Clichê em fábrica','Entrega alterada','Sugestão de nova data'].map((t,i)=>`<th style="width:${FIN_COLWIDTHS[i]};">${t}</th>`).join('');
     return `
       <div class="hist-table-wrap">
         <table class="hist fin-tabela">
@@ -7424,7 +7437,7 @@ function openFinalizarSemanaModal(){
       const entregaAlteradaTexto = (p.entregaHistorico && p.entregaHistorico.length) ? p.entrega : 'Não houve alteração';
       return [p.pedido, entregaTexto, fmtDate(p.finalizadoEm), entregaAlteradaTexto, sugestaoTexto];
     }
-    const colunas = ['Pedido','Entrega','Clichê em fábrica','Entrega alterada','Sugestão de nova data'];
+    const colunas = ['Pedido','Primeira data de entrega','Clichê em fábrica','Entrega alterada','Sugestão de nova data'];
     const entregaAtrasada = comStatus.filter(x=> entregaStatusInfo(entregaOrigDe(x.p)).atrasado);
     const entregaNoPrazo = comStatus.filter(x=> !entregaStatusInfo(entregaOrigDe(x.p)).atrasado);
     const grupos = [
@@ -7436,6 +7449,7 @@ function openFinalizarSemanaModal(){
       subtitulo: `${itens.length} pedido${itens.length===1?'':'s'} · clichês chegados na fábrica até ${new Date().toLocaleDateString('pt-BR')}`,
       colunas,
       grupos,
+      paisagem: true,
     };
   }
   document.getElementById('btn-exportar-finalizados-pdf').addEventListener('click', ()=>{
