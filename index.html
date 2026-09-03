@@ -1348,7 +1348,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.73';
+const APP_VERSION = 'v9.74';
 const APP_VERSION_DATE = '03/09/2026';
 
 /* ========================================================================
@@ -7069,10 +7069,51 @@ function exportarTabelaPDF({titulo, subtitulo, colunas, linhas, corLinhas, grupo
   window.print();
 }
 
-function exportarTabelaExcel({titulo, colunas, linhas}){
-  const ws = XLSX.utils.aoa_to_sheet([colunas, ...linhas]);
+// Exporta uma tabela pra Excel já com título, subtítulo, seções (grupos) e
+// largura de coluna ajustada ao conteúdo — a versão gratuita do SheetJS não
+// escreve cor/negrito na célula, então a "boa impressão" vem da organização
+// (título e seções mescladas) e das colunas no tamanho certo, sem cortar texto.
+function exportarTabelaExcel({titulo, subtitulo, colunas, linhas, grupos}){
+  const aoa = [];
+  const merges = [];
+  const ultimaCol = colunas.length - 1;
+  aoa.push([titulo]);
+  merges.push({s:{r:0,c:0}, e:{r:0,c:ultimaCol}});
+  if(subtitulo){
+    aoa.push([subtitulo]);
+    merges.push({s:{r:aoa.length-1,c:0}, e:{r:aoa.length-1,c:ultimaCol}});
+  }
+  aoa.push([]);
+
+  if(grupos && grupos.length){
+    grupos.forEach(g=>{
+      merges.push({s:{r:aoa.length,c:0}, e:{r:aoa.length,c:ultimaCol}});
+      aoa.push([`${g.titulo.toUpperCase()} (${g.linhas.length})`]);
+      aoa.push(colunas);
+      g.linhas.forEach(l=> aoa.push(l));
+      aoa.push([]);
+    });
+  }else{
+    aoa.push(colunas);
+    (linhas||[]).forEach(l=> aoa.push(l));
+  }
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges'] = merges;
+  ws['!cols'] = colunas.map((c,i)=>{
+    let max = String(c).length;
+    aoa.forEach(row=>{
+      if(row[i]!=null){
+        const len = String(row[i]).length;
+        if(len>max) max = len;
+      }
+    });
+    return { wch: Math.min(Math.max(max+2, 10), 50) };
+  });
+
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, titulo.slice(0,31));
+  const nomeAba = titulo.replace(/[:\\\/\?\*\[\]]/g,'').slice(0,31);
+  XLSX.utils.book_append_sheet(wb, ws, nomeAba);
   const nomeArquivo = `${titulo} - ${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}.xlsx`;
   XLSX.writeFile(wb, nomeArquivo);
 }
@@ -7349,7 +7390,10 @@ function openFinalizarSemanaModal(){
     <hr class="divider">
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
       <div class="k" style="font-size:12.5px;">Lead time = folga ou atraso em relação à entrega, considerando o tempo de produção do diâmetro</div>
-      <button class="btn small ghost" id="btn-exportar-finalizados-pdf">&#8681; Exportar PDF</button>
+      <div style="display:flex; gap:8px;">
+        <button class="btn small ghost" id="btn-exportar-finalizados-excel">&#128202; Exportar Excel</button>
+        <button class="btn small ghost" id="btn-exportar-finalizados-pdf">&#8681; Exportar PDF</button>
+      </div>
     </div>
     ${itens.length ? `
       ${grupoHTML('atraso', 'Atrasados', atrasados, true)}
@@ -7364,11 +7408,15 @@ function openFinalizarSemanaModal(){
     });
   });
 
-  document.getElementById('btn-exportar-finalizados-pdf').addEventListener('click', ()=>{
-    function entregaOrigDe(p){
-      return (p.entregaHistorico && p.entregaHistorico.length) ? p.entregaHistorico[0].de : p.entrega;
-    }
-    function linhaPDF({p,st}){
+  // Dados do relatório compartilhados entre "Exportar PDF" e "Exportar Excel":
+  // separa pelo status da própria data de Entrega (já passou ou não — mesmo
+  // critério da barra verde/vermelha), diferente do agrupamento Atrasados/No
+  // prazo da tela, que é sobre o lead time de produção.
+  function entregaOrigDe(p){
+    return (p.entregaHistorico && p.entregaHistorico.length) ? p.entregaHistorico[0].de : p.entrega;
+  }
+  function montarDadosRelatorio(){
+    function linhaExport({p,st}){
       let sugestaoTexto = '—';
       if(st) sugestaoTexto = st.novaData.toLocaleDateString('pt-BR');
       const entregaOrig = entregaOrigDe(p);
@@ -7377,21 +7425,24 @@ function openFinalizarSemanaModal(){
       return [p.pedido, entregaTexto, fmtDate(p.finalizadoEm), entregaAlteradaTexto, sugestaoTexto];
     }
     const colunas = ['Pedido','Entrega','Clichê em fábrica','Entrega alterada','Sugestão de nova data'];
-    // Separa pelo status da própria data de Entrega (já passou ou não —
-    // mesmo critério da barra verde/vermelha), diferente do agrupamento
-    // Atrasados/No prazo da tela, que é sobre o lead time de produção.
     const entregaAtrasada = comStatus.filter(x=> entregaStatusInfo(entregaOrigDe(x.p)).atrasado);
     const entregaNoPrazo = comStatus.filter(x=> !entregaStatusInfo(entregaOrigDe(x.p)).atrasado);
     const grupos = [
-      { titulo:'Entrega atrasada', linhas: entregaAtrasada.map(linhaPDF), corLinhas: entregaAtrasada.map(()=>'#F7E9E7') },
-      { titulo:'Entrega no prazo', linhas: entregaNoPrazo.map(linhaPDF), corLinhas: entregaNoPrazo.map(()=>'#E3F3E9') },
+      { titulo:'Entrega atrasada', linhas: entregaAtrasada.map(linhaExport), corLinhas: entregaAtrasada.map(()=>'#F7E9E7') },
+      { titulo:'Entrega no prazo', linhas: entregaNoPrazo.map(linhaExport), corLinhas: entregaNoPrazo.map(()=>'#E3F3E9') },
     ].filter(g=>g.linhas.length);
-    exportarTabelaPDF({
+    return {
       titulo: 'Clichês em fábrica — últimos 7 dias',
       subtitulo: `${itens.length} pedido${itens.length===1?'':'s'} · clichês chegados na fábrica até ${new Date().toLocaleDateString('pt-BR')}`,
       colunas,
       grupos,
-    });
+    };
+  }
+  document.getElementById('btn-exportar-finalizados-pdf').addEventListener('click', ()=>{
+    exportarTabelaPDF(montarDadosRelatorio());
+  });
+  document.getElementById('btn-exportar-finalizados-excel').addEventListener('click', ()=>{
+    exportarTabelaExcel(montarDadosRelatorio());
   });
   modal.querySelectorAll('.btn-aplicar-data').forEach(btn=>{
     btn.addEventListener('click', ()=>{
