@@ -638,6 +638,7 @@
         <button class="nav-item nav-panel-head" data-view="fluxo-sleeve"><span class="icon"><svg width="17" height="17" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 5h8l-1 9.6a1.1 1.1 0 0 1-1.1 1H8.1A1.1 1.1 0 0 1 7 14.6L6 5Z"/><path d="M6.35 8.2h7.3M6.65 11.4h6.7" stroke-width="1.5"/></svg></span> Fluxo de sleeve<span class="nav-chevron"><svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 5.5 7 9l3.5-3.5"/></svg></span></button>
         <div id="sleeve-submenu" style="display:none;">
           <button class="nav-item nav-sub-item" data-view="sleeve-pedidos">Pedidos</button>
+          <button class="nav-item nav-sub-item" data-view="sleeve-sem-cobertura">Pedidos sem sleeve / Parcial</button>
           <button class="nav-item nav-sub-item" data-view="sleeve-estoque">Saldo de estoque</button>
           <button class="nav-item nav-sub-item" data-view="sleeve-recebimento">Recebimento de sleeve</button>
           <button class="nav-item nav-sub-item" data-view="sleeve-segregado">Estoque segregado</button>
@@ -773,7 +774,12 @@
         </div>
       </div>
 
-      <div class="topics-card alert" id="sleeve-sem-cobertura-card" style="margin-bottom:16px; display:none;">
+      <div class="stage-cards" id="sleeve-maquina-cards"></div>
+      <div id="sleeve-maquinas-wrap"></div>
+    </div>
+
+    <div id="view-sleeve-sem-cobertura" style="display:none;">
+      <div class="topics-card alert" id="sleeve-sem-cobertura-card">
         <p class="topics-intro" style="margin-bottom:10px; padding-bottom:10px;"><span class="mono-label alert">PEDIDOS SEM SLEEVE / PARCIAL</span> <span class="link-text">itens sem sleeve disponível (ou saldo parcial) pra atender a fila, separados por máquina — ordenado pela data de entrega mais próxima primeiro</span></p>
         <div class="search-box" style="max-width:340px; margin-bottom:12px;">
           <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
@@ -781,9 +787,6 @@
         </div>
         <div id="sleeve-sem-cobertura-groups"></div>
       </div>
-
-      <div class="stage-cards" id="sleeve-maquina-cards"></div>
-      <div id="sleeve-maquinas-wrap"></div>
     </div>
 
     <div id="view-sleeve-estoque" style="display:none;">
@@ -1342,7 +1345,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.59';
+const APP_VERSION = 'v9.60';
 const APP_VERSION_DATE = '03/09/2026';
 
 /* ========================================================================
@@ -6053,6 +6056,7 @@ const VIEW_TITULOS = {
   'fluxo-sleeve': "Fluxo de sleeve",
   'sleeve-estoque': "Saldo de estoque",
   'sleeve-pedidos': "Pedidos",
+  'sleeve-sem-cobertura': "Pedidos sem sleeve / Parcial",
   'sleeve-recebimento': "Recebimento de sleeve",
   'sleeve-segregado': "Estoque segregado",
   'sleeve-validar': "Pedidos finalizados",
@@ -6083,11 +6087,12 @@ function switchView(view){
   if(view!=='cliche' && view!=='custo-mensal' && view!=='custo-anual' && view!=='valores-chapa') clicheSubmenuOpen = false;
   if(view!=='analise-entrega' && view!=='analise-entrega-historico') analiseEntregaSubmenuOpen = false;
   if(view!=='history') historySubmenuOpen = false;
-  if(view!=='fluxo-sleeve' && view!=='sleeve-estoque' && view!=='sleeve-pedidos' && view!=='sleeve-recebimento' && view!=='sleeve-segregado' && view!=='sleeve-validar' && view!=='sleeve-pedidos-historico') sleeveSubmenuOpen = false;
+  if(view!=='fluxo-sleeve' && view!=='sleeve-sem-cobertura' && view!=='sleeve-estoque' && view!=='sleeve-pedidos' && view!=='sleeve-recebimento' && view!=='sleeve-segregado' && view!=='sleeve-validar' && view!=='sleeve-pedidos-historico') sleeveSubmenuOpen = false;
   if(BOARD_GROUP_VIEWS.includes(view)) boardSubmenuOpen = true;
   document.getElementById('view-home').style.display = view==='home' ? 'block' : 'none';
   document.getElementById('view-board').style.display = view==='board' ? 'block' : 'none';
   document.getElementById('view-fluxo-sleeve').style.display = view==='fluxo-sleeve' ? 'block' : 'none';
+  document.getElementById('view-sleeve-sem-cobertura').style.display = view==='sleeve-sem-cobertura' ? 'block' : 'none';
   document.getElementById('view-sleeve-estoque').style.display = view==='sleeve-estoque' ? 'block' : 'none';
   document.getElementById('view-sleeve-pedidos').style.display = view==='sleeve-pedidos' ? 'block' : 'none';
   document.getElementById('view-sleeve-recebimento').style.display = view==='sleeve-recebimento' ? 'block' : 'none';
@@ -6128,6 +6133,7 @@ function switchView(view){
   if(view==='regravacao') renderRegravacao();
   if(view==='catalogo') renderCatalogo();
   if(view==='fluxo-sleeve') renderSleeveFila();
+  if(view==='sleeve-sem-cobertura') renderSleeveSemCobertura();
   if(view==='sleeve-estoque') renderSleeveEstoque();
   if(view==='sleeve-pedidos') renderSleevePedidos();
   if(view==='sleeve-recebimento') renderSleeveRecebimentos();
@@ -7731,25 +7737,27 @@ function linhaSleeveOP(o){
     <td>${o.entrega ? entregaProgressoHTML(fmtDate(o.entrega)) : '—'}</td>
   </tr>`;
 }
-// Tela "Fluxo de sleeve": fila de produção por máquina, só dos itens que já
-// tiveram algum recebimento registrado — ordenada pela data de entrega
-// (RPCP264) dentro de cada máquina.
-function renderSleeveFila(){
+// Cálculo compartilhado entre a tela "Fluxo de sleeve" e a tela "Pedidos sem
+// sleeve / Parcial": junta as OPs de todas as máquinas cujo item não cobre,
+// já considerando a alocação por data de entrega — se o saldo só dá pra
+// cobrir as OPs mais próximas do prazo, só as de trás aparecem aqui, com a
+// falta real de cada uma (não o total agregado).
+function sleeveSemCoberturaCalc(){
   const coberturaPorCodigo = sleeveCoberturaPorCodigo();
   const alocacaoPorOP = sleeveAlocacaoPorCodigo(coberturaPorCodigo);
   const codigosComRecebimento = new Set(sleeveRecebimentos.map(r=>r.codigo));
   const pendentes = sleeveOPs.filter(o=>!o.validado && !o.saiuDaFila && codigosComRecebimento.has(o.codigo));
-
-  // Card "Pedidos sem sleeve / Parcial": junta as OPs de todas as máquinas
-  // cujo item não cobre, já considerando a alocação por data de entrega — se
-  // o saldo só dá pra cobrir as OPs mais próximas do prazo, só as de trás
-  // aparecem aqui, com a falta real de cada uma (não o total agregado).
   const semCobertura = pendentes
     .filter(o=> alocacaoPorOP[o.op] && !alocacaoPorOP[o.op].cobre)
     .sort((a,b)=> new Date(a.entrega||a.termino||0) - new Date(b.entrega||b.termino||0));
-  const cardSemCobertura = document.getElementById('sleeve-sem-cobertura-card');
+  return { coberturaPorCodigo, alocacaoPorOP, pendentes, semCobertura };
+}
+// Tela "Pedidos sem sleeve / Parcial": itens sem sleeve disponível (ou saldo
+// parcial) pra atender a fila, agrupados por máquina, com busca por item,
+// cliente ou pedido.
+function renderSleeveSemCobertura(){
+  const { coberturaPorCodigo, alocacaoPorOP, semCobertura } = sleeveSemCoberturaCalc();
   const wrapSemCobertura = document.getElementById('sleeve-sem-cobertura-groups');
-  cardSemCobertura.style.display = semCobertura.length ? '' : 'none';
   if(semCobertura.length){
     const termoBusca = sleeveSemCoberturaSearchTerm.trim().toLowerCase();
     const filtrados = termoBusca ? semCobertura.filter(o=>
@@ -7791,16 +7799,22 @@ function renderSleeveFila(){
       </div>`;
     }).join('') : `<div class="placeholder-card">Nenhum resultado para essa busca.</div>`;
   }else{
-    wrapSemCobertura.innerHTML = '';
+    wrapSemCobertura.innerHTML = `<div class="placeholder-card">Nenhum pedido sem sleeve ou com saldo parcial no momento.</div>`;
   }
   requestAnimationFrame(()=>{
     wrapSemCobertura.querySelectorAll('.entrega-progress-fill').forEach(el=>{
       el.style.width = el.dataset.pct + '%';
     });
   });
+}
+// Tela "Fluxo de sleeve": fila de produção por máquina, só dos itens que já
+// tiveram algum recebimento registrado — ordenada pela data de entrega
+// (RPCP264) dentro de cada máquina.
+function renderSleeveFila(){
+  const { pendentes, semCobertura } = sleeveSemCoberturaCalc();
 
-  // As tabelas por máquina mostram só quem já está coberto — quem entrou no
-  // card "Pedidos sem sleeve / Parcial" acima não aparece de novo aqui embaixo.
+  // As tabelas por máquina mostram só quem já está coberto — quem está sem
+  // estoque ou com saldo parcial aparece na tela "Pedidos sem sleeve / Parcial".
   const opsSemCobertura = new Set(semCobertura.map(o=>o.op));
   const pendentesComEstoque = pendentes.filter(o=> !opsSemCobertura.has(o.op));
   const porMaquina = {};
@@ -8540,6 +8554,7 @@ function renderSleeveValidar(){
 // de qual delas está visível no momento.
 function renderTudoSleeve(){
   renderSleeveFila();
+  renderSleeveSemCobertura();
   renderSleeveEstoque();
   renderSleevePedidos();
   renderSleeveRecebimentos();
@@ -8647,7 +8662,7 @@ document.getElementById('sleeve-estoque-search-input').addEventListener('input',
 });
 document.getElementById('sleeve-sem-cobertura-search-input').addEventListener('input', (e)=>{
   sleeveSemCoberturaSearchTerm = e.target.value;
-  renderSleeveFila();
+  renderSleeveSemCobertura();
 });
 document.getElementById('sleeve-estoque-cliente-filter').addEventListener('change', (e)=>{
   sleeveEstoqueClienteFiltro = e.target.value;
