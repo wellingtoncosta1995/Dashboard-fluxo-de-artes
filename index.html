@@ -1348,7 +1348,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.64';
+const APP_VERSION = 'v9.65';
 const APP_VERSION_DATE = '03/09/2026';
 
 /* ========================================================================
@@ -2346,9 +2346,10 @@ function renderArtesSemPedidoWrap(){
           <div class="k" style="font-size:10.5px; margin-bottom:4px;">Código</div>
           <input type="text" id="asp-add-codigo" placeholder="Código" style="width:120px; background:var(--panel); border:1px solid var(--border-soft); color:var(--text); border-radius:7px; padding:6px 9px; font-size:12px; font-family:'IBM Plex Mono',monospace;">
         </div>
-        <div style="flex:1; min-width:220px;">
+        <div style="flex:1; min-width:220px; position:relative;">
           <div class="k" style="font-size:10.5px; margin-bottom:4px;">Nome do item</div>
-          <input type="text" id="asp-add-nome" placeholder="Nome do item" style="width:100%; background:var(--panel); border:1px solid var(--border-soft); color:var(--text); border-radius:7px; padding:6px 9px; font-size:12px; box-sizing:border-box;">
+          <input type="text" id="asp-add-nome" autocomplete="off" placeholder="Nome do item" style="width:100%; background:var(--panel); border:1px solid var(--border-soft); color:var(--text); border-radius:7px; padding:6px 9px; font-size:12px; box-sizing:border-box;">
+          <div id="asp-add-nome-dropdown" class="item-autocomplete-panel" style="display:none;"></div>
         </div>
         <div style="flex:1; min-width:220px;">
           <div class="k" style="font-size:10.5px; margin-bottom:4px;">Observação (opcional)</div>
@@ -2409,6 +2410,7 @@ function renderArtesSemPedidoWrap(){
   wrap.querySelectorAll('.asp-vincular-btn').forEach(btn=>{
     btn.addEventListener('click', ()=> openVincularArteModal(btn.dataset.id));
   });
+  setupCatalogoNomeAutocomplete('asp-add-nome', 'asp-add-codigo', 'asp-add-nome-dropdown');
 }
 function openArteSemPedidoModal(arteId){
   const arte = artesSemPedido.find(a=>a.id===arteId);
@@ -8551,6 +8553,37 @@ function setupItemAutocomplete(inputId, panelId){
         const cod = opt.dataset.codigo;
         input.value = `${cod} — ${itensConhecidos[cod]}`;
         input.dispatchEvent(new Event('input'));
+        panel.style.display = 'none';
+      });
+    });
+  }
+  input.addEventListener('input', render);
+  input.addEventListener('focus', render);
+  input.addEventListener('blur', ()=>{ setTimeout(()=>{ panel.style.display = 'none'; }, 150); });
+}
+// Autocomplete pro campo "Nome do item" em "Artes sem pedido", a partir do
+// catálogo de itens já vistos em pedidos reais (catalogoItens) — ao escolher
+// uma sugestão, preenche o nome e, se o código ainda estiver vazio, ele também.
+function setupCatalogoNomeAutocomplete(nomeInputId, codigoInputId, panelId){
+  const input = document.getElementById(nomeInputId);
+  const panel = document.getElementById(panelId);
+  function render(){
+    const termo = input.value.trim().toLowerCase();
+    const codigos = Object.keys(catalogoItens).sort((a,b)=> catalogoItens[a].nome.localeCompare(catalogoItens[b].nome));
+    const filtrados = termo
+      ? codigos.filter(cod=> cod.toLowerCase().includes(termo) || catalogoItens[cod].nome.toLowerCase().includes(termo))
+      : codigos;
+    panel.innerHTML = filtrados.length
+      ? filtrados.slice(0,200).map(cod=>`<div class="item-autocomplete-option" data-codigo="${cod}"><b>${cod}</b> — ${catalogoItens[cod].nome}</div>`).join('')
+      : `<div class="item-autocomplete-empty">Nenhum item encontrado.</div>`;
+    panel.style.display = 'block';
+    panel.querySelectorAll('.item-autocomplete-option').forEach(opt=>{
+      opt.addEventListener('mousedown', (e)=>{
+        e.preventDefault();
+        const cod = opt.dataset.codigo;
+        input.value = catalogoItens[cod].nome;
+        const codigoInput = document.getElementById(codigoInputId);
+        if(codigoInput && !codigoInput.value.trim()) codigoInput.value = cod;
         panel.style.display = 'none';
       });
     });
