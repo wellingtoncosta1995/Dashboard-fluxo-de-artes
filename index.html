@@ -1348,7 +1348,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.76';
+const APP_VERSION = 'v9.77';
 const APP_VERSION_DATE = '03/09/2026';
 
 /* ========================================================================
@@ -7371,7 +7371,7 @@ function openFinalizarSemanaModal(){
       const [dd,mm,yyyy] = novaDataBR ? novaDataBR.split('/') : ['','',''];
       const novaDataISO = novaDataBR ? `${yyyy}-${mm}-${dd}` : '';
       const entregaOrig = (p.entregaHistorico && p.entregaHistorico.length) ? p.entregaHistorico[0].de : p.entrega;
-      const d8 = dataMenosDias(p.entrega, 8);
+      const d8 = dataMenosDias(entregaOrig, 8);
       return `
       <tr data-id="${p.id}">
         <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
@@ -7442,7 +7442,7 @@ function openFinalizarSemanaModal(){
       const entregaOrig = entregaOrigDe(p);
       const entregaTexto = `${entregaOrig} (${entregaStatusInfo(entregaOrig).texto})`;
       const entregaAlteradaTexto = (p.entregaHistorico && p.entregaHistorico.length) ? p.entrega : 'Não houve alteração';
-      const d8 = dataMenosDias(p.entrega, 8);
+      const d8 = dataMenosDias(entregaOrig, 8);
       return [p.pedido, entregaTexto, fmtDate(p.finalizadoEm), d8, entregaAlteradaTexto, sugestaoTexto];
     }
     const colunas = ['Pedido','Primeira data de entrega','Clichê em fábrica','D-8','Entrega alterada','Sugestão de nova data'];
