@@ -1348,7 +1348,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.79';
+const APP_VERSION = 'v9.80';
 const APP_VERSION_DATE = '03/09/2026';
 
 /* ========================================================================
@@ -7402,7 +7402,7 @@ function openFinalizarSemanaModal(){
       const [dd,mm,yyyy] = novaDataBR ? novaDataBR.split('/') : ['','',''];
       const novaDataISO = novaDataBR ? `${yyyy}-${mm}-${dd}` : '';
       const entregaOrig = (p.entregaHistorico && p.entregaHistorico.length) ? p.entregaHistorico[0].de : p.entrega;
-      const d8 = dataMenosDias(entregaOrig, 8);
+      const d8 = dataMenosDias(p.entrega, 8);
       return `
       <tr data-id="${p.id}">
         <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
@@ -7414,7 +7414,7 @@ function openFinalizarSemanaModal(){
         ${comAcao ? `<td class="acordada-cell"><button class="btn-aplicar-data" data-id="${p.id}" data-nova-iso="${novaDataISO}">&#10003; Aplicar data acordada</button></td>` : ''}
       </tr>`;
     }).join('');
-    const ths = ['Pedido','Primeira data de entrega','Clichê em fábrica','D-8','Entrega alterada','Maior parada'].map((t,i)=>`<th style="width:${FIN_COLWIDTHS[i]};" ${t==='D-8'?'title="Data de entrega menos 8 dias — prazo limite pro clichê ficar pronto"':''}${t==='Maior parada'?'title="Etapa (fluxo interno) ou setor (fluxo externo) onde o pedido ficou parado por mais tempo — só calculado pra quem está atrasado"':''}>${t}</th>`).join('');
+    const ths = ['Pedido','Primeira data de entrega','Clichê em fábrica','D-8','Entrega alterada','Maior parada'].map((t,i)=>`<th style="width:${FIN_COLWIDTHS[i]};" ${t==='D-8'?'title="Entrega alterada menos 8 dias — prazo limite pro clichê ficar pronto"':''}${t==='Maior parada'?'title="Etapa (fluxo interno) ou setor (fluxo externo) onde o pedido ficou parado por mais tempo — só calculado pra quem está atrasado"':''}>${t}</th>`).join('');
     return `
       <div class="hist-table-wrap">
         <table class="hist fin-tabela">
@@ -7480,7 +7480,7 @@ function openFinalizarSemanaModal(){
       const entregaOrig = entregaOrigDe(p);
       const entregaTexto = `${entregaOrig} (${entregaStatusInfo(entregaOrig).texto})`;
       const entregaAlteradaTexto = (p.entregaHistorico && p.entregaHistorico.length) ? p.entrega : 'Não houve alteração';
-      const d8 = dataMenosDias(entregaOrig, 8);
+      const d8 = dataMenosDias(p.entrega, 8);
       return [p.pedido, entregaTexto, fmtDate(p.finalizadoEm), d8, entregaAlteradaTexto, maiorParadaTexto];
     }
     const colunas = ['Pedido','Primeira data de entrega','Clichê em fábrica','D-8','Entrega alterada','Maior parada'];
@@ -7494,7 +7494,7 @@ function openFinalizarSemanaModal(){
       ['Pedido', 'Número do pedido.'],
       ['Primeira data de entrega', 'Data de entrega original, prometida ao cliente antes de qualquer alteração.'],
       ['Clichê em fábrica', 'Data em que o clichê chegou na fábrica e foi liberado.'],
-      ['D-8', 'Primeira data de entrega menos 8 dias — prazo limite pro clichê estar pronto.'],
+      ['D-8', 'Entrega alterada menos 8 dias — prazo limite pro clichê estar pronto.'],
       ['Entrega alterada', 'Data de entrega atual, com o número de vezes que já foi alterada (ou "Não houve alteração" se nunca mudou).'],
       ['Maior parada', 'Etapa (fluxo interno) ou setor (fluxo externo) onde o pedido ficou parado por mais tempo — calculado só pra quem está atrasado.'],
       ['Seções', '"Entrega atrasada" = a primeira data de entrega já passou · "Entrega no prazo" = ainda não passou.'],
