@@ -1348,7 +1348,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.68';
+const APP_VERSION = 'v9.69';
 const APP_VERSION_DATE = '03/09/2026';
 
 /* ========================================================================
@@ -7298,7 +7298,7 @@ function openFinalizarSemanaModal(){
   const noPrazo = comStatus.filter(x=>x.st && x.st.noPrazo);
   const semCalculo = comStatus.filter(x=>!x.st);
 
-  const FIN_COLWIDTHS = ['8%','32%','12%','13%','14%','13%','8%'];
+  const FIN_COLWIDTHS = ['12%','18%','18%','20%','20%','12%'];
   function tabelaGrupo(lista, comAcao){
     const linhas = lista.map(({p,st})=>{
       const novaDataBR = st ? st.novaData.toLocaleDateString('pt-BR') : '';
@@ -7308,7 +7308,6 @@ function openFinalizarSemanaModal(){
       return `
       <tr data-id="${p.id}">
         <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
-        <td>${p.clienteNome} <span style="color:var(--text-faint); font-size:11px;">· Cód. ${p.clienteCod}</span></td>
         <td>${entregaOrig}</td>
         <td>${fmtDate(p.finalizadoEm)}</td>
         <td>${entregaComHistoricoHTML(p)}</td>
@@ -7316,11 +7315,11 @@ function openFinalizarSemanaModal(){
         ${comAcao ? `<td class="acordada-cell"><button class="btn-aplicar-data" data-id="${p.id}" data-nova-iso="${novaDataISO}">&#10003; Aplicar data acordada</button></td>` : ''}
       </tr>`;
     }).join('');
-    const ths = ['Pedido','Cliente','Entrega','Clichê em fábrica','Entrega alterada','Sugestão de nova data'].map((t,i)=>`<th style="width:${FIN_COLWIDTHS[i]};">${t}</th>`).join('');
+    const ths = ['Pedido','Entrega','Clichê em fábrica','Entrega alterada','Sugestão de nova data'].map((t,i)=>`<th style="width:${FIN_COLWIDTHS[i]};">${t}</th>`).join('');
     return `
       <div class="hist-table-wrap">
         <table class="hist fin-tabela">
-          <thead><tr>${ths}${comAcao?`<th style="width:${FIN_COLWIDTHS[6]};"></th>`:''}</tr></thead>
+          <thead><tr>${ths}${comAcao?`<th style="width:${FIN_COLWIDTHS[5]};"></th>`:''}</tr></thead>
           <tbody>${linhas}</tbody>
         </table>
       </div>`;
@@ -7357,9 +7356,9 @@ function openFinalizarSemanaModal(){
       let sugestaoTexto = '—';
       if(st) sugestaoTexto = st.novaData.toLocaleDateString('pt-BR');
       const entregaOrig = (p.entregaHistorico && p.entregaHistorico.length) ? p.entregaHistorico[0].de : p.entrega;
-      return [p.pedido, `${p.clienteNome} · Cód. ${p.clienteCod}`, entregaOrig, fmtDate(p.finalizadoEm), p.entrega, sugestaoTexto];
+      return [p.pedido, entregaOrig, fmtDate(p.finalizadoEm), p.entrega, sugestaoTexto];
     }
-    const colunas = ['Pedido','Cliente','Entrega','Clichê em fábrica','Entrega alterada','Sugestão de nova data'];
+    const colunas = ['Pedido','Entrega','Clichê em fábrica','Entrega alterada','Sugestão de nova data'];
     const grupos = [
       { titulo:'Atrasados', linhas: atrasados.map(linhaPDF), corLinhas: atrasados.map(()=>'#F7E9E7') },
       { titulo:'No prazo', linhas: noPrazo.map(linhaPDF), corLinhas: noPrazo.map(()=>'#E3F3E9') },
