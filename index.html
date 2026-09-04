@@ -191,7 +191,7 @@
 
   .stage-cards{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;}
   .stage-mini-card{
-    flex:1 1 96px; min-width:96px; max-width:150px; background:var(--panel-alt); border:1.5px solid var(--border-soft);
+    position:relative; flex:1 1 96px; min-width:96px; max-width:150px; background:var(--panel-alt); border:1.5px solid var(--border-soft);
     border-radius:10px; padding:9px 10px; cursor:pointer; transition:border-color .15s, background .15s, box-shadow .15s ease, transform .15s ease;
   }
   .stage-mini-card:hover{border-color:var(--gold); box-shadow:0 4px 14px rgba(140,114,56,.18); transform:translateY(-2px);}
@@ -200,6 +200,28 @@
   .stage-mini-card .smc-nome{font-size:11px; font-weight:600; color:var(--text); line-height:1.25; margin:2px 0 6px; min-height:28px;}
   .stage-mini-card .smc-count{font-family:'Parkinsans',sans-serif; font-size:19px; font-weight:800; color:var(--gold-dark);}
   .stage-mini-card .smc-count.zero{color:var(--text-faint);}
+  .piscando{border-color:var(--red) !important; animation:smc-piscar 1.1s ease-in-out infinite;}
+  .stage-mini-card.piscando .smc-count{color:var(--red);}
+  .smc-alert-badge{
+    position:absolute; top:-7px; right:-7px; min-width:18px; height:18px; padding:0 4px; border-radius:9px;
+    background:var(--red); color:#fff; font-family:'Plus Jakarta Sans',sans-serif; font-size:10.5px; font-weight:800;
+    display:flex; align-items:center; justify-content:center; line-height:1; animation:smc-piscar 1.1s ease-in-out infinite;
+  }
+  @keyframes smc-piscar{
+    0%,100%{ box-shadow:0 0 0 0 rgba(194,86,79,.55); }
+    50%{ box-shadow:0 0 0 5px rgba(194,86,79,0); }
+  }
+  tr.piscando{ animation:tr-piscar 1.1s ease-in-out infinite; }
+  tr.piscando td{ position:relative; }
+  @keyframes tr-piscar{
+    0%,100%{ background:transparent; }
+    50%{ background:var(--red-bg); }
+  }
+  .parado-alerta-banner{
+    display:flex; align-items:center; gap:8px; margin-bottom:14px; padding:10px 12px; border-radius:9px;
+    border:1.5px solid var(--red); background:var(--red-bg); color:var(--red); font-weight:700; font-size:12.5px;
+    animation:smc-piscar 1.1s ease-in-out infinite;
+  }
 
   .lista-pedidos-wrap{overflow-x:auto;}
   table.lista-pedidos{width:100%; border-collapse:collapse; font-size:12.5px;}
@@ -1348,7 +1370,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.81';
+const APP_VERSION = 'v9.82';
 const APP_VERSION_DATE = '04/09/2026';
 
 /* ========================================================================
@@ -1515,6 +1537,16 @@ function precisaCobranca(p){
   const dias = diasDesdeUltimaCobranca(p);
   return dias!=null && dias >= LIMITE_DIAS_COBRANCA_APROVACAO;
 }
+// Alerta genérico de "parado sem resposta": quantos dias um pedido (ou item de
+// Artes sem pedido) está na etapa atual sem nenhuma mudança — usado pra piscar
+// os cards de etapa em stage-cards e destacar o(s) pedido(s) que estão travando.
+const LIMITE_DIAS_PARADO_ALERTA = 3;
+function diasParadoNaEtapaAtual(p){
+  const hist = p.stageHistory;
+  const ultimaEntrada = (hist && hist.length) ? new Date(hist[hist.length-1].entradaEm) : new Date(p.criadoEm || Date.now());
+  return (new Date() - ultimaEntrada) / 86400000;
+}
+function estaParadoSemResposta(p){ return diasParadoNaEtapaAtual(p) >= LIMITE_DIAS_PARADO_ALERTA; }
 async function registrarCobranca(id){
   const p = pedidos.find(x=>x.id===id);
   if(!p) return;
@@ -2312,23 +2344,28 @@ function renderBoard(){
 
 function renderStageCards(){
   const wrap = document.getElementById('stage-cards');
+  const paradosArtesSemPedido = artesSemPedido.filter(estaParadoSemResposta);
   const cardArtesSemPedido = `
-    <div class="stage-mini-card ${filtroArtesSemPedido?'active':''}" id="stage-card-artes-sem-pedido">
+    <div class="stage-mini-card ${filtroArtesSemPedido?'active':''} ${paradosArtesSemPedido.length?'piscando':''}" id="stage-card-artes-sem-pedido">
+      ${paradosArtesSemPedido.length ? `<span class="smc-alert-badge">${paradosArtesSemPedido.length}</span>` : ''}
       <div class="smc-num">—</div>
       <div class="smc-nome">Artes sem pedido</div>
       <div class="smc-count ${artesSemPedido.length===0?'zero':''}">${artesSemPedido.length}</div>
     </div>`;
   wrap.innerHTML = cardArtesSemPedido + STAGES.map(stage=>{
-    const count = pedidos.filter(p=>p.stage===stage.id).length;
+    const itensEtapa = pedidos.filter(p=>p.stage===stage.id);
+    const parados = itensEtapa.filter(estaParadoSemResposta);
     const isActive = !filtroArtesSemPedido && filtroEtapaLista === stage.id;
     return `
-      <div class="stage-mini-card ${isActive?'active':''}" data-stage="${stage.id}">
+      <div class="stage-mini-card ${isActive?'active':''} ${parados.length?'piscando':''}" data-stage="${stage.id}">
+        ${parados.length ? `<span class="smc-alert-badge">${parados.length}</span>` : ''}
         <div class="smc-num">${stage.id}</div>
         <div class="smc-nome">${stage.nome}</div>
-        <div class="smc-count ${count===0?'zero':''}">${count}</div>
+        <div class="smc-count ${itensEtapa.length===0?'zero':''}">${itensEtapa.length}</div>
       </div>`;
   }).join('');
   document.getElementById('stage-card-artes-sem-pedido').addEventListener('click', ()=>{
+    if(paradosArtesSemPedido.length){ openPedidosParadosModal(paradosArtesSemPedido, 'Artes sem pedido — parado há dias', 'artesSemPedido'); return; }
     filtroArtesSemPedido = !filtroArtesSemPedido;
     if(filtroArtesSemPedido) filtroEtapaLista = null;
     renderBoard();
@@ -2336,11 +2373,58 @@ function renderStageCards(){
   wrap.querySelectorAll('.stage-mini-card[data-stage]').forEach(card=>{
     card.addEventListener('click', ()=>{
       const stageId = parseInt(card.dataset.stage,10);
+      const stage = STAGES.find(s=>s.id===stageId);
+      const parados = pedidos.filter(p=>p.stage===stageId && estaParadoSemResposta(p));
+      if(parados.length){ openPedidosParadosModal(parados, `${stage.nome} — parado há dias`, 'pedido'); return; }
       filtroArtesSemPedido = false;
       filtroEtapaLista = (filtroEtapaLista === stageId) ? null : stageId;
       renderBoard();
     });
   });
+}
+
+// Lista os pedidos (ou itens de "Artes sem pedido") que estão travando um card
+// piscando por ficarem LIMITE_DIAS_PARADO_ALERTA+ dias sem mudança de etapa.
+function openPedidosParadosModal(itens, titulo, tipoItem){
+  const overlay = document.getElementById('overlay');
+  const modal = document.getElementById('modal');
+  const ordenados = itens.slice().sort((a,b)=> diasParadoNaEtapaAtual(b) - diasParadoNaEtapaAtual(a));
+  const rows = ordenados.map(p=>{
+    const dias = Math.floor(diasParadoNaEtapaAtual(p));
+    const stage = STAGES.find(s=>s.id===p.stage);
+    const linha1 = tipoItem==='pedido' ? p.pedido : (p.codigo ? fmtCodigo(p.codigo) : '—');
+    const linha2 = tipoItem==='pedido' ? p.clienteNome : p.nome;
+    const sub = tipoItem==='pedido' ? `Cód. ${p.clienteCod}` : (p.observacao || '');
+    return `
+    <tr class="parado-row piscando" data-id="${p.id}" style="cursor:pointer;">
+      <td class="pedido">${linha1}</td>
+      <td>${linha2}${sub ? `<br><small style="color:var(--text-faint);">${sub}</small>` : ''}</td>
+      <td><span class="lp-etapa-badge">${stage ? `${stage.id} — ${stage.nome}` : '—'}</span></td>
+      <td style="font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--red);">${dias} dia${dias===1?'':'s'} parado</td>
+    </tr>`;
+  }).join('');
+
+  modal.innerHTML = `
+    <div class="modal-head">
+      <div><h2 style="font-size:18px; color:var(--red);">&#9888; ${titulo}</h2><p>${itens.length} ${tipoItem==='pedido'?'pedido':'item'}${itens.length===1?'':'s'} sem mudança de etapa há ${LIMITE_DIAS_PARADO_ALERTA}+ dias</p></div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <hr class="divider">
+    <div class="hist-table-wrap">
+      <table class="hist">
+        <thead><tr><th>${tipoItem==='pedido'?'Pedido':'Código'}</th><th>${tipoItem==='pedido'?'Cliente':'Item'}</th><th>Etapa</th><th>Parado há</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+  `;
+  modal.querySelectorAll('.parado-row').forEach(tr=>{
+    tr.addEventListener('click', ()=>{
+      if(tipoItem==='pedido') openModal(tr.dataset.id, {voltar: ()=>openPedidosParadosModal(itens, titulo, tipoItem)});
+      else openArteSemPedidoModal(tr.dataset.id);
+    });
+  });
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  overlay.classList.add('open');
 }
 
 /* ========================================================================
@@ -2445,6 +2529,7 @@ function openArteSemPedidoModal(arteId){
       </div>
       <button class="close-x" id="modal-close">&times;</button>
     </div>
+    ${estaParadoSemResposta(arte) ? `<div class="parado-alerta-banner">&#9888; Parado há ${Math.floor(diasParadoNaEtapaAtual(arte))} dias na etapa "${STAGES.find(s=>s.id===arte.stage)?.nome || ''}" sem mudança — sem resposta</div>` : ''}
     <hr class="divider" style="margin:10px 0;">
     <div class="modal-row"><span class="k">Etapa atual</span><span class="v"><select class="stage-select" id="asp-stage-select">${ARTE_SEM_PEDIDO_STAGES.map(s=>`<option value="${s.id}" ${s.id===arte.stage?'selected':''}>${s.id} — ${s.nome}</option>`).join('')}</select></span></div>
     <hr class="divider" style="margin:10px 0;">
@@ -2584,7 +2669,7 @@ function renderListaPedidos(){
     const cobrancaLiberada = precisaCobranca(p);
     const checkbox = multiSelectMode ? `<input type="checkbox" class="lp-check" data-id="${p.id}" ${selectedIds.has(p.id)?'checked':''}>` : '';
     return `
-      <tr data-id="${p.id}">
+      <tr data-id="${p.id}"${estaParadoSemResposta(p) ? ' class="piscando"' : ''}>
         <td onclick="event.stopPropagation()">${checkbox}</td>
         <td class="lp-num">${p.pedido}</td>
         <td class="lp-cliente">${p.clienteNome}<small>Cód. ${p.clienteCod} · ${p.itens.length} item${p.itens.length>1?'s':''}</small></td>
@@ -2678,7 +2763,7 @@ function renderAccordion(){
 
 function renderPedidoRow(p, stageId){
   const row = document.createElement('div');
-  row.className = 'prow';
+  row.className = 'prow' + (estaParadoSemResposta(p) ? ' piscando' : '');
   const tag = p.tag ? `<span class="tag ${tagClass(p.tag)}">${p.tag}</span>` : '';
   const altBadge = p.alteracoes.length>0 ? `<div class="prow-alt-badge">${p.alteracoes.length}x alteração${p.alteracoes.length>1?'ões':''}</div>` : '';
   const canFinalize = STAGES_FINALIZAVEIS.includes(stageId);
@@ -2949,6 +3034,7 @@ function openModal(id, opts={}){
       </div>
       <button class="close-x" id="modal-close">&times;</button>
     </div>
+    ${isActive && estaParadoSemResposta(p) ? `<div class="parado-alerta-banner">&#9888; Parado há ${Math.floor(diasParadoNaEtapaAtual(p))} dias na etapa "${STAGES.find(s=>s.id===p.stage)?.nome || ''}" sem mudança — sem resposta</div>` : ''}
     <div id="entrega-hist-lista" style="display:none; margin:0 0 10px; font-size:11.5px; color:var(--text-dim);"></div>
 
     <div class="pedido-info-grid">
