@@ -503,6 +503,7 @@
   .stage-inline-select:hover{border-color:var(--gold);}
   .alt-list{display:flex; flex-direction:column; gap:8px; margin-top:8px; max-height:180px; overflow-y:auto;}
   .alt-item{background:var(--panel-alt); border:1px solid var(--border-soft); border-left:3px solid var(--red); border-radius:6px; padding:8px 10px;}
+  .alt-item.selecionado{background:var(--gold-bg-light); border-color:var(--gold); border-left-color:var(--gold);}
   .alt-item .alt-date{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--red);}
   .alt-item .alt-note{font-size:12.5px; color:var(--text); margin-top:3px; line-height:1.35;}
   .alt-form{display:flex; gap:6px; margin-top:10px;}
@@ -1188,7 +1189,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.94';
+const APP_VERSION = 'v9.95';
 const APP_VERSION_DATE = '09/09/2026';
 
 /* ========================================================================
@@ -2400,27 +2401,42 @@ function openVincularArteModal(arteId){
   document.getElementById('overlay').classList.add('open');
 }
 function vincularArteAoPedido(arteId, pedidoId){
-  const arte = artesSemPedido.find(a=>a.id===arteId);
+  vincularArtesAoPedido([arteId], pedidoId);
+}
+// Vincula uma ou mais artes sem pedido a um pedido de uma vez — útil quando
+// cada item do pedido foi registrado como uma "arte sem pedido" separada
+// (mesmo código/nome do item, cada uma com sua própria etapa/histórico).
+// Como o pedido só tem UMA etapa (não por item), usa a arte parada há mais
+// tempo como referência pro histórico — não "reseta o relógio" do pedido pra
+// uma arte mais recente. Todas as artes escolhidas somem da lista junto.
+function vincularArtesAoPedido(arteIds, pedidoId){
+  const artes = artesSemPedido.filter(a=>arteIds.includes(a.id));
   const pedido = pedidos.find(p=>p.id===pedidoId);
-  if(!arte || !pedido) return;
-  const stage = STAGES.find(s=>s.id===arte.stage);
-  if(!confirm(`Vincular a arte "${arte.nome}" ao pedido ${pedido.pedido} (${pedido.clienteNome})? O pedido vai pular direto pra etapa "${stage ? stage.nome : arte.stage}", com todo o histórico já registrado nessa arte.`)) return;
-  pedido.stage = arte.stage;
-  pedido.stageHistory = (arte.stageHistory && arte.stageHistory.length) ? arte.stageHistory.map(h=>({...h})) : [{stage:arte.stage, entradaEm:new Date().toISOString()}];
-  artesSemPedido = artesSemPedido.filter(a=>a.id!==arteId);
+  if(!artes.length || !pedido) return;
+  const referencia = artes.reduce((mais, a)=> entradaNaEtapaAtual(a) < entradaNaEtapaAtual(mais) ? a : mais);
+  const stage = STAGES.find(s=>s.id===referencia.stage);
+  const nomes = artes.map(a=>`"${a.nome}"`).join(', ');
+  const msg = artes.length>1
+    ? `Vincular ${artes.length} artes (${nomes}) ao pedido ${pedido.pedido} (${pedido.clienteNome})? O pedido vai pular direto pra etapa "${stage ? stage.nome : referencia.stage}" (a que está parada há mais tempo entre as escolhidas), com o histórico dela. Todas as ${artes.length} somem de "Artes sem pedido".`
+    : `Vincular a arte "${referencia.nome}" ao pedido ${pedido.pedido} (${pedido.clienteNome})? O pedido vai pular direto pra etapa "${stage ? stage.nome : referencia.stage}", com todo o histórico já registrado nessa arte.`;
+  if(!confirm(msg)) return;
+  pedido.stage = referencia.stage;
+  pedido.stageHistory = (referencia.stageHistory && referencia.stageHistory.length) ? referencia.stageHistory.map(h=>({...h})) : [{stage:referencia.stage, entradaEm:new Date().toISOString()}];
+  artesSemPedido = artesSemPedido.filter(a=>!arteIds.includes(a.id));
   closeModal();
   saveState();
   renderAll();
 }
 // Caminho inverso do "Vincular a pedido" (que parte da arte): aqui parte-se
-// do pedido em "Sem tratativa" pra escolher qual arte sem pedido puxar. Usa a
-// mesma vincularArteAoPedido por baixo — só copia a etapa e o histórico de
-// fluxo da arte pro pedido; código e nome dos itens do pedido não mudam.
+// do pedido em "Sem tratativa" pra escolher quais artes sem pedido puxar —
+// dá pra marcar mais de uma (ex: pedido com 2 itens, cada um com sua arte
+// registrada separadamente). Código e nome dos itens do pedido não mudam.
 function openPuxarArteModal(pedidoId){
   const pedido = pedidos.find(p=>p.id===pedidoId);
   if(!pedido) return;
   const modal = document.getElementById('modal');
   const multiplosItens = pedido.itens.length > 1;
+  const selecionadas = new Set();
   modal.innerHTML = `
     <div class="modal-head" style="margin-bottom:10px;">
       <div>
@@ -2430,15 +2446,24 @@ function openPuxarArteModal(pedidoId){
       <button class="close-x" id="modal-close">&times;</button>
     </div>
     <hr class="divider" style="margin:10px 0;">
-    ${multiplosItens ? `<p style="font-size:12px; color:var(--red); background:var(--red-bg); border-radius:8px; padding:8px 10px; margin-bottom:10px;">&#9888; Esse pedido tem ${pedido.itens.length} itens. Ao escolher uma arte abaixo, o <b>pedido inteiro</b> pula pra etapa dela — mesmo que os outros itens ainda não tenham arte pronta.</p>` : ''}
-    <p style="font-size:12px; color:var(--text-dim); margin-bottom:10px;">Código e nome dos itens deste pedido não mudam — só a etapa e o histórico de fluxo são copiados da arte escolhida.</p>
+    ${multiplosItens ? `<p style="font-size:12px; color:var(--red); background:var(--red-bg); border-radius:8px; padding:8px 10px; margin-bottom:10px;">&#9888; Esse pedido tem ${pedido.itens.length} itens. Ao vincular, o <b>pedido inteiro</b> pula pra etapa da arte escolhida (ou da mais antiga, se marcar mais de uma) — mesmo que os outros itens ainda não tenham arte pronta.</p>` : ''}
+    <p style="font-size:12px; color:var(--text-dim); margin-bottom:10px;">Pode marcar mais de uma arte (ex: um item de cada) — todas somem de "Artes sem pedido" ao vincular. Código e nome dos itens deste pedido não mudam.</p>
     <div class="search-box" style="margin-bottom:10px;">
       <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
       <input type="text" id="puxar-arte-search-input" class="busca-livre" placeholder="Buscar por código ou nome do item...">
     </div>
     <div class="alt-list" id="puxar-arte-lista-wrap" style="max-height:none;"></div>
+    <button id="puxar-arte-confirmar-btn" disabled style="margin-top:14px; width:100%; padding:9px 0; border-radius:9px; border:1px solid var(--gold); background:var(--gold-bg-light); color:var(--gold-dark); font-weight:700; font-size:13px; cursor:not-allowed; opacity:.5;">&#8618; Vincular selecionada(s)</button>
   `;
   document.getElementById('modal-close').addEventListener('click', closeModal);
+  function atualizarBotaoConfirmar(){
+    const btn = document.getElementById('puxar-arte-confirmar-btn');
+    const n = selecionadas.size;
+    btn.disabled = n===0;
+    btn.style.opacity = n===0 ? '.5' : '1';
+    btn.style.cursor = n===0 ? 'not-allowed' : 'pointer';
+    btn.textContent = n>0 ? `↘ Vincular ${n} arte${n>1?'s':''} selecionada${n>1?'s':''}` : '↘ Vincular selecionada(s)';
+  }
   function renderLista(){
     const termo = document.getElementById('puxar-arte-search-input').value.trim().toLowerCase();
     const candidatos = artesSemPedido
@@ -2448,17 +2473,39 @@ function openPuxarArteModal(pedidoId){
     listaWrap.innerHTML = candidatos.length ? candidatos.map(a=>{
       const stage = STAGES.find(s=>s.id===a.stage);
       const parado = formatDuracao(new Date() - entradaNaEtapaAtual(a));
+      const marcada = selecionadas.has(a.id);
       return `
-      <div class="alt-item puxar-arte-opt" data-id="${a.id}" style="cursor:pointer;">
-        <div class="alt-date-row"><span class="alt-date"><b style="color:var(--text);">${a.codigo ? fmtCodigo(a.codigo) : 'Sem código'}</b> — ${a.nome}</span></div>
-        <div class="alt-note">${stage ? stage.id + ' — ' + stage.nome : '—'} · parado há ${parado}</div>
+      <div class="alt-item puxar-arte-opt ${marcada?'selecionado':''}" data-id="${a.id}" style="cursor:pointer; display:flex; align-items:flex-start; gap:8px;">
+        <input type="checkbox" class="puxar-arte-check" data-id="${a.id}" ${marcada?'checked':''} style="margin-top:3px; width:15px; height:15px; accent-color:var(--gold); cursor:pointer; flex-shrink:0;">
+        <div style="flex:1; min-width:0;">
+          <div class="alt-date-row"><span class="alt-date"><b style="color:var(--text);">${a.codigo ? fmtCodigo(a.codigo) : 'Sem código'}</b> — ${a.nome}</span></div>
+          <div class="alt-note">${stage ? stage.id + ' — ' + stage.nome : '—'} · parado há ${parado}</div>
+        </div>
       </div>`;
     }).join('') : `<div class="empty-alt">Nenhuma arte sem pedido encontrada.</div>`;
     listaWrap.querySelectorAll('.puxar-arte-opt').forEach(el=>{
-      el.addEventListener('click', ()=> vincularArteAoPedido(el.dataset.id, pedidoId));
+      el.addEventListener('click', (e)=>{
+        if(e.target.classList.contains('puxar-arte-check')) return; // o próprio change do checkbox já cuida
+        const id = el.dataset.id;
+        if(selecionadas.has(id)) selecionadas.delete(id); else selecionadas.add(id);
+        renderLista();
+        atualizarBotaoConfirmar();
+      });
+    });
+    listaWrap.querySelectorAll('.puxar-arte-check').forEach(cb=>{
+      cb.addEventListener('change', (e)=>{
+        const id = e.target.dataset.id;
+        if(e.target.checked) selecionadas.add(id); else selecionadas.delete(id);
+        renderLista();
+        atualizarBotaoConfirmar();
+      });
     });
   }
   document.getElementById('puxar-arte-search-input').addEventListener('input', renderLista);
+  document.getElementById('puxar-arte-confirmar-btn').addEventListener('click', ()=>{
+    if(!selecionadas.size) return;
+    vincularArtesAoPedido([...selecionadas], pedidoId);
+  });
   renderLista();
   document.getElementById('overlay').classList.add('open');
 }
