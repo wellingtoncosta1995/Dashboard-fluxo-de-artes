@@ -189,15 +189,25 @@
 
   .stage-cards{display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;}
   .stage-mini-card{
-    flex:1 1 96px; min-width:96px; max-width:150px; background:var(--panel-alt); border:1.5px solid var(--border-soft);
+    flex:1 1 108px; min-width:108px; max-width:160px; background:var(--panel-alt); border:1.5px solid var(--border-soft);
     border-radius:10px; padding:9px 10px; cursor:pointer; transition:border-color .15s, background .15s, box-shadow .15s ease, transform .15s ease;
   }
   .stage-mini-card:hover{border-color:var(--gold); box-shadow:0 4px 14px rgba(140,114,56,.18); transform:translateY(-2px);}
-  .stage-mini-card.active{border-color:var(--gold); background:var(--gold-bg-light);}
+  .stage-mini-card.active{box-shadow:inset 0 0 0 2px var(--gold);}
   .stage-mini-card .smc-num{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--text-faint); font-weight:700;}
   .stage-mini-card .smc-nome{font-size:11px; font-weight:600; color:var(--text); line-height:1.25; margin:2px 0 6px; min-height:28px;}
   .stage-mini-card .smc-count{font-family:'Parkinsans',sans-serif; font-size:19px; font-weight:800; color:var(--gold-dark);}
   .stage-mini-card .smc-count.zero{color:var(--text-faint);}
+  .stage-mini-card .smc-avg{font-family:'IBM Plex Mono',monospace; font-size:9px; font-weight:600; color:var(--text-faint); margin-top:3px;}
+  /* severidade = média de dias parado dos pedidos que estão nessa etapa agora
+     (ver mediaDiasParado/severidadeParado) — vira a "temperatura" do gargalo,
+     não só a contagem de pedidos. */
+  .stage-mini-card.ok{background:var(--gold-bg-light); border-color:var(--gold-bg-light);}
+  .stage-mini-card.ok .smc-count, .stage-mini-card.ok .smc-avg{color:var(--gold-dark);}
+  .stage-mini-card.warn{background:#FBF2DC; border-color:#F0DFAE;}
+  .stage-mini-card.warn .smc-count, .stage-mini-card.warn .smc-avg{color:#8A6A14;}
+  .stage-mini-card.crit{background:var(--red-bg); border-color:#E8C7C4;}
+  .stage-mini-card.crit .smc-count, .stage-mini-card.crit .smc-avg{color:var(--red);}
 
   .lista-pedidos-wrap{overflow-x:auto;}
   table.lista-pedidos{width:100%; border-collapse:collapse; font-size:12.5px;}
@@ -1156,7 +1166,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.86';
+const APP_VERSION = 'v9.87';
 const APP_VERSION_DATE = '09/09/2026';
 
 /* ========================================================================
@@ -2076,22 +2086,40 @@ function renderBoard(){
   else renderListaPedidos();
 }
 
+// Média de dias que os itens de uma lista estão parados na etapa atual (ver
+// entradaNaEtapaAtual) — vira a "temperatura" de cada card em stage-cards,
+// não só a contagem de pedidos. null quando a lista está vazia (nada a medir).
+function mediaDiasParado(lista){
+  if(!lista.length) return null;
+  const total = lista.reduce((s,p)=> s + (new Date() - entradaNaEtapaAtual(p)) / 86400000, 0);
+  return total / lista.length;
+}
+function severidadeParado(avgDias){
+  if(avgDias==null) return '';
+  if(avgDias >= 7) return 'crit';
+  if(avgDias >= 3) return 'warn';
+  return 'ok';
+}
 function renderStageCards(){
   const wrap = document.getElementById('stage-cards');
+  const avgArtesSemPedido = mediaDiasParado(artesSemPedido);
   const cardArtesSemPedido = `
-    <div class="stage-mini-card ${filtroArtesSemPedido?'active':''}" id="stage-card-artes-sem-pedido">
+    <div class="stage-mini-card ${severidadeParado(avgArtesSemPedido)} ${filtroArtesSemPedido?'active':''}" id="stage-card-artes-sem-pedido">
       <div class="smc-num">—</div>
       <div class="smc-nome">Artes sem pedido</div>
       <div class="smc-count ${artesSemPedido.length===0?'zero':''}">${artesSemPedido.length}</div>
+      ${avgArtesSemPedido!=null ? `<div class="smc-avg">méd. ${Math.round(avgArtesSemPedido)}d parado</div>` : ''}
     </div>`;
   wrap.innerHTML = cardArtesSemPedido + STAGES.map(stage=>{
-    const count = pedidos.filter(p=>p.stage===stage.id).length;
+    const itensEtapa = pedidos.filter(p=>p.stage===stage.id);
+    const avgDias = mediaDiasParado(itensEtapa);
     const isActive = !filtroArtesSemPedido && filtroEtapaLista === stage.id;
     return `
-      <div class="stage-mini-card ${isActive?'active':''}" data-stage="${stage.id}">
+      <div class="stage-mini-card ${severidadeParado(avgDias)} ${isActive?'active':''}" data-stage="${stage.id}">
         <div class="smc-num">${stage.id}</div>
         <div class="smc-nome">${stage.nome}</div>
-        <div class="smc-count ${count===0?'zero':''}">${count}</div>
+        <div class="smc-count ${itensEtapa.length===0?'zero':''}">${itensEtapa.length}</div>
+        ${avgDias!=null ? `<div class="smc-avg">méd. ${Math.round(avgDias)}d parado</div>` : ''}
       </div>`;
   }).join('');
   document.getElementById('stage-card-artes-sem-pedido').addEventListener('click', ()=>{
