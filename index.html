@@ -106,7 +106,10 @@
   .nav-panel > .nav-panel-head#nav-fluxo-artes .icon{color:var(--gold-dark);}
   .nav-panel-head .nav-chevron{margin-left:auto; display:flex; flex-shrink:0; color:var(--text-faint); transition:transform .15s ease;}
   .nav-panel-head.group-open .nav-chevron{transform:rotate(180deg);}
-  .nav-panel-label{font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.5px; color:var(--text-faint); text-transform:uppercase; padding:5px 10px 6px;}
+  .nav-panel-label{
+    font-family:'IBM Plex Mono',monospace; font-size:11px; font-weight:700; letter-spacing:.5px;
+    color:var(--text-faint); text-transform:uppercase; padding:6px 10px 7px 9px; border-left:3px solid var(--gold);
+  }
   .nav-panel-divider{height:1px; background:var(--border-soft); margin:5px 10px;}
   #nav-fluxo-artes{transition:box-shadow .15s ease, transform .15s ease;}
   #nav-fluxo-artes:hover{box-shadow:0 4px 14px rgba(0,0,0,.08); transform:translateY(-2px);}
@@ -1162,7 +1165,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.89';
+const APP_VERSION = 'v9.90';
 const APP_VERSION_DATE = '09/09/2026';
 
 /* ========================================================================
