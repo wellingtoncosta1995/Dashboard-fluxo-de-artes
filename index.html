@@ -1165,7 +1165,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.91';
+const APP_VERSION = 'v9.92';
 const APP_VERSION_DATE = '09/09/2026';
 
 /* ========================================================================
@@ -2389,6 +2389,56 @@ function vincularArteAoPedido(arteId, pedidoId){
   saveState();
   renderAll();
 }
+// Caminho inverso do "Vincular a pedido" (que parte da arte): aqui parte-se
+// do pedido em "Sem tratativa" pra escolher qual arte sem pedido puxar. Usa a
+// mesma vincularArteAoPedido por baixo — só copia a etapa e o histórico de
+// fluxo da arte pro pedido; código e nome dos itens do pedido não mudam.
+function openPuxarArteModal(pedidoId){
+  const pedido = pedidos.find(p=>p.id===pedidoId);
+  if(!pedido) return;
+  const modal = document.getElementById('modal');
+  const multiplosItens = pedido.itens.length > 1;
+  modal.innerHTML = `
+    <div class="modal-head" style="margin-bottom:10px;">
+      <div>
+        <h2 style="font-size:19px;">Puxar arte sem pedido</h2>
+        <p>Pedido ${pedido.pedido} · ${pedido.clienteNome}</p>
+      </div>
+      <button class="close-x" id="modal-close">&times;</button>
+    </div>
+    <hr class="divider" style="margin:10px 0;">
+    ${multiplosItens ? `<p style="font-size:12px; color:var(--red); background:var(--red-bg); border-radius:8px; padding:8px 10px; margin-bottom:10px;">&#9888; Esse pedido tem ${pedido.itens.length} itens. Ao escolher uma arte abaixo, o <b>pedido inteiro</b> pula pra etapa dela — mesmo que os outros itens ainda não tenham arte pronta.</p>` : ''}
+    <p style="font-size:12px; color:var(--text-dim); margin-bottom:10px;">Código e nome dos itens deste pedido não mudam — só a etapa e o histórico de fluxo são copiados da arte escolhida.</p>
+    <div class="search-box" style="margin-bottom:10px;">
+      <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
+      <input type="text" id="puxar-arte-search-input" class="busca-livre" placeholder="Buscar por código ou nome do item...">
+    </div>
+    <div class="alt-list" id="puxar-arte-lista-wrap" style="max-height:none;"></div>
+  `;
+  document.getElementById('modal-close').addEventListener('click', closeModal);
+  function renderLista(){
+    const termo = document.getElementById('puxar-arte-search-input').value.trim().toLowerCase();
+    const candidatos = artesSemPedido
+      .filter(a=> !termo || (a.codigo && a.codigo.toLowerCase().includes(termo)) || a.nome.toLowerCase().includes(termo))
+      .sort((a,b)=> entradaNaEtapaAtual(b) - entradaNaEtapaAtual(a));
+    const listaWrap = document.getElementById('puxar-arte-lista-wrap');
+    listaWrap.innerHTML = candidatos.length ? candidatos.map(a=>{
+      const stage = STAGES.find(s=>s.id===a.stage);
+      const parado = formatDuracao(new Date() - entradaNaEtapaAtual(a));
+      return `
+      <div class="alt-item puxar-arte-opt" data-id="${a.id}" style="cursor:pointer;">
+        <div class="alt-date-row"><span class="alt-date"><b style="color:var(--text);">${a.codigo ? fmtCodigo(a.codigo) : 'Sem código'}</b> — ${a.nome}</span></div>
+        <div class="alt-note">${stage ? stage.id + ' — ' + stage.nome : '—'} · parado há ${parado}</div>
+      </div>`;
+    }).join('') : `<div class="empty-alt">Nenhuma arte sem pedido encontrada.</div>`;
+    listaWrap.querySelectorAll('.puxar-arte-opt').forEach(el=>{
+      el.addEventListener('click', ()=> vincularArteAoPedido(el.dataset.id, pedidoId));
+    });
+  }
+  document.getElementById('puxar-arte-search-input').addEventListener('input', renderLista);
+  renderLista();
+  document.getElementById('overlay').classList.add('open');
+}
 
 // Agrupamento visual das etapas por família (cor do pill de etapa na lista de
 // pedidos): aguardando (neutro) / em arte (azul) / aprovação (âmbar) / clichê (verde).
@@ -2433,6 +2483,7 @@ function renderListaPedidos(){
         </div>
         ${multiSelectMode ? '' : `
         <div class="lp-actions pc-actions">
+          ${(p.stage===0 && artesSemPedido.length>0) ? `<button class="lp-puxar-arte" data-id="${p.id}" title="Puxar arte sem pedido — copia a etapa e o histórico de uma arte já desenvolvida, sem mudar código/nome do item deste pedido"><svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M10 3v9M6.5 9 10 12.5 13.5 9"/><path d="M4 14v1.5A1.5 1.5 0 0 0 5.5 17h9a1.5 1.5 0 0 0 1.5-1.5V14"/></svg></button>` : ''}
           ${emAprovacao ? `<button class="lp-cobrar ${cobrancaLiberada?'lp-cobrar-liberada':''}" data-id="${p.id}" title="${cobrancaLiberada ? 'Cobrar aprovação — ' + diasDesdeUltimaCobranca(p) + ' dias desde a última cobrança' : 'Ainda dentro do prazo de ' + LIMITE_DIAS_COBRANCA_APROVACAO + ' dias'}" ${cobrancaLiberada?'':'disabled'}>&#128276;</button>` : ''}
           ${canFinalize ? `<button class="lp-finalize" data-id="${p.id}" title="Finalizar">&#10003;</button>` : ''}
         </div>`}
@@ -2471,6 +2522,9 @@ function renderListaPedidos(){
   });
   wrap.querySelectorAll('.lp-cobrar').forEach(btn=>{
     btn.addEventListener('click', e=>{ e.stopPropagation(); registrarCobranca(btn.dataset.id); });
+  });
+  wrap.querySelectorAll('.lp-puxar-arte').forEach(btn=>{
+    btn.addEventListener('click', e=>{ e.stopPropagation(); openPuxarArteModal(btn.dataset.id); });
   });
 }
 
