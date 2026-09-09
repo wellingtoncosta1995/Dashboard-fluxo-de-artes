@@ -210,20 +210,30 @@
   .stage-mini-card.crit .smc-count, .stage-mini-card.crit .smc-avg{color:var(--red);}
 
   .lista-pedidos-wrap{overflow-x:auto;}
-  table.lista-pedidos{width:100%; border-collapse:collapse; font-size:12.5px;}
-  table.lista-pedidos thead th{
-    text-align:left; font-family:'Plus Jakarta Sans',sans-serif; font-size:10.5px; font-weight:700; text-transform:uppercase;
-    letter-spacing:.3px; color:var(--text-faint); padding:8px 10px; border-bottom:1.5px solid var(--border-soft); white-space:nowrap;
+  .pedido-cards{display:flex; flex-direction:column; gap:8px; font-size:12.5px;}
+  .pedido-card{
+    display:flex; align-items:center; gap:14px; padding:13px 16px; border-radius:12px;
+    background:var(--panel); border:1px solid var(--border-soft); cursor:pointer; position:relative; overflow:hidden;
+    transition:box-shadow .15s ease, transform .15s ease;
   }
-  table.lista-pedidos tbody tr{cursor:pointer; border-bottom:1px solid var(--border-soft); transition:background .12s;}
-  table.lista-pedidos tbody tr:hover{background:var(--panel-alt);}
-  table.lista-pedidos td{padding:9px 10px; vertical-align:middle; white-space:nowrap;}
-  table.lista-pedidos td.lp-cliente{white-space:normal; min-width:180px;}
-  table.lista-pedidos td.lp-cliente small{display:block; color:var(--text-faint); font-size:10.5px;}
-  table.lista-pedidos td.lp-num{text-align:right; font-family:'IBM Plex Mono',monospace; font-weight:700;}
-  table.lista-pedidos td.lp-etapa{white-space:normal;}
+  .pedido-card:hover{box-shadow:0 4px 14px rgba(0,0,0,.08); transform:translateY(-1px);}
+  .pedido-card.late::before{content:''; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--red);}
+  .pc-check{flex-shrink:0; display:flex;}
+  .pc-check input{width:16px; height:16px; accent-color:var(--gold); cursor:pointer;}
+  .pc-main{flex:1; min-width:0;}
+  .pc-top{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .pc-num{font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:14px; color:var(--gold-dark);}
+  .pc-cliente{font-size:13.5px; font-weight:700; color:var(--text); margin-top:4px;}
+  .pc-meta{font-size:11px; color:var(--text-faint); margin-top:2px;}
+  .pc-side{display:flex; flex-direction:column; gap:6px; width:150px; flex-shrink:0;}
+  .pc-actions{flex-shrink:0;}
+  .stage-inline-select.pill-select{border:none; border-radius:20px; font-weight:700; padding:5px 10px;}
+  .stage-inline-select.pill-select.fam-wait{background:var(--panel-alt); color:var(--text-dim);}
+  .stage-inline-select.pill-select.fam-art{background:var(--teal-bg); color:var(--teal);}
+  .stage-inline-select.pill-select.fam-approve{background:#FBF2DC; color:#8A6A14;}
+  .stage-inline-select.pill-select.fam-cliche{background:var(--gold-bg-light); color:var(--gold-dark);}
   .lp-etapa-badge{display:inline-flex; align-items:center; gap:5px; background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:6px; padding:3px 8px; font-size:11px; font-weight:600;}
-  .lp-actions{display:flex; gap:4px; justify-content:flex-end;}
+  .lp-actions{display:flex; gap:4px;}
   .entrega-progress-wrap{display:flex; flex-direction:column; gap:4px; min-width:118px;}
   .entrega-progress-label{font-size:11.5px; color:var(--text); font-weight:600; font-family:'IBM Plex Mono',monospace;}
   .entrega-progress-bar{width:100%; height:6px; background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:4px; overflow:hidden;}
@@ -769,21 +779,7 @@
         <div class="accordion" id="accordion" style="display:none;"></div>
 
         <div class="lista-pedidos-wrap" id="lista-pedidos-wrap">
-          <table class="lista-pedidos">
-            <thead>
-              <tr>
-                <th></th>
-                <th>Pedido</th>
-                <th>Cliente</th>
-                <th>Vendedor</th>
-                <th>Etapa atual</th>
-                <th>Parado há</th>
-                <th>Entrega</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="lista-pedidos-tbody"></tbody>
-          </table>
+          <div class="pedido-cards" id="lista-pedidos-tbody"></div>
         </div>
       </div>
     </div>
@@ -1166,7 +1162,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.87';
+const APP_VERSION = 'v9.88';
 const APP_VERSION_DATE = '09/09/2026';
 
 /* ========================================================================
@@ -2360,73 +2356,86 @@ function vincularArteAoPedido(arteId, pedidoId){
   renderAll();
 }
 
+// Agrupamento visual das etapas por família (cor do pill de etapa na lista de
+// pedidos): aguardando (neutro) / em arte (azul) / aprovação (âmbar) / clichê (verde).
+function stageFamilia(stageId){
+  if(stageId<=2) return 'wait';
+  if(stageId<=4) return 'art';
+  if(stageId<=7) return 'approve';
+  return 'cliche';
+}
 function renderListaPedidos(){
-  const tbody = document.getElementById('lista-pedidos-tbody');
+  const wrap = document.getElementById('lista-pedidos-tbody');
   const items = pedidos
     .filter(p=> (filtroEtapaLista===null || p.stage===filtroEtapaLista) && matchesSearch(p, searchTerm))
     .sort((a,b)=>entradaNaEtapaAtual(a)-entradaNaEtapaAtual(b));
 
   if(items.length===0){
-    tbody.innerHTML = `<tr><td colspan="8" class="lp-empty">Nenhum pedido encontrado${filtroEtapaLista!==null ? ' nesta etapa' : ''}.</td></tr>`;
+    wrap.innerHTML = `<div class="lp-empty">Nenhum pedido encontrado${filtroEtapaLista!==null ? ' nesta etapa' : ''}.</div>`;
     return;
   }
 
-  tbody.innerHTML = items.map(p=>{
+  wrap.innerHTML = items.map(p=>{
     const stage = STAGES.find(s=>s.id===p.stage);
     const canFinalize = STAGES_FINALIZAVEIS.includes(p.stage);
     const emAprovacao = p.stage === STAGE_APROVACAO_ARTE;
     const cobrancaLiberada = precisaCobranca(p);
-    const checkbox = multiSelectMode ? `<input type="checkbox" class="lp-check" data-id="${p.id}" ${selectedIds.has(p.id)?'checked':''}>` : '';
+    const atrasado = entregaStatusInfo(p.entrega).atrasado;
+    const checkbox = multiSelectMode ? `<div class="pc-check" onclick="event.stopPropagation()"><input type="checkbox" class="lp-check" data-id="${p.id}" ${selectedIds.has(p.id)?'checked':''}></div>` : '';
     return `
-      <tr data-id="${p.id}">
-        <td onclick="event.stopPropagation()">${checkbox}</td>
-        <td class="lp-num">${p.pedido}</td>
-        <td class="lp-cliente">${p.clienteNome}<small>Cód. ${p.clienteCod} · ${p.itens.length} item${p.itens.length>1?'s':''}</small></td>
-        <td style="color:var(--text-dim); font-size:11.5px;">${p.vendedor || '—'}</td>
-        <td class="lp-etapa" onclick="event.stopPropagation()">${multiSelectMode ? `<span class="lp-etapa-badge">${stage.id} — ${stage.nome}</span>` : stageInlineSelectHTML(p)}</td>
-        <td>${paradoProgressoHTML(entradaNaEtapaAtual(p))}</td>
-        <td>${entregaProgressoHTML(p.entrega)}</td>
-        <td onclick="event.stopPropagation()">
-          ${multiSelectMode ? '' : `
-          <div class="lp-actions">
-            ${emAprovacao ? `<button class="lp-cobrar ${cobrancaLiberada?'lp-cobrar-liberada':''}" data-id="${p.id}" title="${cobrancaLiberada ? 'Cobrar aprovação — ' + diasDesdeUltimaCobranca(p) + ' dias desde a última cobrança' : 'Ainda dentro do prazo de ' + LIMITE_DIAS_COBRANCA_APROVACAO + ' dias'}" ${cobrancaLiberada?'':'disabled'}>&#128276;</button>` : ''}
-            ${canFinalize ? `<button class="lp-finalize" data-id="${p.id}" title="Finalizar">&#10003;</button>` : ''}
-          </div>`}
-        </td>
-      </tr>`;
+      <div class="pedido-card ${atrasado?'late':''}" data-id="${p.id}">
+        ${checkbox}
+        <div class="pc-main">
+          <div class="pc-top">
+            <span class="pc-num">${p.pedido}</span>
+            ${multiSelectMode ? `<span class="lp-etapa-badge">${stage.id} — ${stage.nome}</span>` : stageInlineSelectHTML(p, `pill-select fam-${stageFamilia(p.stage)}`)}
+          </div>
+          <div class="pc-cliente">${p.clienteNome}</div>
+          <div class="pc-meta">Cód. ${p.clienteCod} · ${p.itens.length} item${p.itens.length>1?'s':''} · ${p.vendedor || '—'}</div>
+        </div>
+        <div class="pc-side">
+          <div>${paradoProgressoHTML(entradaNaEtapaAtual(p))}</div>
+          <div>${entregaProgressoHTML(p.entrega)}</div>
+        </div>
+        ${multiSelectMode ? '' : `
+        <div class="lp-actions pc-actions">
+          ${emAprovacao ? `<button class="lp-cobrar ${cobrancaLiberada?'lp-cobrar-liberada':''}" data-id="${p.id}" title="${cobrancaLiberada ? 'Cobrar aprovação — ' + diasDesdeUltimaCobranca(p) + ' dias desde a última cobrança' : 'Ainda dentro do prazo de ' + LIMITE_DIAS_COBRANCA_APROVACAO + ' dias'}" ${cobrancaLiberada?'':'disabled'}>&#128276;</button>` : ''}
+          ${canFinalize ? `<button class="lp-finalize" data-id="${p.id}" title="Finalizar">&#10003;</button>` : ''}
+        </div>`}
+      </div>`;
   }).join('');
 
   requestAnimationFrame(()=>{
-    tbody.querySelectorAll('.entrega-progress-fill').forEach(el=>{
+    wrap.querySelectorAll('.entrega-progress-fill').forEach(el=>{
       el.style.width = el.dataset.pct + '%';
     });
   });
 
-  tbody.querySelectorAll('tr[data-id]').forEach(tr=>{
-    tr.addEventListener('click', ()=>{
-      const id = tr.dataset.id;
+  wrap.querySelectorAll('.pedido-card[data-id]').forEach(card=>{
+    card.addEventListener('click', ()=>{
+      const id = card.dataset.id;
       if(multiSelectMode){
-        const cb = tr.querySelector('.lp-check');
+        const cb = card.querySelector('.lp-check');
         if(cb){ cb.checked = !cb.checked; cb.dispatchEvent(new Event('change',{bubbles:true})); }
       }else{
         openModal(id);
       }
     });
   });
-  tbody.querySelectorAll('.lp-check').forEach(cb=>{
+  wrap.querySelectorAll('.lp-check').forEach(cb=>{
     cb.addEventListener('change', e=>{
       if(e.target.checked) selectedIds.add(e.target.dataset.id); else selectedIds.delete(e.target.dataset.id);
       updateBulkBar();
     });
   });
-  tbody.querySelectorAll('.stage-inline-select').forEach(sel=>{
+  wrap.querySelectorAll('.stage-inline-select').forEach(sel=>{
     sel.addEventListener('click', e=>e.stopPropagation());
     sel.addEventListener('change', e=>{ e.stopPropagation(); mudarEtapaDireta(e.target.dataset.id, e.target.value); });
   });
-  tbody.querySelectorAll('.lp-finalize').forEach(btn=>{
+  wrap.querySelectorAll('.lp-finalize').forEach(btn=>{
     btn.addEventListener('click', e=>{ e.stopPropagation(); finalizarPedido(btn.dataset.id); });
   });
-  tbody.querySelectorAll('.lp-cobrar').forEach(btn=>{
+  wrap.querySelectorAll('.lp-cobrar').forEach(btn=>{
     btn.addEventListener('click', e=>{ e.stopPropagation(); registrarCobranca(btn.dataset.id); });
   });
 }
@@ -2534,8 +2543,8 @@ function renderPedidoRow(p, stageId){
   return row;
 }
 
-function stageInlineSelectHTML(p){
-  return `<select class="stage-inline-select" data-id="${p.id}">${STAGES.map(s=>`<option value="${s.id}" ${s.id===p.stage?'selected':''}>${s.id} — ${s.nome}</option>`).join('')}</select>`;
+function stageInlineSelectHTML(p, extraClass=''){
+  return `<select class="stage-inline-select ${extraClass}" data-id="${p.id}">${STAGES.map(s=>`<option value="${s.id}" ${s.id===p.stage?'selected':''}>${s.id} — ${s.nome}</option>`).join('')}</select>`;
 }
 const STAGE_CONFERENCIA_LAYOUT = 1; // etapa "Aguardando conferência de layout" — decisão feita dentro do modal, quando o pedido já está parado nela
 async function mudarEtapaDireta(id, novaEtapaStr){
