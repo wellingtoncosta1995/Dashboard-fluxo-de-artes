@@ -1165,7 +1165,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.90';
+const APP_VERSION = 'v9.91';
 const APP_VERSION_DATE = '09/09/2026';
 
 /* ========================================================================
@@ -2143,6 +2143,37 @@ function renderStageCards(){
    ======================================================================== */
 function gerarIdArteSemPedido(){
   return 'asp_' + Date.now() + '_' + Math.random().toString(36).slice(2,8);
+}
+// Autocomplete pro campo "Nome do item" em "Artes sem pedido", a partir do
+// catálogo de itens já vistos em pedidos reais (catalogoItens) — ao escolher
+// uma sugestão, preenche o nome e, se o código ainda estiver vazio, ele também.
+function setupCatalogoNomeAutocomplete(nomeInputId, codigoInputId, panelId){
+  const input = document.getElementById(nomeInputId);
+  const panel = document.getElementById(panelId);
+  function render(){
+    const termo = input.value.trim().toLowerCase();
+    const codigos = Object.keys(catalogoItens).sort((a,b)=> catalogoItens[a].nome.localeCompare(catalogoItens[b].nome));
+    const filtrados = termo
+      ? codigos.filter(cod=> cod.toLowerCase().includes(termo) || catalogoItens[cod].nome.toLowerCase().includes(termo))
+      : codigos;
+    panel.innerHTML = filtrados.length
+      ? filtrados.slice(0,200).map(cod=>`<div class="item-autocomplete-option" data-codigo="${cod}"><b>${cod}</b> — ${catalogoItens[cod].nome}</div>`).join('')
+      : `<div class="item-autocomplete-empty">Nenhum item encontrado.</div>`;
+    panel.style.display = 'block';
+    panel.querySelectorAll('.item-autocomplete-option').forEach(opt=>{
+      opt.addEventListener('mousedown', (e)=>{
+        e.preventDefault();
+        const cod = opt.dataset.codigo;
+        input.value = catalogoItens[cod].nome;
+        const codigoInput = document.getElementById(codigoInputId);
+        if(codigoInput && !codigoInput.value.trim()) codigoInput.value = cod;
+        panel.style.display = 'none';
+      });
+    });
+  }
+  input.addEventListener('input', render);
+  input.addEventListener('focus', render);
+  input.addEventListener('blur', ()=>{ setTimeout(()=>{ panel.style.display = 'none'; }, 150); });
 }
 function renderArtesSemPedidoWrap(){
   const wrap = document.getElementById('artes-sem-pedido-wrap');
