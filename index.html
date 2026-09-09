@@ -397,6 +397,26 @@
   .hcm-spark{display:block; margin:1px 0 2px;}
   .hcm-breakdown{display:flex; flex-direction:column; gap:2px; font-size:11px; color:var(--text-faint); margin-top:2px;}
   .hcm-breakdown b{color:var(--text-dim); font-family:'IBM Plex Mono',monospace; font-weight:600;}
+
+  /* ===== cards de visão geral (Painel) — só esta grade, não afeta os outros
+     lugares que reusam .home-card/.hcm-* (histórico, custo mensal, etc.) ===== */
+  .home-overview.home-cards-grid{ gap:18px; }
+  .home-overview .home-card{ border-left:3px solid transparent; }
+  .home-overview .home-card.accent-green{ border-left-color:var(--gold); }
+  .home-overview .home-card.accent-blue{ border-left-color:var(--blue); }
+  .home-overview .home-card.accent-warn{ border-left-color:#C99A1E; }
+  .home-overview .hcm-valor{ font-size:30px; font-variant-numeric:tabular-nums; }
+  .home-overview .hcm-delta{
+    display:inline-flex; align-items:center; gap:2px; border-radius:20px; font-family:'IBM Plex Mono',monospace;
+  }
+  .home-overview .hcm-delta.down{ background:var(--gold-bg-light); color:var(--gold-dark); }
+  .home-overview .hcm-delta.up{ background:var(--teal-bg); color:var(--teal); }
+  .home-overview .hcm-cta{
+    align-self:stretch; margin-top:9px; padding-top:9px; border-top:1px dashed var(--border-soft);
+    font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:700; text-align:right; color:var(--gold-dark);
+  }
+  .home-overview .home-card.accent-blue .hcm-cta{ color:var(--blue); }
+  .home-overview .home-card.accent-warn .hcm-cta{ color:#8A6A14; }
   @media (max-width: 880px){
     .home-cards-grid{grid-template-columns:repeat(2, 1fr);}
   }
@@ -671,8 +691,8 @@
     </div>
 
     <div id="view-home">
-      <div class="home-cards-grid">
-        <div class="home-card home-card-live" id="home-card-fluxo" title="Ver detalhes em Fluxo de artes">
+      <div class="home-cards-grid home-overview">
+        <div class="home-card home-card-live accent-green" id="home-card-fluxo" title="Ver detalhes em Fluxo de artes">
           <div class="hcm-label">FLUXO DE ARTES</div>
           <div class="hcm-valor" id="hcf-valor-total">0</div>
           <div class="hcm-breakdown">
@@ -680,8 +700,9 @@
             <span>Peso total: <b id="hcf-valor-peso">0 kg</b></span>
             <span>Valor total: <b id="hcf-valor-money">R$ 0,00</b></span>
           </div>
+          <div class="hcm-cta">Ver lista →</div>
         </div>
-        <div class="home-card home-card-live" id="home-card-cliche-mes" title="Ver detalhes em Custo de clichê">
+        <div class="home-card home-card-live accent-warn" id="home-card-cliche-mes" title="Ver detalhes em Custo de clichê">
           <div class="hcm-top">
             <div class="hcm-label" id="hcm-mes-nome">—</div>
             <span class="hcm-delta" id="hcm-delta" style="display:none;"></span>
@@ -693,8 +714,9 @@
             <span>Regravações: <b id="hcm-valor-regrav">R$ 0,00</b></span>
             <span>Rioplastic: <b id="hcm-valor-rioplastic">R$ 0,00</b></span>
           </div>
+          <div class="hcm-cta">Ver histórico →</div>
         </div>
-        <div class="home-card home-card-live" id="home-card-finalizar-semana" title="Ver clichês em fábrica nos últimos 7 dias">
+        <div class="home-card home-card-live accent-blue" id="home-card-finalizar-semana" title="Ver clichês em fábrica nos últimos 7 dias">
           <div class="hcm-top">
             <div class="hcm-label">CLICHÊS EM FÁBRICA (7 DIAS)</div>
             <span class="hcm-delta" id="hcfs-delta" style="display:none;"></span>
@@ -706,6 +728,7 @@
             <span>Peso total: <b id="hcfs-valor-peso">0 kg</b></span>
             <span>Valor total: <b id="hcfs-valor-money">R$ 0,00</b></span>
           </div>
+          <div class="hcm-cta">Ver pedidos →</div>
         </div>
       </div>
     </div>
@@ -1133,7 +1156,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.85';
+const APP_VERSION = 'v9.86';
 const APP_VERSION_DATE = '09/09/2026';
 
 /* ========================================================================
@@ -6393,7 +6416,16 @@ function renderSparkline(svgId, valores, cor){
   });
   const pontosStr = pontos.map(p=>p.join(',')).join(' ');
   const [ux, uy] = pontos[pontos.length-1];
+  const areaStr = `${pad},${h-pad} ${pontosStr} ${w-pad},${h-pad}`;
+  const gradId = 'grad-' + svgId;
   svg.innerHTML = `
+    <defs>
+      <linearGradient id="${gradId}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${cor}" stop-opacity="0.25"/>
+        <stop offset="100%" stop-color="${cor}" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <polygon points="${areaStr}" fill="url(#${gradId})"/>
     <polyline points="${pontosStr}" fill="none" stroke="${cor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
     <circle cx="${ux}" cy="${uy}" r="2.6" fill="${cor}"/>
   `;
@@ -6403,8 +6435,11 @@ function renderDeltaBadge(badgeId, atual, anterior){
   if(!el) return;
   if(!anterior){ el.style.display = 'none'; return; }
   const pct = Math.round((atual - anterior) / anterior * 100);
-  el.textContent = (pct>=0 ? '+' : '') + pct + '%';
-  el.style.display = 'inline-block';
+  const subiu = pct >= 0;
+  el.textContent = (subiu ? '▲ ' : '▼ ') + Math.abs(pct) + '%';
+  el.classList.toggle('up', subiu);
+  el.classList.toggle('down', !subiu);
+  el.style.display = 'inline-flex';
 }
 function renderHomeCards(){
   const agora = new Date();
