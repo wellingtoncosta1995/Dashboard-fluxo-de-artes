@@ -477,6 +477,27 @@
   table.items td.code{font-family:'IBM Plex Mono',monospace; color:var(--text); white-space:nowrap;}
   table.items td.peso{font-family:'IBM Plex Mono',monospace; color:var(--text); text-align:right; white-space:nowrap;}
   table.items tfoot td{border-bottom:none; padding-top:8px; font-weight:700; color:var(--text);}
+  /* ===== modal de pedido — mesma linguagem visual da lista (barras, tabular-nums, chips) ===== */
+  .modal-pedido-num{font-family:'IBM Plex Mono',monospace; font-weight:800; color:var(--gold-dark);}
+  .modal-stat-strip{display:flex; gap:18px; margin:12px 0; padding:11px 14px; background:var(--panel-alt); border-radius:10px; flex-wrap:wrap;}
+  .modal-stat{flex:1; min-width:110px;}
+  .modal-stat .msk{font-family:'IBM Plex Mono',monospace; font-size:9px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--text-faint);}
+  .modal-stat .msv{font-family:'Parkinsans',sans-serif; font-weight:800; font-size:15px; margin-top:2px; font-variant-numeric:tabular-nums; color:var(--text);}
+  .modal-section-label{font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--text-faint); margin:14px 0 6px;}
+  .modal-items-list{display:flex; flex-direction:column;}
+  .modal-item-row{display:flex; align-items:center; gap:10px; padding:8px 2px; border-bottom:1px solid var(--border-soft); font-size:12px;}
+  .modal-item-row:last-child{border-bottom:none;}
+  .mi-os{flex-shrink:0;}
+  .mi-os-chip{font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; color:var(--gold-dark); background:var(--gold-bg-light); border-radius:5px; padding:3px 7px; white-space:nowrap;}
+  .mi-cod{font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:var(--text-dim); flex-shrink:0;}
+  .mi-nome{flex:1; color:var(--text); font-weight:600; min-width:0;}
+  .mi-peso{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-dim); flex-shrink:0; font-variant-numeric:tabular-nums;}
+  .cliche-input-group{display:flex; gap:16px; padding:12px 14px; background:var(--panel-alt); border-radius:10px; flex-wrap:wrap; align-items:flex-end;}
+  .cliche-input-group input{font-variant-numeric:tabular-nums;}
+  .cliche-chip{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; padding:7px 13px; border-radius:20px; background:var(--panel); border:1px solid var(--border-soft); color:var(--text-dim); cursor:pointer; white-space:nowrap; transition:background .12s ease, color .12s ease, border-color .12s ease;}
+  .cliche-chip:hover{border-color:var(--gold);}
+  .cliche-chip:has(input:checked){background:var(--gold); color:#fff; border-color:var(--gold);}
+  .cliche-chip input{position:absolute; opacity:0; width:0; height:0;}
   .stage-select{width:100%; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); padding:9px; border-radius:8px; font-size:13px; margin-top:6px; font-family:'Plus Jakarta Sans',sans-serif;}
   .stage-inline-select{background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); padding:6px 8px; border-radius:7px; font-size:11.5px; font-family:'Plus Jakarta Sans',sans-serif; cursor:pointer; max-width:100%;}
   .stage-inline-select:hover{border-color:var(--gold);}
@@ -1167,7 +1188,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.93';
+const APP_VERSION = 'v9.94';
 const APP_VERSION_DATE = '09/09/2026';
 
 /* ========================================================================
@@ -2817,14 +2838,14 @@ function openModal(id, opts={}){
   const clicheEditavel = isActive ? clicheAplicavel : (clicheAplicavel && !clicheResolvido);
 
   const itemRows = p.itens.map((it,idx)=>`
-    <tr>
-      <td class="os-cell">${osEditavel
+    <div class="modal-item-row">
+      <span class="mi-os">${osEditavel
         ? `<input type="text" class="os-input" data-idx="${idx}" value="${it.os||''}" placeholder="OS" style="width:74px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:6px; padding:4px 6px; font-size:11.5px; font-family:'IBM Plex Mono',monospace;">`
-        : (it.os ? it.os : '—')}</td>
-      <td class="code">${fmtCodigo(it.codigo)}</td>
-      <td>${it.nome}</td>
-      <td class="peso">${fmtKg(it.peso)}</td>
-    </tr>
+        : (it.os ? `<span class="mi-os-chip">${it.os}</span>` : '—')}</span>
+      <span class="mi-cod">${fmtCodigo(it.codigo)}</span>
+      <span class="mi-nome">${it.nome}</span>
+      <span class="mi-peso">${fmtKg(it.peso)}</span>
+    </div>
   `).join('');
 
   const temFluxoHistorico = p.stageHistory && p.stageHistory.length;
@@ -2833,36 +2854,49 @@ function openModal(id, opts={}){
     ? `<span class="tag ${tagClass(p.tag)}">${p.tag}</span>`
     : (isActive ? `<select class="stage-select" id="modal-tag-select" style="margin-top:0; width:auto; display:inline-block; padding:5px 8px; font-size:12px;"><option value="">— selecionar —</option>${TAGS_CLASSIFICACAO.map(t=>`<option value="${t}">${t}</option>`).join('')}</select>` : '');
 
+  const entregaBlockHTML = isActive ? (()=>{
+    const { pct, classe, texto } = entregaStatusInfo(p.entrega);
+    return `
+      <div class="entrega-progress-wrap" id="entrega-view" style="max-width:260px; margin-top:10px;">
+        <div class="entrega-progress-label" style="display:flex; align-items:center; justify-content:space-between; gap:8px;">
+          <span>${p.entrega}</span>
+          <span style="display:flex; align-items:center; gap:6px;">
+            <button id="entrega-edit-btn" title="Corrigir data de entrega" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:12px; padding:0;">&#9998;</button>
+            ${p.entregaHistorico && p.entregaHistorico.length ? `<button id="entrega-hist-btn" title="Ver histórico de alterações" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:11px; text-decoration:underline; padding:0;">(${p.entregaHistorico.length})</button>` : ''}
+          </span>
+        </div>
+        <div class="entrega-progress-bar"><div class="entrega-progress-fill ${classe}" data-pct="${pct.toFixed(1)}" style="width:0%"></div></div>
+        <div class="entrega-progress-text ${classe}">${texto}</div>
+      </div>`;
+  })() : `
+      <div id="entrega-view" style="margin-top:10px; font-size:12.5px; color:var(--text-dim);">
+        <span style="font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--text-faint); text-transform:uppercase; font-size:9px; margin-right:6px;">Entrega</span>${p.entrega}
+        ${p.entregaHistorico && p.entregaHistorico.length ? `<button id="entrega-hist-btn" style="background:none; border:none; color:var(--text-faint); cursor:pointer; font-size:11px; text-decoration:underline; margin-left:6px;">(${p.entregaHistorico.length})</button>` : ''}
+      </div>`;
+
   modal.innerHTML = `
     <div class="modal-head" style="margin-bottom:10px;">
       <div>
-        <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
-          <h2 style="font-size:21px;">${p.pedido}</h2>
+        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+          <h2 class="modal-pedido-num" style="font-size:21px;">${p.pedido}</h2>
           ${classificacaoHTML}
-          <span class="entrega-badge" id="entrega-view">
-            <span class="entrega-label">Entrega</span> ${p.entrega}
-            ${isActive ? `<button id="entrega-edit-btn" title="Corrigir data de entrega">&#9998;</button>` : ''}
-            ${p.entregaHistorico && p.entregaHistorico.length ? `<button id="entrega-hist-btn" title="Ver histórico de alterações" style="text-decoration:underline;">(${p.entregaHistorico.length})</button>` : ''}
-          </span>
         </div>
-        <p style="margin-top:6px;">${p.clienteNome} · Cód. ${p.clienteCod}</p>
-        ${p.vendedor ? `<p style="margin-top:2px; color:var(--text-dim); font-size:12.5px;">Vendedor: ${p.vendedor}</p>` : ''}
+        <p style="margin-top:8px; font-weight:700; color:var(--text);">${p.clienteNome}</p>
+        <p style="margin-top:2px; font-size:11.5px;">Cód. ${p.clienteCod}${p.vendedor ? ` · ${p.vendedor}` : ''}</p>
+        ${entregaBlockHTML}
       </div>
       <button class="close-x" id="modal-close">&times;</button>
     </div>
     <div id="entrega-hist-lista" style="display:none; margin:0 0 10px; font-size:11.5px; color:var(--text-dim);"></div>
 
-    <div class="pedido-info-grid">
-      <div class="modal-row"><span class="k">Peso total</span><span class="v">${fmtKg(p.pesoTotal)}</span></div>
-      <div class="modal-row"><span class="k">Valor total</span><span class="v">${fmtBRL(p.valorTotal)}</span></div>
-      ${p.finalizadoEm ? `<div class="modal-row"><span class="k">Finalizado em</span><span class="v" style="font-size:11px;">${fmtDateTime(p.finalizadoEm)}</span></div>` : ''}
+    <div class="modal-stat-strip">
+      <div class="modal-stat"><div class="msk">Peso total</div><div class="msv">${fmtKg(p.pesoTotal)}</div></div>
+      <div class="modal-stat"><div class="msk">Valor total</div><div class="msv">${fmtBRL(p.valorTotal)}</div></div>
+      ${p.finalizadoEm ? `<div class="modal-stat"><div class="msk">Finalizado em</div><div class="msv" style="font-size:11.5px;">${fmtDateTime(p.finalizadoEm)}</div></div>` : ''}
     </div>
 
-    <hr class="divider" style="margin:10px 0;">
-    <table class="items">
-      <thead><tr><th>OS</th><th>Código</th><th>Item</th><th style="text-align:right;">Peso</th></tr></thead>
-      <tbody>${itemRows}</tbody>
-    </table>
+    <div class="modal-section-label">Itens (${p.itens.length})</div>
+    <div class="modal-items-list">${itemRows}</div>
     ${isActive ? `
     <button id="add-item-toggle-btn" style="background:none; border:none; color:var(--blue-dark); font-weight:600; font-size:12px; cursor:pointer; padding:8px 0 0; display:flex; align-items:center; gap:5px;">&#10011; Adicionar item</button>
     <div id="add-item-form" style="display:none; margin-top:8px; padding:12px; background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:9px;">
@@ -2892,36 +2926,31 @@ function openModal(id, opts={}){
     ` : ''}
 
     ${clicheAplicavel ? `
-    <div class="cliche-block" style="margin-top:4px;">
-      <div style="display:flex; gap:16px; align-items:flex-end; flex-wrap:wrap;">
-        ${clicheEditavel ? `
+    <div class="modal-section-label">Clichê</div>
+    <div class="cliche-block">
+      ${clicheEditavel ? `
+        <div class="cliche-input-group">
           <div>
             <div class="k" style="font-size:11px; margin-bottom:5px;">Valor total do clichê</div>
             <input type="text" id="cliche-total-input" placeholder="R$ 0,00" value="${p.valorClicheTotal!=null?fmtBRL(p.valorClicheTotal):''}"
-              style="width:140px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:8px; padding:7px 10px; font-size:12.5px; font-family:'IBM Plex Mono',monospace;">
+              style="width:140px; background:var(--panel); border:1px solid var(--border-soft); color:var(--text); border-radius:8px; padding:7px 10px; font-size:12.5px; font-family:'IBM Plex Mono',monospace;">
           </div>
           <div>
             <div class="k" style="font-size:11px; margin-bottom:5px;">Valor inserido no pedido</div>
             <input type="text" id="cliche-pedido-input" placeholder="R$ 0,00" value="${p.valorClichePedido!=null?fmtBRL(p.valorClichePedido):''}" ${(p.clicheBonificado||p.clicheBonificado50||p.clicheEmbutido100)?'disabled':''}
-              style="width:140px; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text); border-radius:8px; padding:7px 10px; font-size:12.5px; font-family:'IBM Plex Mono',monospace;">
-          </div>
-          <div style="display:flex; align-items:center; gap:14px; flex-wrap:nowrap; padding-bottom:9px;">
-            <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim); cursor:pointer; white-space:nowrap;">
-              <input type="checkbox" id="cliche-bonificado-check" ${p.clicheBonificado?'checked':''} style="width:15px; height:15px; accent-color:var(--teal); cursor:pointer;"> Bonificado
-            </label>
-            <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim); cursor:pointer; white-space:nowrap;">
-              <input type="checkbox" id="cliche-bonificado50-check" ${p.clicheBonificado50?'checked':''} style="width:15px; height:15px; accent-color:var(--teal); cursor:pointer;"> Bonificado 50%
-            </label>
-            <label style="display:flex; align-items:center; gap:6px; font-size:12.5px; color:var(--text-dim); cursor:pointer; white-space:nowrap;">
-              <input type="checkbox" id="cliche-embutido100-check" ${p.clicheEmbutido100?'checked':''} style="width:15px; height:15px; accent-color:var(--teal); cursor:pointer;"> Embutido 100%
-            </label>
+              style="width:140px; background:var(--panel); border:1px solid var(--border-soft); color:var(--text); border-radius:8px; padding:7px 10px; font-size:12.5px; font-family:'IBM Plex Mono',monospace;">
           </div>
           ${!isActive ? `<button class="finalize-mini" id="btn-finalizar-cliche" style="padding:8px 14px;">&#10003; Finalizar tratativa</button>` : ''}
-        ` : `
-          <div class="modal-row" style="margin:0; width:100%;"><span class="k">Valor total do clichê</span><span class="v">${p.valorClicheTotal!=null ? fmtBRL(p.valorClicheTotal) : '—'}</span></div>
-          <div class="modal-row" style="margin:0; width:100%;"><span class="k">Valor inserido no pedido</span><span class="v">${p.clicheBonificado ? `<span class="tag tag-repeticao">BONIFICADO</span>` : (p.clicheBonificado50 ? `${fmtBRL(p.valorClichePedido)} <span class="tag tag-repeticao">50%</span>` : (p.clicheEmbutido100 ? `${fmtBRL(p.valorClichePedido)} <span class="tag tag-repeticao">100%</span>` : (p.valorClichePedido!=null ? fmtBRL(p.valorClichePedido) : '—')))}</span></div>
-        `}
-      </div>
+        </div>
+        <div style="display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;">
+          <label class="cliche-chip"><input type="checkbox" id="cliche-bonificado-check" ${p.clicheBonificado?'checked':''}>Bonificado</label>
+          <label class="cliche-chip"><input type="checkbox" id="cliche-bonificado50-check" ${p.clicheBonificado50?'checked':''}>Bonificado 50%</label>
+          <label class="cliche-chip"><input type="checkbox" id="cliche-embutido100-check" ${p.clicheEmbutido100?'checked':''}>Embutido 100%</label>
+        </div>
+      ` : `
+        <div class="modal-row" style="margin:0; width:100%;"><span class="k">Valor total do clichê</span><span class="v">${p.valorClicheTotal!=null ? fmtBRL(p.valorClicheTotal) : '—'}</span></div>
+        <div class="modal-row" style="margin:0; width:100%;"><span class="k">Valor inserido no pedido</span><span class="v">${p.clicheBonificado ? `<span class="tag tag-repeticao">BONIFICADO</span>` : (p.clicheBonificado50 ? `${fmtBRL(p.valorClichePedido)} <span class="tag tag-repeticao">50%</span>` : (p.clicheEmbutido100 ? `${fmtBRL(p.valorClichePedido)} <span class="tag tag-repeticao">100%</span>` : (p.valorClichePedido!=null ? fmtBRL(p.valorClichePedido) : '—')))}</span></div>
+      `}
     </div>
     ` : ''}
 
@@ -3070,6 +3099,9 @@ function openModal(id, opts={}){
 
   document.getElementById('modal-close').addEventListener('click', closeModal);
   overlay.classList.add('open');
+  requestAnimationFrame(()=>{
+    modal.querySelectorAll('.entrega-progress-fill').forEach(el=>{ el.style.width = el.dataset.pct + '%'; });
+  });
 
   if(isActive){
     document.getElementById('modal-tag-select')?.addEventListener('change', async (e)=>{
