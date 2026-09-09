@@ -744,6 +744,7 @@
                 <th>Cliente</th>
                 <th>Vendedor</th>
                 <th>Etapa atual</th>
+                <th>Parado há</th>
                 <th>Entrega</th>
                 <th></th>
               </tr>
@@ -1132,7 +1133,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.84';
+const APP_VERSION = 'v9.85';
 const APP_VERSION_DATE = '09/09/2026';
 
 /* ========================================================================
@@ -1983,6 +1984,29 @@ function entregaProgressoHTML(entregaStr){
       <div class="entrega-progress-text ${classe}">${texto}</div>
     </div>`;
 }
+// Data em que o pedido entrou na etapa atual (última entrada do histórico de
+// fluxo) — usada pra ordenar o quadro de etapas por quem chegou primeiro e
+// pra desenhar a barra de "parado há X dias" de cada pedido.
+function entradaNaEtapaAtual(p){
+  const hist = p.stageHistory;
+  if(hist && hist.length) return new Date(hist[hist.length-1].entradaEm);
+  return new Date(p.criadoEm || lastImportTime || Date.now());
+}
+const PARADO_BARRA_JANELA_DIAS = 7;
+function paradoProgressoHTML(entradaData){
+  const dias = Math.max(0, Math.floor((new Date() - entradaData) / 86400000));
+  const pct = Math.max(6, Math.min(100, (dias / PARADO_BARRA_JANELA_DIAS) * 100));
+  let classe;
+  if(dias >= 7) classe = 'urgente';
+  else if(dias >= 3) classe = 'atencao';
+  else classe = 'ok';
+  const texto = dias===0 ? 'Entrou hoje' : `Parado há ${dias} dia${dias===1?'':'s'}`;
+  return `
+    <div class="entrega-progress-wrap" style="min-width:100px;">
+      <div class="entrega-progress-bar"><div class="entrega-progress-fill ${classe}" data-pct="${pct.toFixed(1)}" style="width:0%"></div></div>
+      <div class="entrega-progress-text ${classe}">${texto}</div>
+    </div>`;
+}
 const TAGS_CLASSIFICACAO = ['ARTE NOVA','ARTE ALTERADA','CONFIRMAÇÃO DE ARTE','ARTE REPETIÇÃO'];
 function tagClass(tag){
   if(tag === 'ARTE NOVA') return 'tag-nova';
@@ -2289,10 +2313,10 @@ function renderListaPedidos(){
   const tbody = document.getElementById('lista-pedidos-tbody');
   const items = pedidos
     .filter(p=> (filtroEtapaLista===null || p.stage===filtroEtapaLista) && matchesSearch(p, searchTerm))
-    .sort((a,b)=>parseDateBR(a.entrega)-parseDateBR(b.entrega));
+    .sort((a,b)=>entradaNaEtapaAtual(a)-entradaNaEtapaAtual(b));
 
   if(items.length===0){
-    tbody.innerHTML = `<tr><td colspan="7" class="lp-empty">Nenhum pedido encontrado${filtroEtapaLista!==null ? ' nesta etapa' : ''}.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="lp-empty">Nenhum pedido encontrado${filtroEtapaLista!==null ? ' nesta etapa' : ''}.</td></tr>`;
     return;
   }
 
@@ -2309,6 +2333,7 @@ function renderListaPedidos(){
         <td class="lp-cliente">${p.clienteNome}<small>Cód. ${p.clienteCod} · ${p.itens.length} item${p.itens.length>1?'s':''}</small></td>
         <td style="color:var(--text-dim); font-size:11.5px;">${p.vendedor || '—'}</td>
         <td class="lp-etapa" onclick="event.stopPropagation()">${multiSelectMode ? `<span class="lp-etapa-badge">${stage.id} — ${stage.nome}</span>` : stageInlineSelectHTML(p)}</td>
+        <td>${paradoProgressoHTML(entradaNaEtapaAtual(p))}</td>
         <td>${entregaProgressoHTML(p.entrega)}</td>
         <td onclick="event.stopPropagation()">
           ${multiSelectMode ? '' : `
@@ -2361,7 +2386,7 @@ function renderAccordion(){
 
   STAGES.forEach(stage=>{
     const items = pedidos.filter(p=>p.stage===stage.id && matchesSearch(p, searchTerm))
-                          .sort((a,b)=>parseDateBR(a.entrega)-parseDateBR(b.entrega));
+                          .sort((a,b)=>entradaNaEtapaAtual(a)-entradaNaEtapaAtual(b));
     const isOpen = openStages.has(stage.id);
 
     const item = document.createElement('div');
@@ -2393,6 +2418,12 @@ function renderAccordion(){
     item.appendChild(body);
     wrap.appendChild(item);
   });
+
+  requestAnimationFrame(()=>{
+    wrap.querySelectorAll('.entrega-progress-fill').forEach(el=>{
+      el.style.width = el.dataset.pct + '%';
+    });
+  });
 }
 
 function renderPedidoRow(p, stageId){
@@ -2418,6 +2449,7 @@ function renderPedidoRow(p, stageId){
         <span><b>${fmtKg(p.pesoTotal)}</b></span>
         <span><b>${fmtBRL(p.valorTotal)}</b></span>
       </div>
+      <div style="margin-top:6px; max-width:220px;">${paradoProgressoHTML(entradaNaEtapaAtual(p))}</div>
       ${altBadge}
     </div>
     ${multiSelectMode ? '' : `
