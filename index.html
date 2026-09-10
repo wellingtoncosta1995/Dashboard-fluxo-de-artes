@@ -549,6 +549,13 @@
   .codigos-add-row button{background:none; border:none; color:var(--gold-dark); font-weight:600; font-size:12px; cursor:pointer; padding:0;}
   .codigos-del-btn{background:none; border:none; color:var(--red); cursor:pointer; font-size:14px; padding:2px 6px;}
 
+  /* ===== HISTÓRICO DE DATAS ACORDADAS ===== */
+  .hda-stat-strip{margin-bottom:14px;}
+  .hda-transicao{display:flex; align-items:center; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:11.5px; white-space:nowrap;}
+  .hda-transicao .de{color:var(--text-faint); text-decoration:line-through; text-decoration-color:var(--border);}
+  .hda-transicao .seta{color:var(--text-faint);}
+  .hda-transicao .para{display:inline-block; font-weight:700; color:var(--green-dark); background:var(--green-bg); border-radius:5px; padding:2px 7px;}
+
   table.leadtime{width:100%; border-collapse:collapse; font-size:12.5px; background:var(--panel); border-radius:12px; overflow:hidden; border:1px solid var(--border-soft);}
   table.leadtime th{font-family:'Plus Jakarta Sans',sans-serif; font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:.4px; color:var(--text-faint); padding:10px; text-align:center; border-bottom:1.5px solid var(--border-soft); background:var(--panel);}
   table.leadtime th.th-sub{font-size:9px; color:var(--text-faint); font-weight:600; padding-top:2px; padding-bottom:8px;}
@@ -1044,8 +1051,8 @@
           <p class="topics-intro" style="margin:0; padding:0; border:none;"><span class="mono-label">ANÁLISE DATA DE ENTREGA</span> <span class="link-text">datas alteradas e atraso projetado em relação ao lead time</span></p>
           <button class="btn small ghost" id="btn-analise-importar-atualizar" style="flex-shrink:0; white-space:nowrap;">&#128260; Importar relatório (atualizar datas)</button>
         </div>
-        <div class="home-cards-grid" style="grid-template-columns:repeat(3, 1fr); max-width:1050px;">
-          <div class="home-card home-card-live" id="home-card-vencimento" title="Ver lista de pedidos por lead time — limpa os filtros abaixo">
+        <div class="home-cards-grid home-overview" style="grid-template-columns:repeat(3, 1fr); max-width:1050px;">
+          <div class="home-card home-card-live accent-green" id="home-card-vencimento" title="Ver lista de pedidos por lead time — limpa os filtros abaixo">
             <div class="hcm-label">LEAD TIME POR PEDIDOS</div>
             <div class="hcm-valor" id="hcv-valor-total">0</div>
             <div class="hcm-breakdown">
@@ -1053,8 +1060,9 @@
               <span>Entrega em até 7 dias: <b id="hcv-valor-proximos" style="color:var(--gold-dark);">0</b></span>
               <span>Baseado no lead time por boca</span>
             </div>
+            <div class="hcm-cta">Ver lista →</div>
           </div>
-          <div class="home-card home-card-live" id="home-card-datas-alteradas" title="Ver lista de pedidos com data alterada">
+          <div class="home-card home-card-live accent-warn" id="home-card-datas-alteradas" title="Ver lista de pedidos com data alterada">
             <div class="hcm-label">DATAS DE ENTREGA — ALTERADAS</div>
             <div class="hcm-valor" id="hcda-valor-alteradas">0</div>
             <div class="hcm-breakdown">
@@ -1064,8 +1072,9 @@
               <span style="color:var(--text-faint); font-size:12px;">&#128269;</span>
               <input type="text" id="dal-busca-alteradas" class="busca-livre" placeholder="Pedido, cliente ou item...">
             </div>
+            <div class="hcm-cta">Ver alteradas →</div>
           </div>
-          <div class="home-card home-card-live" id="home-card-datas-naoalteradas" title="Ver lista de pedidos com data original">
+          <div class="home-card home-card-live accent-blue" id="home-card-datas-naoalteradas" title="Ver lista de pedidos com data original">
             <div class="hcm-label">DATAS DE ENTREGA — NÃO ALTERADAS</div>
             <div class="hcm-valor" id="hcda-valor-naoalteradas">0</div>
             <div class="hcm-breakdown">
@@ -1075,6 +1084,7 @@
               <span style="color:var(--text-faint); font-size:12px;">&#128269;</span>
               <input type="text" id="dal-busca-naoalteradas" class="busca-livre" placeholder="Pedido, cliente ou item...">
             </div>
+            <div class="hcm-cta">Ver não alteradas →</div>
           </div>
         </div>
 
@@ -1112,13 +1122,14 @@
     <div id="view-analise-entrega-historico" style="display:none;">
       <div class="topics-card">
         <p class="topics-intro"><span class="mono-label">HISTÓRICO DE DATAS ACORDADAS</span> <span class="link-text">pedidos cuja data de entrega foi ajustada pra data acordada com o cliente</span></p>
+        <div id="hist-acordada-stats"></div>
         <div class="search-box" style="max-width:340px; margin-bottom:14px;">
           <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
           <input type="text" id="hist-acordada-search-input" class="busca-livre" placeholder="Buscar pedido ou cliente...">
         </div>
         <div class="hist-table-wrap">
           <table class="hist" id="hist-acordada-table">
-            <thead><tr><th>Pedido</th><th>Cliente</th><th>De</th><th>Para</th><th>Alterado em</th></tr></thead>
+            <thead><tr><th>Pedido</th><th>Cliente</th><th>Data</th><th>Alterado em</th></tr></thead>
             <tbody></tbody>
           </table>
         </div>
@@ -1201,7 +1212,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.99';
+const APP_VERSION = 'v10.0';
 const APP_VERSION_DATE = '10/09/2026';
 
 /* ========================================================================
@@ -6498,21 +6509,32 @@ document.getElementById('hist-acordada-search-input').addEventListener('input', 
 });
 function renderHistoricoDatasAcordadasView(){
   const tbody = document.querySelector('#hist-acordada-table tbody');
-  const eventos = [];
+  const eventosTodos = [];
   [...pedidos, ...historico].forEach(p=>{
     (p.entregaHistorico||[]).forEach(h=>{
-      if(h.origem==='acordada' && matchesSearch(p, historicoAcordadaSearchTerm)) eventos.push({p, h});
+      if(h.origem==='acordada') eventosTodos.push({p, h});
     });
   });
+  const agora = new Date();
+  const esteMes = eventosTodos.filter(({h})=>{
+    const d = new Date(h.em);
+    return d.getFullYear()===agora.getFullYear() && d.getMonth()===agora.getMonth();
+  }).length;
+  document.getElementById('hist-acordada-stats').innerHTML = `
+    <div class="modal-stat-strip hda-stat-strip">
+      <div class="modal-stat"><div class="msk">Acordos registrados</div><div class="msv">${eventosTodos.length}</div></div>
+      <div class="modal-stat"><div class="msk">Este mês</div><div class="msv">${esteMes}</div></div>
+    </div>`;
+
+  const eventos = eventosTodos.filter(({p})=> matchesSearch(p, historicoAcordadaSearchTerm));
   eventos.sort((a,b)=> new Date(b.h.em) - new Date(a.h.em));
   tbody.innerHTML = eventos.length ? eventos.map(({p,h})=>`
     <tr>
       <td class="pedido"><button class="link-pedido-hist" data-id="${p.id}">${p.pedido}</button></td>
       <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
-      <td>${h.de}</td>
-      <td><b style="color:var(--green-dark);">${h.para}</b></td>
+      <td><span class="hda-transicao"><span class="de">${h.de}</span><span class="seta">→</span><span class="para">${h.para}</span></span></td>
       <td>${fmtDateTime(h.em)}</td>
-    </tr>`).join('') : `<tr><td colspan="5" class="hist-empty">Nenhuma data acordada registrada ainda.</td></tr>`;
+    </tr>`).join('') : `<tr><td colspan="4" class="hist-empty">Nenhuma data acordada registrada ainda.</td></tr>`;
   tbody.querySelectorAll('.link-pedido-hist').forEach(btn=>{
     btn.addEventListener('click', ()=> openModal(btn.dataset.id));
   });
