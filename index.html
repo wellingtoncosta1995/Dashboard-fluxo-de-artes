@@ -273,19 +273,23 @@
   .fluxo-step-badge .dot{width:5px; height:5px; border-radius:50%; background:#C99A1E; animation:entrega-pulse 1.6s ease-in-out infinite;}
   .cliche-prop-seg:hover{filter:brightness(1.08);}
   .cliche-prop-legend:hover{background:var(--panel-alt);}
-  .fin-grupo{margin-bottom:20px;}
+  .fin-grupo{margin-bottom:22px;}
   .fin-grupo:last-child{margin-bottom:0;}
-  .fin-grupo-head{display:flex; align-items:center; gap:9px; margin-bottom:10px;}
-  .fin-grupo-head .stripe{width:4px; height:16px; border-radius:2px; flex-shrink:0;}
-  .fin-grupo-head.atraso .stripe{background:var(--red);}
-  .fin-grupo-head.ok .stripe{background:var(--green);}
-  .fin-grupo-head.neutro .stripe{background:var(--text-faint);}
-  .fin-grupo-head h3{font-family:'Parkinsans',sans-serif; font-size:14px; font-weight:700; margin:0; color:var(--text);}
-  .fin-grupo-head .count{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-faint); font-weight:600;}
+  .fin-grupo-head{display:flex; align-items:center; gap:9px; margin-bottom:10px; padding:9px 14px; border-radius:10px; background:var(--panel-alt); border-left:3px solid var(--text-faint);}
+  .fin-grupo-head .stripe{display:none;}
+  .fin-grupo-head.atraso{background:var(--red-bg); border-left-color:var(--red);}
+  .fin-grupo-head.ok{background:var(--green-bg); border-left-color:var(--green);}
+  .fin-grupo-head.neutro{background:var(--panel-alt); border-left-color:var(--text-faint);}
+  .fin-grupo-head h3{font-family:'Parkinsans',sans-serif; font-size:13.5px; font-weight:700; margin:0; text-transform:uppercase; letter-spacing:.3px; color:var(--text);}
+  .fin-grupo-head.atraso h3{color:var(--red);}
+  .fin-grupo-head.ok h3{color:var(--green-dark);}
+  .fin-grupo-head .count{margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--text-dim); font-weight:700; background:var(--panel); border-radius:20px; padding:3px 11px;}
+  .fin-info-bar{display:flex; align-items:center; gap:8px; background:var(--panel-alt); border-radius:9px; padding:9px 14px; font-size:12.5px; color:var(--text-dim);}
   .btn-aplicar-data{display:inline-flex; align-items:center; gap:5px; background:var(--green-bg); color:var(--green-dark); border:1px solid var(--green); border-radius:7px; padding:6px 10px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; font-family:'Plus Jakarta Sans',sans-serif; transition:background .12s ease, color .12s ease;}
   .btn-aplicar-data:hover{background:var(--green); color:#fff;}
   table.hist.fin-tabela{table-layout:fixed;}
   table.hist.fin-tabela td, table.hist.fin-tabela th{overflow-wrap:break-word;}
+  table.hist.fin-tabela td.d8-cell span{display:inline-block; font-family:'IBM Plex Mono',monospace; font-size:11.5px; font-weight:700; color:var(--text-dim); background:var(--panel-alt); border-radius:6px; padding:3px 8px;}
   .acordada-date-input{background:var(--panel-alt); border:1px solid var(--gold); color:var(--text); border-radius:7px; padding:5px 7px; font-size:11.5px; font-family:'IBM Plex Mono',monospace; width:118px;}
   .acordada-save-btn, .acordada-cancel-btn{background:none; border:none; cursor:pointer; font-size:14px; padding:2px 4px;}
   .acordada-save-btn{color:var(--green-dark);}
@@ -483,6 +487,10 @@
   .modal-stat{flex:1; min-width:110px;}
   .modal-stat .msk{font-family:'IBM Plex Mono',monospace; font-size:9px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--text-faint);}
   .modal-stat .msv{font-family:'Parkinsans',sans-serif; font-weight:800; font-size:15px; margin-top:2px; font-variant-numeric:tabular-nums; color:var(--text);}
+  .fin-stat .msv{font-size:19px;}
+  .fin-stat.stat-atraso .msv{color:var(--red);}
+  .fin-stat.stat-ok .msv{color:var(--green-dark);}
+  .fin-stat.stat-neutro .msv{color:var(--text-faint);}
   .modal-section-label{font-family:'IBM Plex Mono',monospace; font-size:10px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--text-faint); margin:14px 0 6px;}
   .modal-items-list{display:flex; flex-direction:column;}
   .modal-item-row{display:flex; align-items:center; gap:10px; padding:8px 2px; border-bottom:1px solid var(--border-soft); font-size:12px;}
@@ -1189,8 +1197,8 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.95';
-const APP_VERSION_DATE = '09/09/2026';
+const APP_VERSION = 'v9.96';
+const APP_VERSION_DATE = '10/09/2026';
 
 /* ========================================================================
    CONEXÃO COM SUPABASE — substitui o armazenamento nativo do artifact
@@ -7396,7 +7404,7 @@ function openFinalizarSemanaModal(){
         <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
         <td>${entregaProgressoHTML(entregaOrig)}</td>
         <td>${fmtDate(p.finalizadoEm)}</td>
-        <td>${d8}</td>
+        <td class="d8-cell"><span>${d8}</span></td>
         <td>${entregaComHistoricoHTML(p)}</td>
         <td>${mostrarMaiorParada ? maiorParadaCardHTML(p) : '<span style="color:var(--text-faint);">—</span>'}</td>
         ${comAcao ? `<td class="acordada-cell"><button class="btn-aplicar-data" data-id="${p.id}" data-nova-iso="${novaDataISO}">&#10003; Aplicar data acordada</button></td>` : ''}
@@ -7416,19 +7424,26 @@ function openFinalizarSemanaModal(){
     if(!lista.length) return '';
     return `
       <div class="fin-grupo">
-        <div class="fin-grupo-head ${classe}"><span class="stripe"></span><h3>${titulo}</h3><span class="count">${lista.length} pedido${lista.length===1?'':'s'}</span></div>
+        <div class="fin-grupo-head ${classe}"><h3>${titulo}</h3><span class="count">${lista.length} pedido${lista.length===1?'':'s'}</span></div>
         ${tabelaGrupo(lista, comAcao, mostrarMaiorParada)}
       </div>`;
   }
 
   modal.innerHTML = `
     <div class="modal-head">
-      <div><h2 style="font-size:18px;">Clichês em fábrica — últimos 7 dias</h2><p>Pedidos cujo clichê chegou na fábrica e foi liberado nos últimos 7 dias</p></div>
+      <div><h2>Clichês em fábrica — últimos 7 dias</h2><p>Pedidos cujo clichê chegou na fábrica e foi liberado nos últimos 7 dias</p></div>
       <button class="close-x" id="modal-close">&times;</button>
     </div>
     <hr class="divider">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-      <div class="k" style="font-size:12.5px;">Lead time = folga ou atraso em relação à entrega, considerando o tempo de produção do diâmetro</div>
+    ${itens.length ? `
+    <div class="modal-stat-strip">
+      <div class="modal-stat fin-stat"><div class="msk">Total</div><div class="msv">${itens.length}</div></div>
+      <div class="modal-stat fin-stat stat-atraso"><div class="msk">Atrasados</div><div class="msv">${atrasados.length}</div></div>
+      <div class="modal-stat fin-stat stat-ok"><div class="msk">No prazo</div><div class="msv">${noPrazo.length}</div></div>
+      <div class="modal-stat fin-stat stat-neutro"><div class="msk">Sem cálculo</div><div class="msv">${semCalculo.length}</div></div>
+    </div>` : ''}
+    <div style="display:flex; justify-content:space-between; align-items:center; gap:14px; margin-bottom:18px; flex-wrap:wrap;">
+      <div class="fin-info-bar">&#8505;&nbsp; Lead time = folga ou atraso em relação à entrega, considerando o tempo de produção do diâmetro</div>
       <div style="display:flex; gap:8px;">
         <button class="btn small ghost" id="btn-exportar-finalizados-excel">&#128202; Exportar Excel</button>
         <button class="btn small ghost" id="btn-exportar-finalizados-pdf">&#8681; Exportar PDF</button>
