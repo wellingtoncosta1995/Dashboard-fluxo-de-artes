@@ -523,19 +523,23 @@
   .export-actions{display:flex; gap:8px; margin-top:16px; justify-content:flex-end;}
 
   /* ===== TABELA DE CÓDIGOS INTERNOS ===== */
-  .codigos-categoria{margin-top:18px;}
+  .codigos-stat-strip{margin-bottom:18px;}
+  .codigos-stat-strip .msv{color:var(--green-dark);}
+  .codigos-categoria{margin-top:16px;}
   .codigos-categoria-header{
-    background:var(--green); color:#fff; font-family:'Parkinsans',sans-serif; font-weight:700;
-    font-size:14px; letter-spacing:.5px; text-align:center; padding:10px; border-radius:10px 10px 0 0;
-    text-transform:uppercase;
+    display:flex; align-items:center; gap:8px; background:var(--green-bg); border-left:3px solid var(--green);
+    border-radius:9px; padding:8px 14px; margin-bottom:9px;
   }
-  table.codigos{width:100%; border-collapse:collapse; font-size:12.5px; background:var(--panel); border:1px solid var(--green); border-top:none; border-radius:0 0 10px 10px; overflow:hidden;}
-  table.codigos th{text-align:left; padding:10px 12px; background:var(--green-bg); color:var(--green); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.3px; border-bottom:1px solid var(--border-soft);}
+  .codigos-categoria-header h3{font-family:'Parkinsans',sans-serif; font-size:12.5px; font-weight:700; margin:0; text-transform:uppercase; letter-spacing:.3px; color:var(--green-dark);}
+  .codigos-categoria-header .cnt{margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:700; color:var(--green-dark); background:var(--panel); border-radius:20px; padding:2px 9px;}
+  table.codigos{width:100%; border-collapse:collapse; font-size:12.5px; background:var(--panel); border:1px solid var(--border-soft); border-radius:10px; overflow:hidden;}
+  table.codigos th{text-align:left; padding:10px 12px; background:var(--panel-alt); color:var(--text-faint); font-weight:700; font-size:10px; text-transform:uppercase; letter-spacing:.3px; border-bottom:1px solid var(--border-soft);}
   table.codigos td{padding:9px 12px; border-bottom:1px solid var(--border-soft); color:var(--text-dim);}
   table.codigos tr:last-child td{border-bottom:none;}
   table.codigos tr:hover{background:var(--panel-alt);}
-  table.codigos td.cod{font-family:'IBM Plex Mono',monospace; font-weight:700; color:var(--green);}
-  table.codigos td.num{font-family:'IBM Plex Mono',monospace; color:var(--text);}
+  table.codigos td.cod{font-family:'IBM Plex Mono',monospace;}
+  .codigos-chip{display:inline-block; font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:11px; color:var(--green-dark); background:var(--green-bg); border-radius:5px; padding:3px 8px; white-space:nowrap;}
+  table.codigos td.num{font-family:'IBM Plex Mono',monospace; color:var(--text); text-align:right; font-variant-numeric:tabular-nums;}
   table.codigos input{
     width:100%; background:var(--panel-alt); border:1px solid var(--border-soft); color:var(--text);
     border-radius:6px; padding:5px 7px; font-size:12px; font-family:inherit; box-sizing:border-box;
@@ -1197,7 +1201,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v9.98';
+const APP_VERSION = 'v9.99';
 const APP_VERSION_DATE = '10/09/2026';
 
 /* ========================================================================
@@ -6161,7 +6165,7 @@ function renderCodigosInternos(){
     const colunas = cat.colunas;
     return `
       <div class="codigos-categoria">
-        <div class="codigos-categoria-header">${cat.categoria}</div>
+        <div class="codigos-categoria-header"><h3>${cat.categoria}</h3><span class="cnt">${cat.itens.length} ${cat.itens.length===1?'item':'itens'}</span></div>
         <table class="codigos">
           <thead><tr><th>Código</th>${colunas.map(c=>`<th>${CODIGOS_LABELS[c]}</th>`).join('')}${codigosEditando ? '<th></th>' : ''}</tr></thead>
           <tbody>
@@ -6172,7 +6176,7 @@ function renderCodigosInternos(){
               <td><button class="codigos-del-btn" data-cat="${ci}" data-idx="${ii}" title="Remover item">&#128465;</button></td>
             </tr>` : `
             <tr>
-              <td class="cod">${it.codigo}</td>
+              <td class="cod"><span class="codigos-chip">${it.codigo}</span></td>
               ${colunas.map(c=>`<td class="${c==='produto'||c==='ex' ? '' : 'num'}">${it[c]||''}</td>`).join('')}
             </tr>`).join('')}
           </tbody>
@@ -6181,7 +6185,13 @@ function renderCodigosInternos(){
       </div>`;
   }).join('');
 
-  wrap.innerHTML = (html || `<div class="placeholder-card" style="margin-top:16px;">Nenhum código encontrado.</div>`)
+  const statStripHtml = `
+    <div class="modal-stat-strip codigos-stat-strip">
+      ${TABELA_CODIGOS_INTERNOS.map(cat=>`<div class="modal-stat"><div class="msk">${cat.categoria}</div><div class="msv">${cat.itens.length}</div></div>`).join('')}
+    </div>`;
+
+  wrap.innerHTML = statStripHtml
+    + (html || `<div class="placeholder-card" style="margin-top:16px;">Nenhum código encontrado.</div>`)
     + `<p style="font-size:11.5px; color:var(--text-faint); margin-top:14px;">Valores com * ainda aguardam confirmação.</p>`;
 
   document.getElementById('codigos-ultima-atualizacao').textContent = codigosUltimaAtualizacao;
