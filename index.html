@@ -1223,7 +1223,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v10.4';
+const APP_VERSION = 'v10.5';
 const APP_VERSION_DATE = '11/09/2026';
 
 /* ========================================================================
@@ -1399,6 +1399,7 @@ async function registrarCobranca(id){
   saveState();
 }
 const STAGE_APROVACAO_CLICHE = 7; // etapa "Aguardando aprovação custo clichê" — a partir daqui o bloco de clichê aparece e fica editável
+const STAGE_SOLICITACAO_CLICHE = 8; // etapa "Solicitação de clichê"
 const STAGES_FINALIZAVEIS = [10]; // Clichê em fábrica — na etapa "Aguardando conferência de layout" a decisão é Layout confere / Precisa de alteração, não Finalizar
 const STAGE_REMAP_V2 = {0:0, 1:2, 2:3, 3:4, 4:5, 5:6, 6:7, 7:8, 8:9, 9:10, 10:1}; // migração da ordem antiga p/ nova
 function osCompleta(p){ return p.itens.every(it=> it.os && it.os.trim()); }
@@ -5464,11 +5465,11 @@ function renderRequisicaoClichePendentes(){
   });
 }
 
-// Relatório com os itens parados aguardando aprovação de custo de clichê
-// (mesmos pedidos do card acima), separado por pedido e só com os itens que
-// já têm OS cadastrada — colunas: OS, Item (código) e Descrição.
+// Relatório com os itens parados no card "Solicitação de clichê" (etapa 8),
+// separado por pedido e só com os itens que já têm OS cadastrada —
+// colunas: OS, Item (código) e Descrição.
 function imprimirItensParadosRequisicaoCliche(){
-  const pendentes = pedidos.filter(p=>p.stage===STAGE_APROVACAO_CLICHE && !p.requisicaoClicheEnviada);
+  const pendentes = pedidos.filter(p=>p.stage===STAGE_SOLICITACAO_CLICHE);
   const blocos = pendentes.map(p=>{
     const itensComOs = (p.itens || []).filter(it=>it.os && it.os.trim());
     if(!itensComOs.length) return '';
@@ -5485,19 +5486,19 @@ function imprimirItensParadosRequisicaoCliche(){
   }).filter(Boolean);
 
   if(!blocos.length){
-    alert('Nenhum pedido aguardando aprovação de custo de clichê tem OS cadastrada em algum item ainda.');
+    alert('Nenhum pedido em "Solicitação de clichê" tem OS cadastrada em algum item ainda.');
     return;
   }
 
   const printArea = document.getElementById('print-area');
   printArea.innerHTML = `
-    <h1>Itens parados aguardando aprovação de clichê</h1>
+    <h1>Itens parados em Solicitação de clichê</h1>
     <p>${new Date().toLocaleDateString('pt-BR')}</p>
     ${blocos.join('')}
   `;
   document.body.classList.add('printing');
   const tituloOriginal = document.title;
-  document.title = `Itens parados - clichê - ${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}`;
+  document.title = `Itens parados - solicitação de clichê - ${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}`;
   const limpar = ()=>{ document.body.classList.remove('printing'); document.title = tituloOriginal; window.removeEventListener('afterprint', limpar); };
   window.addEventListener('afterprint', limpar);
   window.print();
