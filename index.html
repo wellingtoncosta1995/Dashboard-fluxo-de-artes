@@ -956,6 +956,17 @@
         </div>
         <div id="requisicao-cliche-resultados" style="margin-top:10px;"></div>
       </div>
+
+      <div class="topics-card" style="margin-top:12px;">
+        <p class="topics-intro"><span class="mono-label">SIMULAR CLICHÊ</span> <span class="link-text">calcule o valor do clichê sem precisar vincular a um pedido</span></p>
+        <div class="search-box" style="max-width:340px;">
+          <span style="color:var(--text-faint); font-size:13px;">&#128269;</span>
+          <input type="text" id="sim-cliche-search-input" class="busca-livre" placeholder="Buscar produto (ex: pote 500 ml)...">
+        </div>
+        <div id="sim-cliche-resultados" style="margin-top:10px;"></div>
+        <div id="sim-cliche-selecionado" style="margin-top:10px;"></div>
+      </div>
+
       <div id="requisicao-cliche-form-wrap" style="margin-top:12px;"></div>
     </div>
 
@@ -1234,7 +1245,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v10.12';
+const APP_VERSION = 'v10.13';
 const APP_VERSION_DATE = '11/09/2026';
 
 /* ========================================================================
@@ -5564,6 +5575,81 @@ document.getElementById('requisicao-cliche-search-input').addEventListener('inpu
   if(!requisicaoClicheSearchTerm.trim()){
     requisicaoClicheSelecionadoId = null;
     renderRequisicaoClicheForm();
+  }
+});
+
+/* ========================================================================
+   SIMULAR CLICHÊ SEM PEDIDO — mesma lógica de valorChapa × qtd. cores da
+   requisição normal, só que buscando o produto direto na tabela "Valores
+   por chapa" em vez de puxar de um pedido cadastrado.
+   ======================================================================== */
+let simClicheSearchTerm = '';
+let simClicheSelecionadoIdx = null; // índice em valoresChapa
+
+function renderSimClicheResultados(){
+  const wrap = document.getElementById('sim-cliche-resultados');
+  const termo = simClicheSearchTerm.trim().toLowerCase();
+  if(!termo){ wrap.innerHTML = ''; return; }
+  const encontrados = valoresChapa
+    .map((r, idx)=>({r, idx}))
+    .filter(({r})=> r[0].toLowerCase().includes(termo) || (r[3]||'').toLowerCase().includes(termo))
+    .slice(0, 12);
+  wrap.innerHTML = encontrados.length ? `
+    <div style="display:flex; flex-direction:column; gap:6px; max-height:220px; overflow-y:auto;">
+      ${encontrados.map(({r,idx})=>`
+        <button class="sim-cliche-resultado-btn" data-idx="${idx}" style="text-align:left; background:var(--panel-alt); border:1px solid var(--border-soft); border-radius:8px; padding:9px 12px; cursor:pointer; font-size:12.5px; color:var(--text);">
+          <b>${r[0]}</b>${r[3] ? ` · <span style="font-family:'IBM Plex Mono',monospace; color:var(--text-dim);">${r[3]}</span>` : ''}
+          <span style="float:right; color:var(--text-faint);">${r[10] || '—'}</span>
+        </button>
+      `).join('')}
+    </div>
+  ` : `<div class="empty-alt">Nenhum produto encontrado em "Valores por chapa".</div>`;
+  wrap.querySelectorAll('.sim-cliche-resultado-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      simClicheSelecionadoIdx = parseInt(btn.dataset.idx, 10);
+      renderSimClicheSelecionado();
+    });
+  });
+}
+
+function renderSimClicheSelecionado(){
+  const wrap = document.getElementById('sim-cliche-selecionado');
+  const r = simClicheSelecionadoIdx!=null ? valoresChapa[simClicheSelecionadoIdx] : null;
+  if(!r){ wrap.innerHTML = ''; return; }
+  const valorUnit = parseValorBRL(r[10]);
+  wrap.innerHTML = `
+    <div style="background:var(--panel-alt); border:1.5px solid var(--gold); border-radius:10px; padding:12px 16px;">
+      <div style="font-size:12.5px; margin-bottom:8px;"><b>${r[0]}</b>${r[3] ? ` · ${r[3]}` : ''} — valor por cor: <b>${valorUnit!=null ? fmtBRL(valorUnit) : 'não encontrado'}</b></div>
+      <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap;">
+        <div style="display:flex; align-items:center; gap:8px;">
+          <label style="font-size:12px; color:var(--text-dim);">Quantidade de cores</label>
+          <input type="text" id="sim-cliche-cores-input" placeholder="Ex: 4" style="width:60px; background:var(--panel); border:1px solid var(--border-soft); color:var(--text); border-radius:6px; padding:5px 8px; font-size:12.5px; font-family:'IBM Plex Mono',monospace;">
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; background:var(--panel); border-radius:8px; padding:6px 12px;">
+          <span style="font-size:11px; color:var(--text-dim); font-weight:600; text-transform:uppercase; letter-spacing:.3px;">Valor total simulado</span>
+          <span id="sim-cliche-total-valor" style="font-family:'IBM Plex Mono',monospace; font-size:16px; font-weight:800; color:var(--gold-dark);">—</span>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('sim-cliche-cores-input').addEventListener('input', atualizarSimClicheTotal);
+}
+
+function atualizarSimClicheTotal(){
+  const r = simClicheSelecionadoIdx!=null ? valoresChapa[simClicheSelecionadoIdx] : null;
+  const valorUnit = r ? parseValorBRL(r[10]) : null;
+  const inp = document.getElementById('sim-cliche-cores-input');
+  const qtd = inp ? parseFloat((inp.value||'').replace(',','.')) : NaN;
+  const el = document.getElementById('sim-cliche-total-valor');
+  if(el) el.textContent = (!isNaN(qtd) && valorUnit!=null) ? fmtBRL(qtd * valorUnit) : '—';
+}
+
+document.getElementById('sim-cliche-search-input').addEventListener('input', (e)=>{
+  simClicheSearchTerm = e.target.value;
+  renderSimClicheResultados();
+  if(!simClicheSearchTerm.trim()){
+    simClicheSelecionadoIdx = null;
+    renderSimClicheSelecionado();
   }
 });
 
