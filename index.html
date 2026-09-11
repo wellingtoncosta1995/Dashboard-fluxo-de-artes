@@ -613,6 +613,7 @@
     #print-area .sepcx-print-marcar{flex:1; border-bottom:1px solid #999; margin-left:10px; align-self:flex-end;}
     #print-area .sepcx-print-blank-codigo{width:70px; border-bottom:1px solid #999; align-self:flex-end;}
     #print-area .sepcx-print-blank-qtd{width:40px; border-bottom:1px solid #999; align-self:flex-end;}
+    #print-area .itens-parados-bloco{break-inside:avoid; margin-bottom:18px;}
   }
   #print-area{display:none;}
 
@@ -933,6 +934,9 @@
     <div id="view-requisicao-cliche" style="display:none;">
       <div class="topics-card">
         <p class="topics-intro"><span class="mono-label">REQUISIÇÃO DE CLICHÊ</span> <span class="link-text">gere e imprima a requisição de liberação de clichê de um pedido</span></p>
+        <div style="display:flex; justify-content:flex-end; margin-bottom:8px;">
+          <button class="btn ghost" id="requisicao-cliche-itens-parados-btn">&#8681; Relatório de itens parados</button>
+        </div>
         <div id="requisicao-cliche-pendentes"></div>
         <hr class="divider" style="margin:14px 0;">
         <div class="search-box" style="max-width:340px;">
@@ -1219,7 +1223,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v10.3';
+const APP_VERSION = 'v10.4';
 const APP_VERSION_DATE = '11/09/2026';
 
 /* ========================================================================
@@ -5459,6 +5463,46 @@ function renderRequisicaoClichePendentes(){
     });
   });
 }
+
+// Relatório com os itens parados aguardando aprovação de custo de clichê
+// (mesmos pedidos do card acima), separado por pedido e só com os itens que
+// já têm OS cadastrada — colunas: OS, Item (código) e Descrição.
+function imprimirItensParadosRequisicaoCliche(){
+  const pendentes = pedidos.filter(p=>p.stage===STAGE_APROVACAO_CLICHE && !p.requisicaoClicheEnviada);
+  const blocos = pendentes.map(p=>{
+    const itensComOs = (p.itens || []).filter(it=>it.os && it.os.trim());
+    if(!itensComOs.length) return '';
+    return `
+      <div class="itens-parados-bloco">
+        <h2>${p.pedido} — ${p.clienteNome || '—'}</h2>
+        <table>
+          <thead><tr><th>OS</th><th>Item</th><th>Descrição</th></tr></thead>
+          <tbody>
+            ${itensComOs.map(it=>`<tr><td>${it.os.trim()}</td><td>${it.codigo || '—'}</td><td>${it.nome || '—'}</td></tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+  }).filter(Boolean);
+
+  if(!blocos.length){
+    alert('Nenhum pedido aguardando aprovação de custo de clichê tem OS cadastrada em algum item ainda.');
+    return;
+  }
+
+  const printArea = document.getElementById('print-area');
+  printArea.innerHTML = `
+    <h1>Itens parados aguardando aprovação de clichê</h1>
+    <p>${new Date().toLocaleDateString('pt-BR')}</p>
+    ${blocos.join('')}
+  `;
+  document.body.classList.add('printing');
+  const tituloOriginal = document.title;
+  document.title = `Itens parados - clichê - ${new Date().toLocaleDateString('pt-BR').replace(/\//g,'-')}`;
+  const limpar = ()=>{ document.body.classList.remove('printing'); document.title = tituloOriginal; window.removeEventListener('afterprint', limpar); };
+  window.addEventListener('afterprint', limpar);
+  window.print();
+}
+document.getElementById('requisicao-cliche-itens-parados-btn').addEventListener('click', imprimirItensParadosRequisicaoCliche);
 
 function renderRequisicaoClicheResultados(){
   const wrap = document.getElementById('requisicao-cliche-resultados');
