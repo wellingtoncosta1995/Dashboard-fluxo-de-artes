@@ -619,7 +619,14 @@
     #print-area .sepcx-print-marcar{flex:1; border-bottom:1px solid #999; margin-left:10px; align-self:flex-end;}
     #print-area .sepcx-print-blank-codigo{width:70px; border-bottom:1px solid #999; align-self:flex-end;}
     #print-area .sepcx-print-blank-qtd{width:40px; border-bottom:1px solid #999; align-self:flex-end;}
-    #print-area .itens-parados-bloco{break-inside:avoid; margin-bottom:18px;}
+    #print-area .itens-parados-lista{display:flex; flex-direction:column; gap:5px;}
+    #print-area .itens-parados-linha{display:flex; align-items:center; gap:16px; padding:8px 12px; border-radius:6px; font-size:12.5px; break-inside:avoid;}
+    #print-area .itens-parados-linha .ip-os{font-family:'IBM Plex Mono',monospace; font-weight:800; white-space:nowrap;}
+    #print-area .itens-parados-linha .ip-nome{flex:1;}
+    #print-area .itens-parados-linha .ip-data{font-family:'IBM Plex Mono',monospace; font-size:11px; white-space:nowrap;}
+    #print-area .itens-parados-verde{background:#E3F3E9; color:#0B6B2E;}
+    #print-area .itens-parados-laranja{background:#FBF2DC; color:#8A6A14;}
+    #print-area .itens-parados-vermelho{background:#F7E9E7; color:#C2564F;}
   }
   #print-area{display:none;}
 
@@ -1226,7 +1233,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v10.6';
+const APP_VERSION = 'v10.7';
 const APP_VERSION_DATE = '11/09/2026';
 
 /* ========================================================================
@@ -5477,35 +5484,41 @@ function renderRequisicaoClichePendentes(){
 }
 
 // Relatório com os itens parados no card "Solicitação de clichê" (etapa 8),
-// separado por pedido e só com os itens que já têm OS cadastrada —
-// colunas: OS, Item (código) e Descrição.
+// em formato de lista simples (sem cliente/pedido) — só OS, nome do item e
+// a data em que entrou nessa etapa, colorido pelos dias parado: 1-2 dias
+// verde, 3-4 laranja, 5+ vermelho. Só entram itens que já têm OS cadastrada.
 function imprimirItensParadosRequisicaoCliche(){
   const pendentes = pedidos.filter(p=>p.stage===STAGE_SOLICITACAO_CLICHE);
-  const blocos = pendentes.map(p=>{
-    const itensComOs = (p.itens || []).filter(it=>it.os && it.os.trim());
-    if(!itensComOs.length) return '';
-    return `
-      <div class="itens-parados-bloco">
-        <h2>${p.pedido} — ${p.clienteNome || '—'}</h2>
-        <table>
-          <thead><tr><th>OS</th><th>Item</th><th>Descrição</th></tr></thead>
-          <tbody>
-            ${itensComOs.map(it=>`<tr><td>${it.os.trim()}</td><td>${it.codigo || '—'}</td><td>${it.nome || '—'}</td></tr>`).join('')}
-          </tbody>
-        </table>
-      </div>`;
-  }).filter(Boolean);
+  const linhas = [];
+  pendentes.forEach(p=>{
+    const entrada = entradaNaEtapaAtual(p);
+    const dias = Math.max(0, Math.floor((new Date() - entrada) / 86400000));
+    (p.itens || []).filter(it=>it.os && it.os.trim()).forEach(it=>{
+      linhas.push({ os: it.os.trim(), nome: it.nome || '—', dias, dataSolicitado: fmtDate(entrada) });
+    });
+  });
 
-  if(!blocos.length){
+  if(!linhas.length){
     alert('Nenhum pedido em "Solicitação de clichê" tem OS cadastrada em algum item ainda.');
     return;
   }
+
+  linhas.sort((a,b)=> b.dias - a.dias);
+  const corLinha = dias => dias>=5 ? 'itens-parados-vermelho' : dias>=3 ? 'itens-parados-laranja' : 'itens-parados-verde';
 
   const printArea = document.getElementById('print-area');
   printArea.innerHTML = `
     <h1>Itens parados em Solicitação de clichê</h1>
     <p>${new Date().toLocaleDateString('pt-BR')}</p>
-    ${blocos.join('')}
+    <div class="itens-parados-lista">
+      ${linhas.map(l=>`
+        <div class="itens-parados-linha ${corLinha(l.dias)}">
+          <span class="ip-os">OS ${l.os}</span>
+          <span class="ip-nome">${l.nome}</span>
+          <span class="ip-data">Solicitado em ${l.dataSolicitado}</span>
+        </div>
+      `).join('')}
+    </div>
   `;
   document.body.classList.add('printing');
   const tituloOriginal = document.title;
