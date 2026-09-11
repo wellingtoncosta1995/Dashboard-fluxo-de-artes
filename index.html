@@ -1234,7 +1234,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v10.9';
+const APP_VERSION = 'v10.10';
 const APP_VERSION_DATE = '11/09/2026';
 
 /* ========================================================================
@@ -1853,7 +1853,7 @@ let artesSemPedido = []; // { id, codigo, nome, observacao, criadoEm, stage, sta
 let catalogoItens = {}; // {codigo: nome} — deduplicado, extraído de todos os pedidos
 const DIAMETROS_CONHECIDOS = [68,75,79,93,101,120,150,185];
 let diametrosManual = {}; // {codigo: diametro} — identificação manual, quando não dá pra detectar pelo nome
-let alturasManual = {}; // {codigo: altura} — altura da chapa (mm), pra desempatar entre chapas com o mesmo diâmetro quando o nome do item não traz "(LxA)"
+let alturasManual = {}; // {codigo: altura} — altura do item (pote/copo etc., em mm), pra desempatar entre chapas com o mesmo diâmetro quando o nome do item não traz "(LxA)"
 let clicheItensInfo = {}; // {codigo: {osCliche, numeroCliche, qtdCores}} — ficha do clichê de cada item do catálogo
 function extrairDiametro(nome){
   const n = String(nome||'');
@@ -6188,6 +6188,7 @@ function openItemClicheModal(cod){
 
   const {diametro} = diametroDoItem(cod, info.nome);
   const dimsAuto = extrairDimensoesItem(info.nome);
+  const dims = dimensoesDoItem(cod, info.nome); // pra exibir junto do diâmetro, seja detectada ou manual
   const ficha = clicheItensInfo[cod] || {};
 
   modal.innerHTML = `
@@ -6196,7 +6197,7 @@ function openItemClicheModal(cod){
       <button class="close-x" id="modal-close">&times;</button>
     </div>
     <div class="modal-row"><span class="k">Representante</span><span class="v">${info.vendedor || '—'}</span></div>
-    <div class="modal-row"><span class="k">Diâmetro do item</span><span class="v">${diametro!=null ? `Ø ${diametro}${dimsAuto ? ` × ${dimsAuto.altura}mm` : ''}` : '—'}</span></div>
+    <div class="modal-row"><span class="k">Diâmetro do item</span><span class="v" id="ficha-diametro-valor">${diametro!=null ? `Ø ${diametro}${dims ? ` × ${dims.altura}mm` : ''}` : '—'}</span></div>
     <hr class="divider">
     <div class="export-row">
       <label>OS de clichê</label>
@@ -6211,10 +6212,10 @@ function openItemClicheModal(cod){
       <input type="number" min="0" id="ficha-cores-input" placeholder="Ex: 4" value="${ficha.qtdCores!=null ? ficha.qtdCores : ''}">
     </div>
     <div class="export-row">
-      <label>Altura da chapa (mm)</label>
+      <label>Altura do item (mm)</label>
       ${dimsAuto
         ? `<input type="text" value="${dimsAuto.altura} — detectada automaticamente pelo nome do item" disabled style="color:var(--text-faint);">`
-        : `<input type="number" min="0" step="0.1" id="ficha-altura-input" placeholder="Ex: 120 (pra desempatar chapas com o mesmo diâmetro)" value="${alturasManual[cod]!=null ? alturasManual[cod] : ''}">`
+        : `<input type="number" min="0" step="0.1" id="ficha-altura-input" placeholder="Ex: 120 (altura do pote/copo — pra desempatar itens com o mesmo diâmetro)" value="${alturasManual[cod]!=null ? alturasManual[cod] : ''}">`
       }
     </div>
     <div class="export-actions">
@@ -6224,6 +6225,15 @@ function openItemClicheModal(cod){
   `;
   document.getElementById('modal-close').addEventListener('click', closeModal);
   document.getElementById('ficha-cancel').addEventListener('click', closeModal);
+  const alturaInputEl = document.getElementById('ficha-altura-input');
+  if(alturaInputEl){
+    alturaInputEl.addEventListener('input', ()=>{
+      const raw = alturaInputEl.value.trim();
+      const v = raw ? parseFloat(raw.replace(',','.')) : NaN;
+      const valorSpan = document.getElementById('ficha-diametro-valor');
+      valorSpan.textContent = diametro!=null ? `Ø ${diametro}${!isNaN(v) ? ` × ${v}mm` : ''}` : '—';
+    });
+  }
   document.getElementById('ficha-salvar').addEventListener('click', async ()=>{
     const os = document.getElementById('ficha-os-input').value.trim();
     const numero = document.getElementById('ficha-numero-input').value.trim();
