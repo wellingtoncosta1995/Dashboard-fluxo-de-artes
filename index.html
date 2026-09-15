@@ -1087,13 +1087,13 @@
           <button class="btn small ghost" id="btn-analise-importar-atualizar" style="flex-shrink:0; white-space:nowrap;">&#128260; Importar relatório (atualizar datas)</button>
         </div>
         <div class="home-cards-grid home-overview" style="grid-template-columns:repeat(3, 1fr); max-width:1050px;">
-          <div class="home-card home-card-live accent-green" id="home-card-vencimento" title="Ver lista de pedidos por lead time — limpa os filtros abaixo">
-            <div class="hcm-label">LEAD TIME POR PEDIDOS</div>
+          <div class="home-card home-card-live accent-green" id="home-card-vencimento" title="Ver lista de pedidos por data de entrega — limpa os filtros abaixo">
+            <div class="hcm-label">PEDIDOS POR DATA DE ENTREGA</div>
             <div class="hcm-valor" id="hcv-valor-total">0</div>
             <div class="hcm-breakdown">
               <span>Entrega em até 3 dias: <b id="hcv-valor-vencidos" style="color:var(--red);">0</b></span>
               <span>Entrega em até 7 dias: <b id="hcv-valor-proximos" style="color:var(--gold-dark);">0</b></span>
-              <span>Baseado no lead time por boca</span>
+              <span>Baseado na data de entrega prometida</span>
             </div>
             <div class="hcm-cta">Ver lista →</div>
           </div>
@@ -1124,8 +1124,8 @@
         </div>
 
         <div id="venc-secao" style="margin-top:22px;">
-          <div class="k" style="font-size:12.5px; margin-bottom:10px;">Lead time por pedidos</div>
-          <p style="margin:0 0 12px; font-size:11.5px; color:var(--text-faint);">Data de entrega projetada = data de entrada na etapa atual + lead time atual do diâmetro, comparada à data de entrega prometida</p>
+          <div class="k" style="font-size:12.5px; margin-bottom:10px;">Pedidos por data de entrega</div>
+          <p style="margin:0 0 12px; font-size:11.5px; color:var(--text-faint);">Data de entrega prometida de cada pedido e quantos dias faltam até ela</p>
           <div style="display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:14px;">
             <span class="k" style="font-size:11px;">Dias até a entrega:</span>
             <button class="hist-tab venc-filtro-dias active" data-dias="" style="padding:6px 12px;">Todos</button>
@@ -1247,7 +1247,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v10.16';
+const APP_VERSION = 'v10.17';
 const APP_VERSION_DATE = '15/09/2026';
 
 /* ========================================================================
@@ -6908,42 +6908,6 @@ function atualizarLeadTimeAtualPeloPedido(p){
   }
 }
 const STAGE_CLICHE_FABRICA = 10;
-function dataEntradaEtapaAtual(p){
-  if(!p.stageHistory || !p.stageHistory.length) return null;
-  const d = new Date(p.stageHistory[p.stageHistory.length-1].entradaEm);
-  d.setHours(0,0,0,0);
-  return d;
-}
-function dataEntregaProjetada(p){
-  const inicio = dataEntradaEtapaAtual(p);
-  if(!inicio) return null;
-  const diametro = diametroPrincipalDoPedido(p);
-  if(diametro==null) return null;
-  const lt = leadTimePorBoca.find(x=>x.diametro===diametro);
-  if(!lt) return null;
-  const projetada = new Date(inicio);
-  projetada.setDate(projetada.getDate() + lt.atual);
-  return { projetada, inicio, diametro, leadTimeDias: lt.atual };
-}
-function atrasoProjetado(p){
-  const info = dataEntregaProjetada(p);
-  if(!info) return null;
-  const entregaPrometida = parseDateBR(p.entrega);
-  entregaPrometida.setHours(0,0,0,0);
-  const hoje = new Date(); hoje.setHours(0,0,0,0);
-  let dias;
-  if(info.projetada > hoje){
-    // ainda dentro do lead time esperado — atraso é em relação à entrega prometida
-    dias = Math.round((info.projetada - entregaPrometida) / 86400000);
-  } else {
-    // já passou do prazo que o lead time do item previa pra essa etapa —
-    // conta quantos dias já passou disso, respeitando o lead time do item
-    // em vez de comparar só com a entrega prometida (que pode ter sido
-    // adiada sem o pedido ter avançado de etapa)
-    dias = Math.round((hoje - info.projetada) / 86400000);
-  }
-  return { ...info, entregaPrometida, diasAtraso: dias };
-}
 
 const CARD6_INICIO_CONTAGEM = new Date('2026-08-24T00:00:00'); // zera a contagem a partir desta data — finalizados antes dela não entram
 function pedidosAFinalizarEssaSemana(){
@@ -7029,10 +6993,8 @@ function renderHomeCards(){
   {
     const hojeVenc = new Date(); hojeVenc.setHours(0,0,0,0);
     const comCalculoVenc = pedidos
-      .filter(p=>p.stage < STAGE_CLICHE_FABRICA)
-      .map(p=>({p, info:atrasoProjetado(p)}))
-      .filter(x=>x.info!=null)
-      .map(x=>({...x, diasRestantes: Math.round((parseDateBR(x.p.entrega) - hojeVenc) / 86400000)}));
+      .filter(p=>p.stage < STAGE_CLICHE_FABRICA && p.entrega)
+      .map(p=>({p, diasRestantes: Math.round((parseDateBR(p.entrega) - hojeVenc) / 86400000)}));
     const ateTresDias = comCalculoVenc.filter(x=>x.diasRestantes<=3).length;
     const ateSeteDias = comCalculoVenc.filter(x=>x.diasRestantes<=7).length;
     document.getElementById('hcv-valor-total').textContent = ateSeteDias;
@@ -7546,8 +7508,8 @@ function renderVencimentoLista(){
 function renderVencimentoListaInterno(resultado){
   const hoje = new Date(); hoje.setHours(0,0,0,0);
   const elegiveis = pedidos.filter(p=>p.stage < STAGE_CLICHE_FABRICA);
-  const comCalculo = elegiveis.map(p=>({p, info:atrasoProjetado(p)})).filter(x=>x.info!=null)
-    .map(x=>({...x, diasRestantes: Math.round((parseDateBR(x.p.entrega) - hoje) / 86400000)}));
+  const comCalculo = elegiveis.filter(p=>p.entrega)
+    .map(p=>({p, diasRestantes: Math.round((parseDateBR(p.entrega) - hoje) / 86400000)}));
   const semCalculo = elegiveis.length - comCalculo.length;
 
   let itens = comCalculo;
@@ -7560,27 +7522,22 @@ function renderVencimentoListaInterno(resultado){
   const rows = itens.length ? itens
     .slice()
     .sort((a,b)=>a.diasRestantes-b.diasRestantes)
-    .map(({p,info,diasRestantes})=>{
+    .map(({p,diasRestantes})=>{
       const st = STAGES.find(s=>s.id===p.stage);
-      const corAtraso = info.diasAtraso>7 ? 'var(--red)' : info.diasAtraso>0 ? 'var(--gold-dark)' : 'var(--green-dark)';
-      const situacao = info.diasAtraso>0 ? `atraso de ${info.diasAtraso}d` : 'no prazo';
       const dp = diasParaEntregaTexto(diasRestantes);
       return `
       <tr>
         <td class="pedido"><button class="link-pedido-venc" data-id="${p.id}" style="background:none; border:none; padding:0; color:var(--gold-dark); font-family:'IBM Plex Mono',monospace; font-weight:700; font-size:13.5px; cursor:pointer; text-decoration:underline;">${p.pedido}</button></td>
         <td>${p.clienteNome}<br><small style="color:var(--text-faint);">Cód. ${p.clienteCod}</small></td>
         <td>${st ? `${st.id} — ${st.nome}` : '—'}</td>
-        <td style="font-family:'IBM Plex Mono',monospace;">Ø ${info.diametro} (${info.leadTimeDias}d)</td>
         <td>${p.entrega}</td>
         <td><span style="color:${dp.cor}; font-weight:700;">${dp.texto}</span></td>
-        <td>${info.projetada.toLocaleDateString('pt-BR')}</td>
-        <td><span style="color:${corAtraso}; font-weight:700;">${situacao}</span></td>
       </tr>`;
-    }).join('') : `<tr><td colspan="8" class="hist-empty">Nenhum pedido com esse filtro.</td></tr>`;
+    }).join('') : `<tr><td colspan="5" class="hist-empty">Nenhum pedido com esse filtro.</td></tr>`;
 
   resultado.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
-      <div class="k" style="font-size:12.5px;">${label} (${itens.length})${semCalculo ? ` · ${semCalculo} sem diâmetro/lead time identificado` : ''}</div>
+      <div class="k" style="font-size:12.5px;">${label} (${itens.length})${semCalculo ? ` · ${semCalculo} sem data de entrega` : ''}</div>
       <div style="display:flex; gap:8px;">
         <button class="btn small ghost" id="btn-exportar-leadtime-excel">&#128202; Exportar Excel</button>
         <button class="btn small ghost" id="btn-exportar-leadtime-pdf">&#8681; Exportar PDF</button>
@@ -7588,33 +7545,30 @@ function renderVencimentoListaInterno(resultado){
     </div>
     <div class="hist-table-wrap">
       <table class="hist">
-        <thead><tr><th>Pedido</th><th>Cliente</th><th>Etapa atual</th><th>Diâmetro (lead time)</th><th>Entrega prometida</th><th>Dias até a entrega</th><th>Entrega projetada</th><th>Situação</th></tr></thead>
+        <thead><tr><th>Pedido</th><th>Cliente</th><th>Etapa atual</th><th>Entrega prometida</th><th>Dias até a entrega</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
     </div>
   `;
-  const colunasExport = ['Pedido','Cliente','Etapa atual','Diâmetro (lead time)','Entrega prometida','Dias até a entrega','Entrega projetada','Situação'];
-  const linhasExport = itens.slice().sort((a,b)=>a.diasRestantes-b.diasRestantes).map(({p,info,diasRestantes})=>{
+  const colunasExport = ['Pedido','Cliente','Etapa atual','Entrega prometida','Dias até a entrega'];
+  const linhasExport = itens.slice().sort((a,b)=>a.diasRestantes-b.diasRestantes).map(({p,diasRestantes})=>{
     const st = STAGES.find(s=>s.id===p.stage);
-    const situacao = info.diasAtraso>0 ? `Atraso de ${info.diasAtraso}d` : 'No prazo';
     const dp = diasParaEntregaTexto(diasRestantes);
     return [
       p.pedido, p.clienteNome, st ? `${st.id} — ${st.nome}` : '—',
-      `Ø ${info.diametro} (${info.leadTimeDias}d)`,
-      p.entrega, dp.texto, info.projetada.toLocaleDateString('pt-BR'), situacao
+      p.entrega, dp.texto
     ];
   });
   document.getElementById('btn-exportar-leadtime-excel').addEventListener('click', ()=>{
     exportarTabelaExcel({
-      titulo: 'Lead time por pedidos',
+      titulo: 'Entrega prometida por pedido',
       colunas: colunasExport,
       linhas: linhasExport,
     });
   });
   document.getElementById('btn-exportar-leadtime-pdf').addEventListener('click', ()=>{
     // lista à parte, só no PDF, dos pedidos deste relatório que já tiveram
-    // a data de entrega alterada — ajuda a explicar situações como
-    // "entrega projetada não bate com a prometida" (a prometida mudou)
+    // a data de entrega alterada
     const alterados = itens.filter(x=>x.p.entregaHistorico && x.p.entregaHistorico.length);
     const extraHTML = alterados.length ? `
       <h2>Pedidos com data de entrega alterada (${alterados.length})</h2>
@@ -7629,7 +7583,7 @@ function renderVencimentoListaInterno(resultado){
       </table>
     ` : '';
     exportarTabelaPDF({
-      titulo: 'Lead time por pedidos',
+      titulo: 'Entrega prometida por pedido',
       subtitulo: `${label} — ${itens.length} pedido${itens.length===1?'':'s'} · gerado em ${new Date().toLocaleString('pt-BR')}`,
       colunas: colunasExport,
       linhas: linhasExport,
