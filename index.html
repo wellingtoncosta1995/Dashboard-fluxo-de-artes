@@ -1247,7 +1247,7 @@
    VERSÃO DO APP — atualizar este número a cada nova publicação, pra ficar
    visível no cabeçalho qual versão está no ar no momento.
    ======================================================================== */
-const APP_VERSION = 'v10.19';
+const APP_VERSION = 'v10.20';
 const APP_VERSION_DATE = '16/09/2026';
 
 /* ========================================================================
@@ -2798,9 +2798,9 @@ async function mudarEtapaDireta(id, novaEtapaStr){
   const pulouEtapas = novaEtapa > p.stage + 1;
 
   // Só exige OS completa quando o avanço é passo a passo normal. Ao pular
-  // direto várias etapas (pedido que já chegou pronto em outra etapa), o
-  // histórico é preenchido automaticamente e os detalhes (OS, clichê, datas)
-  // ficam para o usuário completar depois, antes de liberar para o histórico.
+  // direto várias etapas (pedido que já chegou pronto em outra etapa), os
+  // detalhes (OS, clichê, datas) ficam para o usuário completar depois,
+  // antes de liberar para o histórico.
   if(!pulouEtapas && novaEtapa >= STAGE_APROVACAO_ARTE && !osCompleta(p)){
     alert(`É necessário preencher a OS de todos os itens (na etapa "Arte em desenvolvimento") antes de mudar para "${STAGES.find(s=>s.id===STAGE_APROVACAO_ARTE).nome}".`);
     renderAll();
@@ -2809,16 +2809,9 @@ async function mudarEtapaDireta(id, novaEtapaStr){
 
   if(!p.stageHistory) p.stageHistory = [{stage:p.stage, entradaEm: lastImportTime || new Date().toISOString()}];
 
-  if(pulouEtapas){
-    // preenche uma entrada pra cada etapa intermediária pulada, prontas pra
-    // o usuário corrigir a data de cada uma (botão ✎ no histórico de fluxo)
-    const base = Date.now();
-    for(let s = p.stage+1; s <= novaEtapa; s++){
-      p.stageHistory.push({stage:s, entradaEm: new Date(base + (s - p.stage)*1000).toISOString()});
-    }
-  }else{
-    registrarMudancaEtapa(p, novaEtapa);
-  }
+  // ao pular etapas, registra só a etapa de destino no histórico (não preenche
+  // uma entrada falsa pra cada etapa intermediária que o pedido nem passou)
+  registrarMudancaEtapa(p, novaEtapa);
   p.stage = novaEtapa;
   renderAll();
   saveState();
